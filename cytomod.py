@@ -20,6 +20,7 @@ import os
 import glob
 import datetime
 import re
+import random
 
 import numpy as np
 
@@ -32,7 +33,7 @@ CHROMOSOME_EXCLUSION_REGEX = 'random'
 MOD_BASE_REGEX = '5.+C'
 REGION_REGEX = '(chr\d+):(\d+)-(\d+)'
 
-_MAX_REGION_AT_ONCE = 1000000
+_MAX_REGION_LEN = 1000000
 
 # XXX parameterize and/or automate
 modOrder = np.array([3, 2, 0, 1])
@@ -65,15 +66,14 @@ def getModifiedGenome(genome, chr, start, end):
     allbasesResult = ""
     # Only compute the modified genome in segments.
     # This prevents the creation of excessively large NumPy arrays.
-    for s in range(int(chromosome.start), int(chromosome.end),
-                   _MAX_REGION_AT_ONCE):
-        e = s + _MAX_REGION_AT_ONCE
+    for s in range(start, end, _MAX_REGION_LEN):
+        e = s + _MAX_REGION_LEN if (end - start) >= _MAX_REGION_LEN else end
         v_print_timestamp("Now outputting " + chr + " for region: (" + str(s)
                           + ", " + str(e) + ")", 2)
         modBasesA = np.where(np.logical_and(np.isfinite(chromosome[s:e]),
                              chromosome[s:e] != 0), modBases, '0')
         orderedmodBasesA = modBasesA[:, modOrder]
-        # XXX This re-creates the entire array.
+        # TODO This re-creates the entire array.
         # Finding a more efficient way would be preferred.
         orderedmodBasesA = np.column_stack((
             orderedmodBasesA, list(chromosome.seq[s:e].tostring().upper())))
@@ -92,6 +92,23 @@ def generateFASTAFile(file, id, genome, chr, start, end):
         modGenomeFile.write(">" + id + "\n")
     modGenomeFile.write(getModifiedGenome(genome, chr, start, end) + "\n")
     modGenomeFile.close()
+
+
+def determineTrackPriority(genome):
+    # XXX cannot complete this without being able to
+    # access the intervals over which the track data is defined.
+    # Genomedata does not appear to support this.
+    # TODO Ameliorate this.
+    """Currently, an ad hoc and contrived means of determining
+    which epigenetic modification has precedence. This is done by
+    naively considering the resolution, and secondarily, the frequency
+    of a given type of modification."""
+    print genome.num_datapoints  # XXX
+    # randomly sample 1000 bases of first chromosome to determine resolution
+    for chromosome in genome:
+        testRegion = random.uniform(chromosome.start, chromosome.end)
+        print chromosome[testRegion:testRegion + 1000]
+        break
 
 
 import argparse
@@ -162,7 +179,7 @@ else:
 with Genome(genomeDataArchive) as genome:
     warnings.simplefilter("ignore")  # Ignore supercontig warnings
     v_print_timestamp("Genomedata archive successfully loaded.")
-
+    # determineTrackPriority(genome)  # XXX
     modBases = []
     for track in genome.tracknames_continuous:
         modBases.append(MOD_BASES[re.search(MOD_BASE_REGEX, track).group(0)])
