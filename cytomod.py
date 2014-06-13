@@ -21,11 +21,14 @@ import re
 
 import numpy as np
 
+DEFAULT_FASTA_FILENAME = 'modGenome.fa'
+
 MOD_BASES = {'5mC': 'm', '5hmC': 'h', '5fC': 'f', '5caC': 'c'}
 
-SUPPORTED_FILE_FORMATS_REGEX = "\.(bed|wig|bed[gG]raph)$"
-CHROMOSOME_EXCLUSION_REGEX = "random"
-MOD_BASE_REGEX = "5.+C"
+SUPPORTED_FILE_FORMATS_REGEX = '\.(bed|wig|bed[gG]raph)$'
+CHROMOSOME_EXCLUSION_REGEX = 'random'
+MOD_BASE_REGEX = '5.+C'
+REGION_REGEX = '(chr\d+):(\d+)-(\d+)'
 
 # XXX parameterize
 modOrder = np.array([3, 2, 0, 1])
@@ -36,6 +39,43 @@ def v_print_timestamp(msg=""):
     sys.stderr.write(">> <Cytomod> %s: %s" % (
         datetime.datetime.now().isoformat(), msg + "\n")
         if args.verbose else "")
+
+
+def ensureRegionValidity(genome, chr, start, end):
+    """Ensures the validity of the given region. Dies if not valid."""
+    chromosome = genome[chr]
+    try:
+        chromosome = genome[chr]
+    except:
+        sys.exit("Invalid region: invalid chromosme.")
+    if (chromosome.start < 0) or (chromosome.start >= end):
+        sys.exit("Invalid region: invalid start position.")
+    if (end <= start) or (end > chromosome.end):
+        sys.exit("Invalid region: invalid end position.")
+
+
+def getModifiedGenome(genome, chr, start, end):
+    """Returns the modified genome sequence, for the given genome,
+    over the given input region."""
+    chromosome = genome[chr]
+    modBasesA = np.where(np.logical_and(np.isfinite(chromosome[start:end]),
+                         chromosome[start:end] != 0), modBases, '0')
+    orderedmodBasesA = modBasesA[:, modOrder]
+    orderedmodBasesA = np.column_stack((
+        orderedmodBasesA, list(chromosome.seq[start:end].tostring().upper())))
+    allbases = [filter(lambda x: x != '0', (bases))[0]
+                for bases in orderedmodBasesA if np.any(bases != '0')]
+    return ''.join(allbases)
+
+
+def generateFASTAFile(file, id, genome, chr, start, end):
+    """Writes a FASTA file of the modified genome appending to the given file,
+    using the given ID."""
+    modGenomeFile = open(file, 'a')
+    modGenomeFile.write(">" + id + "\n")
+    modGenomeFile.write(getModifiedGenome(genome, chr, start, end) + "\n")
+    modGenomeFile.close()
+
 
 import argparse
 parser = argparse.ArgumentParser()
@@ -70,6 +110,13 @@ genomeArchive.add_argument("-d", "--archiveCompDirs", nargs=2,
                            Use \"-G\" instead to use an existing archive.")
 parser.add_argument("-v", "--verbose", help="increase output verbosity",
                     action="count")
+parser.add_argument("-f", "--fastaFile", default=DEFAULT_FASTA_FILENAME, help="Provide a full path \
+                    to a file to append the modified genome in FASTA format.")
+parser.add_argument("-r", "--region", help="Only output the modified genome for the given region. \
+                    The output will be printed to STDOUT unless a FASTA file \
+                    name is provided via \"-f\", in which case it will be \
+                    written to that file. The region must be specified in \
+                    the format: chr<ID>:<start>-<end> (ex. chr1:500-510)")
 parser.add_argument('-V', '--version', action='version',
                     version="%(prog)s " + __version__)
 args = parser.parse_args()
@@ -77,7 +124,7 @@ args = parser.parse_args()
 from genomedata import Genome, load_genomedata
 
 genomeDataArchive = ""
-if (args.archiveCompDirs):
+if args.archiveCompDirs:
     v_print_timestamp("Creating genomedata archive.")
     genomeDataArchive = args.archiveCompDirs[1] + "/archive/"
     # Create the genome data archive
@@ -105,17 +152,27 @@ with Genome(genomeDataArchive) as genome:
     v_print_timestamp("The order of preference for base modifications is: "
                       + ','.join(modBases) + ".")
 
-    # XXX parameterize
-    start = 90000040
-    end = 90000050
+    if args.region:
+        v_print_timestamp("Outputting the modified genome for: "
+                          + args.region + ".")
+        regionMatch = re.search(REGION_REGEX, args.region)
+        if args.fastaFile != DEFAULT_FASTA_FILENAME:
+            ensureRegionValidity(genome, regionMatch.group(1),
+                                 int(regionMatch.group(2)),
+                                 int(regionMatch.group(3)))
+            generateFASTAFile(args.fastaFile, args.region, genome,
+                              regionMatch.group(1), int(regionMatch.group(2)),
+                              int(regionMatch.group(3)))
+        else:
+            print getModifiedGenome(genome, regionMatch.group(1),
+                                    int(regionMatch.group(2)),
+                                    int(regionMatch.group(3)))
+    else:
+        for chromosome in [chromosome for chromosome in genome
+                           if not re.search(CHROMOSOME_EXCLUSION_REGEX,
+                                            chromosome.name)]:
+            generateFASTAFile(args.fastaFile, chromosome.name,
+                              genome, chromosome.name,
+                              int(chromosome.start), int(chromosome.end))
 
-    for chromosome in [chromosome for chromosome in genome
-                       if not re.search(CHROMOSOME_EXCLUSION_REGEX,
-                                        chromosome.name)]:
-        modBasesA = np.where(np.isfinite(chromosome[start:end]), modBases, '0')
-        orderedmodBasesA = modBasesA[:, modOrder]
-        orderedmodBasesA = np.column_stack((
-            orderedmodBasesA, list(chromosome.seq[start:end].tostring())))
-        allbases = [filter(lambda x: x != '0', (bases))[0]
-                    for bases in orderedmodBasesA if np.any(bases != '0')]
-        print ''.join(allbases)
+v_print_timestamp("Program complete.")
