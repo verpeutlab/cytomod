@@ -19,7 +19,16 @@ import glob
 import datetime
 import re
 
+import numpy as np
+
+MOD_BASES = {'5mC': 'm', '5hmC': 'h', '5fC': 'f', '5caC': 'c'}
+
 SUPPORTED_FILE_FORMATS_REGEX = "\.(bed|wig|bed[gG]raph)$"
+CHROMOSOME_EXCLUSION_REGEX = "random"
+MOD_BASE_REGEX = "5.+C"
+
+# XXX parameterize
+modOrder = np.array([3, 2, 0, 1])
 
 
 def v_print_timestamp(msg=""):
@@ -89,4 +98,24 @@ else:
 with Genome(genomeDataArchive) as genome:
     v_print_timestamp("Genomedata archive successfully loaded.")
     warnings.simplefilter("ignore")  # Ignore supercontig warnings
-    print >>sys.stderr, genome.num_tracks_continuous  # XXX replace
+
+    modBases = []
+    for track in genome.tracknames_continuous:
+        modBases.append(MOD_BASES[re.search(MOD_BASE_REGEX, track).group(0)])
+    v_print_timestamp("The order of preference for base modifications is: "
+                      + ','.join(modBases) + ".")
+
+    # XXX parameterize
+    start = 90000040
+    end = 90000050
+
+    for chromosome in [chromosome for chromosome in genome
+                       if not re.search(CHROMOSOME_EXCLUSION_REGEX,
+                                        chromosome.name)]:
+        modBasesA = np.where(np.isfinite(chromosome[start:end]), modBases, '0')
+        orderedmodBasesA = modBasesA[:, modOrder]
+        orderedmodBasesA = np.column_stack((
+            orderedmodBasesA, list(chromosome.seq[start:end].tostring())))
+        allbases = [filter(lambda x: x != '0', (bases))[0]
+                    for bases in orderedmodBasesA if np.any(bases != '0')]
+        print ''.join(allbases)
