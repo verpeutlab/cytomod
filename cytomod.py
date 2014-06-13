@@ -3,13 +3,15 @@ from __future__ import with_statement, division
 
 __version__ = "$Revision: 0.01$"
 
-"""Cytomod uses information on cytosine modification
-locations to replace C symbols in a reference genome sequence
+"""Cytomod uses information on modification
+locations to replace the appropriate symbols in a reference genome sequence
 with the new symbols. Cytomod can incorporate data from both
 single-base assays (point annotations in BED format)
 and lower-resolution assays (region annotations in BED or WIG formats).
 The output from this program is intended to allow for de novo
 discovery of modification-sensitive motifs in known TFBSs.
+This program currently handles the following modifications
+to the cytosine nucleobase: {5mC, 5hmC, 5fC, 5caC}.
 """
 
 import warnings
@@ -30,15 +32,17 @@ CHROMOSOME_EXCLUSION_REGEX = 'random'
 MOD_BASE_REGEX = '5.+C'
 REGION_REGEX = '(chr\d+):(\d+)-(\d+)'
 
-# XXX parameterize
+_MAX_REGION_AT_ONCE = 1000000
+
+# XXX parameterize and/or automate
 modOrder = np.array([3, 2, 0, 1])
 
 
-def v_print_timestamp(msg=""):
-    """Print a timestamped message iff non-zero verbosity is specified."""
+def v_print_timestamp(msg="", threshold=1):
+    """Print a timestamped message iff verbosity is at least threshold."""
     sys.stderr.write(">> <Cytomod> %s: %s" % (
         datetime.datetime.now().isoformat(), msg + "\n")
-        if args.verbose else "")
+        if args.verbose >= threshold else "")
 
 
 def ensureRegionValidity(genome, chr, start, end):
@@ -58,21 +62,34 @@ def getModifiedGenome(genome, chr, start, end):
     """Returns the modified genome sequence, for the given genome,
     over the given input region."""
     chromosome = genome[chr]
-    modBasesA = np.where(np.logical_and(np.isfinite(chromosome[start:end]),
-                         chromosome[start:end] != 0), modBases, '0')
-    orderedmodBasesA = modBasesA[:, modOrder]
-    orderedmodBasesA = np.column_stack((
-        orderedmodBasesA, list(chromosome.seq[start:end].tostring().upper())))
-    allbases = [filter(lambda x: x != '0', (bases))[0]
-                for bases in orderedmodBasesA if np.any(bases != '0')]
-    return ''.join(allbases)
+    allbasesResult = ""
+    # Only compute the modified genome in segments.
+    # This prevents the creation of excessively large NumPy arrays.
+    for s in range(int(chromosome.start), int(chromosome.end),
+                   _MAX_REGION_AT_ONCE):
+        e = s + _MAX_REGION_AT_ONCE
+        v_print_timestamp("Now outputting " + chr + " for region: (" + str(s)
+                          + ", " + str(e) + ")", 2)
+        modBasesA = np.where(np.logical_and(np.isfinite(chromosome[s:e]),
+                             chromosome[s:e] != 0), modBases, '0')
+        orderedmodBasesA = modBasesA[:, modOrder]
+        # XXX This re-creates the entire array.
+        # Finding a more efficient way would be preferred.
+        orderedmodBasesA = np.column_stack((
+            orderedmodBasesA, list(chromosome.seq[s:e].tostring().upper())))
+        allbases = [filter(lambda x: x != '0', (bases))[0]
+                    for bases in orderedmodBasesA if np.any(bases != '0')]
+        allbasesResult += ''.join(allbases)
+    return allbasesResult
 
 
 def generateFASTAFile(file, id, genome, chr, start, end):
     """Writes a FASTA file of the modified genome appending to the given file,
-    using the given ID."""
+    using the given ID.
+    No FASTA ID (i.e. '> ...') is written if no ID is given."""
     modGenomeFile = open(file, 'a')
-    modGenomeFile.write(">" + id + "\n")
+    if id:
+        modGenomeFile.write(">" + id + "\n")
     modGenomeFile.write(getModifiedGenome(genome, chr, start, end) + "\n")
     modGenomeFile.close()
 
@@ -143,8 +160,8 @@ else:
     genomeDataArchive = args.genomedataArchive
 
 with Genome(genomeDataArchive) as genome:
-    v_print_timestamp("Genomedata archive successfully loaded.")
     warnings.simplefilter("ignore")  # Ignore supercontig warnings
+    v_print_timestamp("Genomedata archive successfully loaded.")
 
     modBases = []
     for track in genome.tracknames_continuous:
@@ -171,6 +188,8 @@ with Genome(genomeDataArchive) as genome:
         for chromosome in [chromosome for chromosome in genome
                            if not re.search(CHROMOSOME_EXCLUSION_REGEX,
                                             chromosome.name)]:
+            v_print_timestamp("Outputting the modified genome for: "
+                              + chromosome.name)
             generateFASTAFile(args.fastaFile, chromosome.name,
                               genome, chromosome.name,
                               int(chromosome.start), int(chromosome.end))
