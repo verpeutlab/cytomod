@@ -31,9 +31,9 @@ MOD_BASES = {'5mC': 'm', '5hmC': 'h', '5fC': 'f', '5caC': 'c'}
 SUPPORTED_FILE_FORMATS_REGEX = '\.(bed|wig|bed[gG]raph)$'
 CHROMOSOME_EXCLUSION_REGEX = 'random'
 MOD_BASE_REGEX = '5.+C'
-REGION_REGEX = '(chr\d+):(\d+)-(\d+)'
+REGION_REGEX = '(chr(?:\d+|[XYM]))(?::(?P<start>\d+)?-(?P<end>\d+)?)?'
 
-_MAX_REGION_LEN = 1000000
+_MAX_REGION_LEN = 2000000
 
 # XXX parameterize and/or automate
 modOrder = np.array([3, 2, 0, 1])
@@ -190,17 +190,23 @@ with Genome(genomeDataArchive) as genome:
         v_print_timestamp("Outputting the modified genome for: "
                           + args.region + ".")
         regionMatch = re.search(REGION_REGEX, args.region)
-        if args.fastaFile != DEFAULT_FASTA_FILENAME:
-            ensureRegionValidity(genome, regionMatch.group(1),
-                                 int(regionMatch.group(2)),
-                                 int(regionMatch.group(3)))
-            generateFASTAFile(args.fastaFile, args.region, genome,
-                              regionMatch.group(1), int(regionMatch.group(2)),
-                              int(regionMatch.group(3)))
+        chr = regionMatch.group(1)
+        start = 0
+        end = 1
+        if regionMatch.group('start'):
+            start = int(regionMatch.group('start'))
         else:
-            print getModifiedGenome(genome, regionMatch.group(1),
-                                    int(regionMatch.group(2)),
-                                    int(regionMatch.group(3)))
+            start = genome[chr].start
+        if regionMatch.group('end'):
+            end = int(regionMatch.group('end'))
+        else:
+            end = genome[chr].end
+        ensureRegionValidity(genome, chr, start, end)
+        if args.fastaFile != DEFAULT_FASTA_FILENAME:
+            generateFASTAFile(args.fastaFile, args.region, genome,
+                              chr, start, end)
+        else:
+            print getModifiedGenome(genome, chr, start, end)
     else:
         for chromosome in [chromosome for chromosome in genome
                            if not re.search(CHROMOSOME_EXCLUSION_REGEX,
