@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from __future__ import with_statement, division
+from __future__ import with_statement, division, print_function
 
 __version__ = "$Revision: 0.01$"
 
@@ -24,19 +24,33 @@ import random
 
 import numpy as np
 
-DEFAULT_FASTA_FILENAME = 'modGenome.fa'
-
 MOD_BASES = {'5mC': 'm', '5hmC': 'h', '5fC': 'f', '5caC': 'c'}
 
+AUTOSOME_ONLY_FLAG = 'u'
+ALLOSOME_ONLY_FLAG = 'l'
+MITOCHONDRIAL_ONLY_FLAG = 'm'
+MITOCHONDRIAL_EXCLUSION_FLAG = MITOCHONDRIAL_ONLY_FLAG.upper()
+
 SUPPORTED_FILE_FORMATS_REGEX = '\.(bed|wig|bed[gG]raph)$'
-CHROMOSOME_EXCLUSION_REGEX = 'random'
+CHROMSOME_TYPE_REGEXES = {AUTOSOME_ONLY_FLAG: 'chr\d+',
+                          ALLOSOME_ONLY_FLAG: 'chr[XY]',
+                          MITOCHONDRIAL_ONLY_FLAG: 'chrM',
+                          MITOCHONDRIAL_EXCLUSION_FLAG: 'chr(?:\d+|[XY])'}
+CHROMOSOME_EXCLUSION_REGEX = '(?:random)'
 MOD_BASE_REGEX = '5.+C'
 REGION_REGEX = '(chr(?:\d+|[XYM]))(?::(?P<start>\d+)?-(?P<end>\d+)?)?'
 
+_DEFAULT_FASTA_FILENAME = 'modGenome.fa'
+_DEFAULT_RAN_LENGTH = 2000
 _MAX_REGION_LEN = 2000000
+_MAX_CONTIG_ATTEMPTS = 3
 
 # XXX parameterize and/or automate
 modOrder = np.array([3, 2, 0, 1])
+
+
+def warn(*msg):
+    print("Warning: ", *msg, file=sys.stderr)
 
 
 def v_print_timestamp(msg="", threshold=1):
@@ -46,7 +60,19 @@ def v_print_timestamp(msg="", threshold=1):
         if args.verbose >= threshold else "")
 
 
-def ensureRegionValidity(genome, chr, start, end):
+def _modifyChrExclusionRegex(additionalChrExclusionFlag):
+    """Modify the chromosome exclusion regex accroding to the provided flags"""
+    global CHROMOSOME_EXCLUSION_REGEX  # allow modification of global var
+    # Modify the exclusion regex by adding the regex corresponding
+    # to the flag that we wish to exclude. However, the dictionary
+    # containing the regexes identify the group specified by the flag
+    # (i.e. are inclusion regexes). We therefore invert the additional
+    # regex via a modified anchored negative lookahead.
+    CHROMOSOME_EXCLUSION_REGEX += '|(^((?!' + \
+        CHROMSOME_TYPE_REGEXES[additionalChrExclusionFlag] + ').)*$)'
+
+
+def _ensureRegionValidity(genome, chr, start, end):
     """Ensures the validity of the given region. Dies if not valid."""
     chromosome = genome[chr]
     try:
@@ -94,22 +120,68 @@ def generateFASTAFile(file, id, genome, chr, start, end):
     modGenomeFile.close()
 
 
+def selectRandomRegion(genome, length):
+    """Selects a random, non-exluded, chromosome of sufficient length.
+    This method attempts to ensure that the region selected is
+    wholly within a supercontig."""
+    selectableChromosomes = {chromosome.name: chromosome.end for
+                             chromosome in genome if
+                             (chromosome.end >= length and
+                              not re.search(CHROMOSOME_EXCLUSION_REGEX,
+                                            chromosome.name))}
+    if not selectableChromosomes:
+        sys.exit(("The region length provided is too long or all "
+                 "chromosomes have been excluded."))
+    chr = random.choice(selectableChromosomes.keys())
+    contigAttempts = 0
+    while True:
+        start = random.randint(genome[chr].start, genome[chr].end)
+        end = start + length
+        if genome[chr].supercontigs[start:end]:
+            break
+        elif contigAttempts >= _MAX_CONTIG_ATTEMPTS:
+            warn("Attempts to procure sequence from a supercontig "
+                 "were exhausted. Returning sequence that is not "
+                 "wholly contained within a supercontig.")
+            break
+        contigAttempts += 1
+    return chr, start, end
+
+
+def parseRegion(genome, region):
+    """Parses the provided region, ensuring its validity."""
+    regionMatch = re.search(REGION_REGEX, region)
+    chr = regionMatch.group(1)
+    start = 0
+    end = 1
+    if regionMatch.group('start'):
+        start = int(regionMatch.group('start'))
+    else:
+        start = genome[chr].start
+    if regionMatch.group('end'):
+        end = int(regionMatch.group('end'))
+    else:
+        end = genome[chr].end
+    _ensureRegionValidity(genome, chr, start, end)
+    return chr, start, end
+
+
 def determineTrackPriority(genome):
+    """Currently, an ad hoc and contrived means of determining
+    which epigenetic modification has precedence. This is done by
+    naively considering the resolution, and secondarily, the frequency
+    of a given type of modification.
+    NB: This method is not yet fully implemented."""
     # XXX cannot complete this without being able to
     # access the intervals over which the track data is defined.
     # Genomedata does not appear to support this.
     # TODO Ameliorate this.
-    """Currently, an ad hoc and contrived means of determining
-    which epigenetic modification has precedence. This is done by
-    naively considering the resolution, and secondarily, the frequency
-    of a given type of modification."""
-    print genome.num_datapoints  # XXX
+    print(genome.num_datapoints)  # XXX
     # randomly sample 1000 bases of first chromosome to determine resolution
     for chromosome in genome:
-        testRegion = random.uniform(chromosome.start, chromosome.end)
-        print chromosome[testRegion:testRegion + 1000]
+        testRegion = random.randint(chromosome.start, chromosome.end)
+        print(chromosome[testRegion:testRegion + 1000])
         break
-
 
 import argparse
 parser = argparse.ArgumentParser()
@@ -144,16 +216,47 @@ genomeArchive.add_argument("-d", "--archiveCompDirs", nargs=2,
                            Use \"-G\" instead to use an existing archive.")
 parser.add_argument("-v", "--verbose", help="increase output verbosity",
                     action="count")
-parser.add_argument("-f", "--fastaFile", default=DEFAULT_FASTA_FILENAME, help="Provide a full path \
-                    to a file to append the modified genome in FASTA format.")
-parser.add_argument("-r", "--region", help="Only output the modified genome for the given region. \
-                    The output will be printed to STDOUT unless a FASTA file \
-                    name is provided via \"-f\", in which case it will be \
-                    written to that file. The region must be specified in \
-                    the format: chr<ID>:<start>-<end> (ex. chr1:500-510)")
+parser.add_argument("-f", "--fastaFile", nargs='?', type=str,
+                    const=_DEFAULT_FASTA_FILENAME, help="Output to a file instead \
+                    of STDOUT. Provide a full path to a file to append the \
+                    modified genome in FASTA format. If this parameter is \
+                    invoked without any arguments, a default filename will \
+                    be used within the current directory.")
+region = parser.add_mutually_exclusive_group()
+region.add_argument("-r", "--region", help="Only output the modified genome \
+                    for the given region. \
+                    The region must be specified in the format: \
+                    chr<ID>:<start>-<end> (ex. chr1:500-510).")
+region.add_argument("-R", "--randomRegion", nargs='?',
+                    const=_DEFAULT_RAN_LENGTH, type=int,
+                    help="Output the modified genome for a random region. \
+                    The chromsome will be randomly selected and its \
+                    coordinate space will be randomly and uniformly sampled. \
+                    A length for the random region can either be specified \
+                    or it will otherwise be set to a reasonably \
+                    small default. The length chosen may constrain the \
+                    selection of a chromosome.")
+parser.add_argument("-E", "--excludeChrs", help="Exclude chromosome \
+                    types. '" + AUTOSOME_ONLY_FLAG + "': \
+                    Use only autosomal chromosomes  (excludes chrM). \
+                    '" + ALLOSOME_ONLY_FLAG + "': \
+                    Use only allosomal chromosomes (excludes chrM). \
+                    '" + MITOCHONDRIAL_ONLY_FLAG + "': \
+                    Use only the mitochondrial chromosome. \
+                    '" + MITOCHONDRIAL_EXCLUSION_FLAG + "': \
+                    Exclude the mitochondrial chromosome. \
+                    NB: This paprameter will be ignored if a \
+                    specific genomic region is queried \
+                    via '-r'.")
 parser.add_argument('-V', '--version', action='version',
                     version="%(prog)s " + __version__)
 args = parser.parse_args()
+
+if args.region and args.excludeChrs:
+    warn("Exclusion regex ignored, since a specific region was specifed.")
+
+if args.excludeChrs:
+    _modifyChrExclusionRegex(args.excludeChrs)
 
 from genomedata import Genome, load_genomedata
 
@@ -179,34 +282,24 @@ else:
 with Genome(genomeDataArchive) as genome:
     warnings.simplefilter("ignore")  # Ignore supercontig warnings
     v_print_timestamp("Genomedata archive successfully loaded.")
-    # determineTrackPriority(genome)  # XXX
     modBases = []
     for track in genome.tracknames_continuous:
         modBases.append(MOD_BASES[re.search(MOD_BASE_REGEX, track).group(0)])
     v_print_timestamp("The order of preference for base modifications is: "
                       + ','.join(modBases) + ".")
 
-    if args.region:
+    if args.region or args.randomRegion:
+        if args.randomRegion:
+            chr, start, end = selectRandomRegion(genome, args.randomRegion)
+        else:
+            chr, start, end = parseRegion(genome, args.region)
         v_print_timestamp("Outputting the modified genome for: "
-                          + args.region + ".")
-        regionMatch = re.search(REGION_REGEX, args.region)
-        chr = regionMatch.group(1)
-        start = 0
-        end = 1
-        if regionMatch.group('start'):
-            start = int(regionMatch.group('start'))
-        else:
-            start = genome[chr].start
-        if regionMatch.group('end'):
-            end = int(regionMatch.group('end'))
-        else:
-            end = genome[chr].end
-        ensureRegionValidity(genome, chr, start, end)
-        if args.fastaFile != DEFAULT_FASTA_FILENAME:
+                          + chr + ":" + str(start) + "-" + str(end) + ".")
+        if args.fastaFile:
             generateFASTAFile(args.fastaFile, args.region, genome,
                               chr, start, end)
         else:
-            print getModifiedGenome(genome, chr, start, end)
+            print(getModifiedGenome(genome, chr, start, end))
     else:
         for chromosome in [chromosome for chromosome in genome
                            if not re.search(CHROMOSOME_EXCLUSION_REGEX,
