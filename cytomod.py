@@ -50,6 +50,7 @@ modOrder = np.array([3, 2, 0, 1])
 
 
 def warn(*msg):
+    """Emit a warning to STDERR."""
     print("Warning: ", *msg, file=sys.stderr)
 
 
@@ -113,11 +114,10 @@ def generateFASTAFile(file, id, genome, chr, start, end):
     """Writes a FASTA file of the modified genome appending to the given file,
     using the given ID.
     No FASTA ID (i.e. '> ...') is written if no ID is given."""
-    modGenomeFile = open(file, 'a')
-    if id:
-        modGenomeFile.write(">" + id + "\n")
-    modGenomeFile.write(getModifiedGenome(genome, chr, start, end) + "\n")
-    modGenomeFile.close()
+    with open(file, 'a') as modGenomeFile:
+        if id:
+            modGenomeFile.write(">" + id + "\n")
+        modGenomeFile.write(getModifiedGenome(genome, chr, start, end) + "\n")
 
 
 def selectRandomRegion(genome, length):
@@ -187,7 +187,7 @@ import argparse
 parser = argparse.ArgumentParser()
 
 genomeArchive = parser.add_mutually_exclusive_group(required=True)
-genomeArchive.add_argument("-G", "--genomedataArchive",
+genomeArchive.add_argument('-G', '--genomedataArchive',
                            help="The genome data archive. \
                            It must contain all needed \
                            sequence and track files. \
@@ -214,20 +214,20 @@ genomeArchive.add_argument("-d", "--archiveCompDirs", nargs=2,
                            create a genome data archive in an \"archive\". \
                            subdirectory of the provided track directory. \
                            Use \"-G\" instead to use an existing archive.")
-parser.add_argument("-v", "--verbose", help="increase output verbosity",
+parser.add_argument('-v', '--verbose', help="increase output verbosity",
                     action="count")
-parser.add_argument("-f", "--fastaFile", nargs='?', type=str,
+parser.add_argument('-f', '--fastaFile', nargs='?', type=str,
                     const=_DEFAULT_FASTA_FILENAME, help="Output to a file instead \
                     of STDOUT. Provide a full path to a file to append the \
                     modified genome in FASTA format. If this parameter is \
                     invoked without any arguments, a default filename will \
                     be used within the current directory.")
 region = parser.add_mutually_exclusive_group()
-region.add_argument("-r", "--region", help="Only output the modified genome \
+region.add_argument('-r', '--region', help="Only output the modified genome \
                     for the given region. \
                     The region must be specified in the format: \
                     chr<ID>:<start>-<end> (ex. chr1:500-510).")
-region.add_argument("-R", "--randomRegion", nargs='?',
+region.add_argument('-R', '--randomRegion', nargs='?',
                     const=_DEFAULT_RAN_LENGTH, type=int,
                     help="Output the modified genome for a random region. \
                     The chromsome will be randomly selected and its \
@@ -236,7 +236,9 @@ region.add_argument("-R", "--randomRegion", nargs='?',
                     or it will otherwise be set to a reasonably \
                     small default. The length chosen may constrain the \
                     selection of a chromosome.")
-parser.add_argument("-E", "--excludeChrs", help="Exclude chromosome \
+parser.add_argument('-E', '--excludeChrs',
+                    choices=CHROMSOME_TYPE_REGEXES.keys(),
+                    help="Exclude chromosome \
                     types. '" + AUTOSOME_ONLY_FLAG + "': \
                     Use only autosomal chromosomes  (excludes chrM). \
                     '" + ALLOSOME_ONLY_FLAG + "': \
@@ -293,10 +295,11 @@ with Genome(genomeDataArchive) as genome:
             chr, start, end = selectRandomRegion(genome, args.randomRegion)
         else:
             chr, start, end = parseRegion(genome, args.region)
+        regionStr = chr + ":" + str(start) + "-" + str(end)
         v_print_timestamp("Outputting the modified genome for: "
-                          + chr + ":" + str(start) + "-" + str(end) + ".")
+                          + regionStr + ".")
         if args.fastaFile:
-            generateFASTAFile(args.fastaFile, args.region, genome,
+            generateFASTAFile(args.fastaFile, regionStr, genome,
                               chr, start, end)
         else:
             print(getModifiedGenome(genome, chr, start, end))
