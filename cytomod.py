@@ -41,11 +41,14 @@ COMPLEMENTS = {'A': 'T', 'T': 'A', 'G': 'C', 'C': 'G',
                'W': 'W', 'S': 'S', 'B': 'B', 'D': 'D',
                'H': 'H', 'V': 'V', 'N': 'N', 'X': 'X'}
 # Add all modified nucleobases.
-modifiedBasesToComplements = zip(MOD_BASES.values(), ''.join(str(i) for i in range(1, len(MOD_BASES) + 1)))
+modifiedBasesToComplements = \
+    zip(MOD_BASES.values(), ''.
+        join(str(i) for i in range(1, len(MOD_BASES) + 1)))
 COMPLEMENTS.update(modifiedBasesToComplements)
 # Add all modified nucleobase complements.
 # They are ordered by the originating modification's oxidation order.
 COMPLEMENTS.update([(c, m) for m, c in modifiedBasesToComplements])
+
 
 # TODO use a decorator to properly return a scalar for scalar input
 # and a list for list input.
@@ -159,12 +162,15 @@ def getModifiedGenome(genome, modOrder, chrm, start, end):
         # 'heavy-handed', filter expression.
         allModBases = [filter(lambda x: x != '0', (bases))
                        for bases in orderedmodBasesA]
+        # Output the unmodified sequence at a verbosity level of at least 2,
+        # if not too long, otherwise only output for a high verbosity level.
+        v_print_timestamp("Corresponding unmodified reference sequence: \n"
+                          + ''.join(referenceSeq), 2
+                          if len(referenceSeq) < 10000 else 6)
         # Mask the sequence, allowing only base modifications
         # that modify their 'target' base (i.e. '5fC' = 'f' only modifies 'C').
         # Return the reference base for all non-modifiable bases
         # and for unmodified bases.
-        v_print_timestamp("Corresponding unmodified reference sequence: \n"
-                          + ''.join(referenceSeq), 2)
         allbases = [maybeGetModBase(m, r) for m, r in
                     zip([b[0] if b else '0' for b in allModBases],
                     referenceSeq)]
