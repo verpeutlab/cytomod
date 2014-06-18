@@ -41,12 +41,12 @@ MOD_BASE_REGEX = '5.+C'
 REGION_REGEX = '(chr(?:\d+|[XYM]))(?::(?P<start>\d+)?-(?P<end>\d+)?)?'
 
 _DEFAULT_FASTA_FILENAME = 'modGenome.fa'
+_DEFAULT_BASE_PRIORITY = 'hmfc'
+_DEFAULT_BASE_PRIORITY_COMMENT = """the resolution of the biological protocol
+(i.e. single-base > any chemical > any DIP)"""
 _DEFAULT_RAN_LENGTH = 2000
 _MAX_REGION_LEN = 2000000
 _MAX_CONTIG_ATTEMPTS = 3
-
-# XXX parameterize and/or automate
-modOrder = np.array([3, 2, 0, 1])
 
 
 def warn(*msg):
@@ -86,7 +86,7 @@ def _ensureRegionValidity(genome, chr, start, end):
         sys.exit("Invalid region: invalid end position.")
 
 
-def getModifiedGenome(genome, chr, start, end):
+def getModifiedGenome(genome, modOrder, chr, start, end):
     """Returns the modified genome sequence, for the given genome,
     over the given input region."""
     chromosome = genome[chr]
@@ -110,14 +110,15 @@ def getModifiedGenome(genome, chr, start, end):
     return allbasesResult
 
 
-def generateFASTAFile(file, id, genome, chr, start, end):
+def generateFASTAFile(file, id, genome, modOrder, chr, start, end):
     """Writes a FASTA file of the modified genome appending to the given file,
     using the given ID.
     No FASTA ID (i.e. '> ...') is written if no ID is given."""
     with open(file, 'a') as modGenomeFile:
         if id:
             modGenomeFile.write(">" + id + "\n")
-        modGenomeFile.write(getModifiedGenome(genome, chr, start, end) + "\n")
+        modGenomeFile.write(getModifiedGenome(genome, modOrder, chr,
+                            start, end) + "\n")
 
 
 def selectRandomRegion(genome, length):
@@ -250,6 +251,12 @@ parser.add_argument('-E', '--excludeChrs',
                     NB: This paprameter will be ignored if a \
                     specific genomic region is queried \
                     via '-r'.")
+parser.add_argument('-p', '--priority', default=_DEFAULT_BASE_PRIORITY,
+                    choices=MOD_BASES.values(),
+                    help="Specify the priority \
+                    of modified bases. The default is:"
+                    + _DEFAULT_BASE_PRIORITY + ", which is based upon"
+                    + _DEFAULT_BASE_PRIORITY_COMMENT + ".")
 parser.add_argument('-V', '--version', action='version',
                     version="%(prog)s " + __version__)
 args = parser.parse_args()
@@ -287,8 +294,9 @@ with Genome(genomeDataArchive) as genome:
     modBases = []
     for track in genome.tracknames_continuous:
         modBases.append(MOD_BASES[re.search(MOD_BASE_REGEX, track).group(0)])
+    modOrder = [modBases.index(b) for b in list(args.priority)]
     v_print_timestamp("The order of preference for base modifications is: "
-                      + ','.join(modBases) + ".")
+                      + ','.join(list(args.priority)) + ".")
 
     if args.region or args.randomRegion:
         if args.randomRegion:
@@ -299,10 +307,10 @@ with Genome(genomeDataArchive) as genome:
         v_print_timestamp("Outputting the modified genome for: "
                           + regionStr + ".")
         if args.fastaFile:
-            generateFASTAFile(args.fastaFile, regionStr, genome,
+            generateFASTAFile(args.fastaFile, regionStr, genome, modOrder,
                               chr, start, end)
         else:
-            print(getModifiedGenome(genome, chr, start, end))
+            print(getModifiedGenome(genome, modOrder, chr, start, end))
     else:
         for chromosome in [chromosome for chromosome in genome
                            if not re.search(CHROMOSOME_EXCLUSION_REGEX,
@@ -310,7 +318,7 @@ with Genome(genomeDataArchive) as genome:
             v_print_timestamp("Outputting the modified genome for: "
                               + chromosome.name)
             generateFASTAFile(args.fastaFile, chromosome.name,
-                              genome, chromosome.name,
+                              genome, modOrder, chromosome.name,
                               int(chromosome.start), int(chromosome.end))
 
 v_print_timestamp("Program complete.")
