@@ -24,10 +24,17 @@ import random
 
 import numpy as np
 
-# XXX Add others and build from pairs
-STANDARD_COMPLEMENTS = {'A': 'T', 'T': 'A', 'G': 'C', 'C': 'G', 'N': 'N'}
+# TODO Remove redudancy by building from pairs.
+STANDARD_COMPLEMENTS = {'A': 'T', 'T': 'A', 'G': 'C', 'C': 'G',
+                        'R': 'Y', 'Y': 'R', 'M': 'K', 'K': 'M',
+                        'W': 'W', 'S': 'S', 'B': 'B', 'D': 'D',
+                        'H': 'H', 'V': 'V', 'N': 'N'}
 
+# Define the "primary" modified bases and their corresponding
+# one base codes.
 MOD_BASES = {'5mC': 'm', '5hmC': 'h', '5fC': 'f', '5caC': 'c'}
+# Create a dictionary mapping each "primary" modified base to
+# the base it modifies.
 _MODIFIES = dict.fromkeys(MOD_BASES.values(), 'C')
 
 
@@ -37,16 +44,22 @@ def complement(bases):
     """Complements the given, potentially modified, base."""
     cBases = []
     for base in bases:
+        # Directly complement unmodified bases.
         if base in STANDARD_COMPLEMENTS:
             cBases.append(STANDARD_COMPLEMENTS[base])
+        # Complement modified bases by adding the difference between
+        # the ASCII values of the complementary unmodified bases,
+        # to the modified base (i.e. 'f' = 102 becomes 106 = 'j',
+        # because ord('G') - ord('C') = 4).
         else:
             cBases.append(chr(ord(base) +
                           (ord(STANDARD_COMPLEMENTS[_MODIFIES[base]])
                            - ord(_MODIFIES[base]))))
     return cBases
 
-
-_MODIFIES.update(dict.fromkeys(complement(MOD_BASES.values()), 'G'))
+# Update the dictionary mapping with every complemented modification.
+_MODIFIES.update(zip(complement(_MODIFIES.keys()),
+                 complement(_MODIFIES.values())))
 
 AUTOSOME_ONLY_FLAG = 'u'
 ALLOSOME_ONLY_FLAG = 'l'
