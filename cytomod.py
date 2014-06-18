@@ -21,41 +21,37 @@ import glob
 import datetime
 import re
 import random
+from collections import OrderedDict
 
 import numpy as np
 
-# TODO Remove redudancy by building from pairs.
-STANDARD_COMPLEMENTS = {'A': 'T', 'T': 'A', 'G': 'C', 'C': 'G',
-                        'R': 'Y', 'Y': 'R', 'M': 'K', 'K': 'M',
-                        'W': 'W', 'S': 'S', 'B': 'B', 'D': 'D',
-                        'H': 'H', 'V': 'V', 'N': 'N'}
-
 # Define the "primary" modified bases and their corresponding
-# one base codes.
-MOD_BASES = {'5mC': 'm', '5hmC': 'h', '5fC': 'f', '5caC': 'c'}
+# one base codes, listed in their order of oxidation.
+MOD_BASES = OrderedDict([('5mC', 'm'), ('5hmC', 'h'),
+                        ('5fC', 'f'), ('5caC', 'c')])
 # Create a dictionary mapping each "primary" modified base to
 # the base it modifies.
 _MODIFIES = dict.fromkeys(MOD_BASES.values(), 'C')
 
+# All IUPAC nucleobases and their complements, plus 'X',
+# which is just an additional alias for any nucleobase.
+# TODO Remove redudancy by building from pairs.
+COMPLEMENTS = {'A': 'T', 'T': 'A', 'G': 'C', 'C': 'G',
+               'R': 'Y', 'Y': 'R', 'M': 'K', 'K': 'M',
+               'W': 'W', 'S': 'S', 'B': 'B', 'D': 'D',
+               'H': 'H', 'V': 'V', 'N': 'N', 'X': 'X'}
+# Add all modified nucleobases.
+modifiedBasesToComplements = zip(MOD_BASES.values(), ''.join(str(i) for i in range(1, len(MOD_BASES) + 1)))
+COMPLEMENTS.update(modifiedBasesToComplements)
+# Add all modified nucleobase complements.
+# They are ordered by the originating modification's oxidation order.
+COMPLEMENTS.update([(c, m) for m, c in modifiedBasesToComplements])
 
 # TODO use a decorator to properly return a scalar for scalar input
 # and a list for list input.
 def complement(bases):
     """Complements the given, potentially modified, base."""
-    cBases = []
-    for base in bases:
-        # Directly complement unmodified bases.
-        if base in STANDARD_COMPLEMENTS:
-            cBases.append(STANDARD_COMPLEMENTS[base])
-        # Complement modified bases by adding the difference between
-        # the ASCII values of the complementary unmodified bases,
-        # to the modified base (i.e. 'f' = 102 becomes 106 = 'j',
-        # because ord('G') - ord('C') = 4).
-        else:
-            cBases.append(chr(ord(base) +
-                          (ord(STANDARD_COMPLEMENTS[_MODIFIES[base]])
-                           - ord(_MODIFIES[base]))))
-    return cBases
+    return [COMPLEMENTS[base] for base in bases]
 
 # Update the dictionary mapping with every complemented modification.
 _MODIFIES.update(zip(complement(_MODIFIES.keys()),
@@ -281,8 +277,6 @@ genomeArchive.add_argument("-d", "--archiveCompDirs", nargs=2,
                            create a genome data archive in an \"archive\". \
                            subdirectory of the provided track directory. \
                            Use \"-G\" instead to use an existing archive.")
-parser.add_argument('-v', '--verbose', help="increase output verbosity",
-                    action="count")
 parser.add_argument('-f', '--fastaFile', nargs='?', type=str,
                     const=_DEFAULT_FASTA_FILENAME, help="Output to a file instead \
                     of STDOUT. Provide a full path to a file to append the \
@@ -323,6 +317,8 @@ parser.add_argument('-p', '--priority', default=_DEFAULT_BASE_PRIORITY,
                     of modified bases. The default is:"
                     + _DEFAULT_BASE_PRIORITY + ", which is based upon"
                     + _DEFAULT_BASE_PRIORITY_COMMENT + ".")
+parser.add_argument('-v', '--verbose', help="increase output verbosity",
+                    action="count")
 parser.add_argument('-V', '--version', action='version',
                     version="%(prog)s " + __version__)
 args = parser.parse_args()
