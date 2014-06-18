@@ -38,8 +38,8 @@ _MODIFIES = dict.fromkeys(MOD_BASES.values(), 'C')
 # TODO Remove redudancy by building from pairs.
 COMPLEMENTS = {'A': 'T', 'T': 'A', 'G': 'C', 'C': 'G',
                'R': 'Y', 'Y': 'R', 'M': 'K', 'K': 'M',
-               'W': 'W', 'S': 'S', 'B': 'B', 'D': 'D',
-               'H': 'H', 'V': 'V', 'N': 'N', 'X': 'X'}
+               'W': 'W', 'S': 'S', 'B': 'V', 'D': 'H',
+               'H': 'D', 'V': 'B', 'N': 'N', 'X': 'X'}
 # Add all modified nucleobases.
 modifiedBasesToComplements = \
     zip(MOD_BASES.values(), ''.
