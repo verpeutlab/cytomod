@@ -46,7 +46,6 @@ def makePlot(charFreqs, plotPath, subtitle="", pie=False):
     collection of character frequencies."""
     import matplotlib.pyplot as plt
     import prettyplotlib as ppl
-    from prettyplotlib import brewer2mpl
 
     fig, ax = plt.subplots(1)
     if pie:
@@ -57,10 +56,21 @@ def makePlot(charFreqs, plotPath, subtitle="", pie=False):
         plt.pie(zip(*charFreqs)[1], explode=explodeBases,
                 labels=zip(*charFreqs)[0], autopct='%1.1f%%')
     else:
+        from brewer2mpl import diverging
+        bmapType = diverging.Spectral
+        bmapType.pop("max", None)  # remove the max pointer,
+        # since if we need that we'll find that key eventually
+        # Allocate a number of colours corresponding to the
+        # the closest number of possible colours for the given class
+        # to the number of distinct characters we have, plus one.
+        # This is a naive, but sufficient, emulation of the
+        # desired behaviour of obtaining the tightest
+        # upper bound on the number of items in our list
+        numColours = min(bmapType.keys(), key=lambda n:
+                         abs(n - (len(charFreqs) + 1)))
         ppl.barh(ax, range(len(charFreqs)), np.array(zip(*charFreqs)[1]),
                  yticklabels=np.array(zip(*charFreqs)[0]),
-                 cmap=brewer2mpl.get_map('Spectral', 'Diverging',
-                                         len(charFreqs)).mpl_colormap)
+                 cmap=bmapType[numColours].mpl_colormap)
     # Tight plot boundaries pad for subtitle if it exists
     # Not currently used since padding for a subtitle is not functioning
     # fig.tight_layout(h_pad=100 if regionLabel else 0)
