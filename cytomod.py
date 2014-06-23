@@ -123,24 +123,6 @@ def _ensureRegionValidity(genome, chrm, start, end):
         sys.exit("Invalid region: invalid end position.")
 
 
-def maybeGetModBase(m, r):
-    """Returns the modified base corresponding to
-    the given putatively modified base. The base returned
-    is the input putatively modified base if the corresponding
-    reference base is modifiable to the input base, or the complement
-    of that base, if the complemented reference is modifiable to it,
-    otherwise the reference base itself is returned."""
-    if m not in _MODIFIES:
-        return r, False
-    else:
-        if _MODIFIES[m] == r:
-            return m, True
-        elif _MODIFIES[m] == complement(r)[0]:
-            return complement(m)[0], True
-        else:
-            return r, False
-
-
 def getModifiedGenome(genome, modOrder, chrm, start, end):
     """Returns the modified genome sequence, for the given genome,
     over the given input region."""
@@ -158,52 +140,42 @@ def getModifiedGenome(genome, modOrder, chrm, start, end):
         orderedmodBasesA = modBasesA[:, modOrder]
         referenceSeq = list(chrmomosome.seq[s:e].tostring().upper())
         # Filter the bases to take the modified bases in priority order.
-        # At this stage nothing is returned if there is no modified
-        # base at the locus.
-        # TODO there are better ways of doing this than this, rather
-        # 'heavy-handed', filter expression.
-        # TODO could be made more efficient if made into 'pure' NumPy.
-        nz = np.nonzero(orderedmodBasesA != '0')
-        d = np.diff(nz, axis=1)
         x = np.transpose(np.nonzero(orderedmodBasesA != '0'))
-        # XXX CLEANUP
         u, idx = np.unique(x[:,0], return_index=True)
         l = [x[i] for i in idx]
-        
-        
-        
         allModBases = [orderedmodBasesA[x][y] for x,y in l]
-        #np.where(np.logical_or(_MODIFIES[allModBases] == referenceSeq, ))
-        # XXX TODO transform below into a correct NumPy where statement
-        # TODO do so s.t. we get a 2-D array of correctly mod bases and booleans
-        # to allow for simple track construction
-        # XXX currently, this is worse in time complexity by a linear multiple...
-        
-        
-        
-        
-        for i, (m, r) in enumerate(izip(allModBases, referenceSeq), s):
-            b, isMod = maybeGetModBase(m, r)
-            allbasesResult += b
-            # XXX fix to print proper RANGES of values for each mod base...
-            if isMod:
-                print("\t".join([chrm, str(i), str(i+1), b]))
-        
-        #allModBases = [filter(lambda x: x != '0', (bases))
-        #               for bases in orderedmodBasesA]
+        def maybeGetModBase(m, r):
+            """Returns the modified base corresponding to
+            the given putatively modified base. The base returned
+            is the input putatively modified base if the corresponding
+            reference base is modifiable to the input base, or the complement
+            of that base, if the complemented reference is modifiable to it,
+            otherwise the reference base itself is returned."""
+            if m not in _MODIFIES:
+                return r
+            else:
+                if _MODIFIES[m] == r:
+                    return m
+                elif _MODIFIES[m] == complement(r)[0]:
+                    return complement(m)[0]
+                else:
+                    return r
+        # We vectorize the function for convinience.
+        # NumPy vectorized functions still execute the Python code at
+        # each iteration, so this is not especially efficient.
+        maybeGetModBase = np.vectorize(maybeGetModBase)
+        # Mask the sequence, allowing only base modifications
+        # that modify their 'target' base (i.e. '5fC' = 'f' only modifies 'C').
+        # Return the reference base for all non-modifiable bases
+        # and for unmodified bases.
+        allbases = maybeGetModBase(allModBases, referenceSeq)
         # Output the unmodified sequence at a verbosity level of at least 2,
         # if not too long, otherwise only output for a high verbosity level.
         v_print_timestamp("Corresponding unmodified reference sequence: \n"
                           + ''.join(referenceSeq), 2
                           if len(referenceSeq) < 10000 else 6)
-        # Mask the sequence, allowing only base modifications
-        # that modify their 'target' base (i.e. '5fC' = 'f' only modifies 'C').
-        # Return the reference base for all non-modifiable bases
-        # and for unmodified bases.
-        #allbases = [maybeGetModBase(m, r) for m, r in
-        #            zip([b[0] if b else '0' for b in allModBases],
-        #            referenceSeq)]
-        #allbasesResult += ''.join(allbases)
+        # Concatenate the vector together to form the (string) sequence
+        allbasesResult += ''.join(allbases)
     return allbasesResult
 
 
