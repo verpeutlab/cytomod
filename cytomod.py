@@ -43,8 +43,8 @@ COMPLEMENTS = {'A': 'T', 'T': 'A', 'G': 'C', 'C': 'G',
                'H': 'D', 'V': 'B', 'N': 'N', 'X': 'X'}
 # Add all modified nucleobases.
 modifiedBasesToComplements = \
-    zip(MOD_BASES.values(), ''.
-        join(str(i) for i in range(1, len(MOD_BASES) + 1)))
+    izip(MOD_BASES.values(), ''.
+         join(str(i) for i in range(1, len(MOD_BASES) + 1)))
 COMPLEMENTS.update(modifiedBasesToComplements)
 # Add all modified nucleobase complements.
 # They are ordered by the originating modification's oxidation order.
@@ -58,7 +58,7 @@ def complement(bases):
     return [COMPLEMENTS[base] for base in bases]
 
 # Update the dictionary mapping with every complemented modification.
-_MODIFIES.update(zip(complement(_MODIFIES.keys()),
+_MODIFIES.update(izip(complement(_MODIFIES.keys()),
                  complement(_MODIFIES.values())))
 
 AUTOSOME_ONLY_FLAG = 'u'
@@ -67,11 +67,11 @@ MITOCHONDRIAL_ONLY_FLAG = 'm'
 MITOCHONDRIAL_EXCLUSION_FLAG = MITOCHONDRIAL_ONLY_FLAG.upper()
 
 SUPPORTED_FILE_FORMATS_REGEX = '\.(bed|wig|bed[gG]raph)$'
-chrmOMSOME_TYPE_REGEXES = {AUTOSOME_ONLY_FLAG: 'chr\d+',
+CHROMOSOME_TYPE_REGEXES = {AUTOSOME_ONLY_FLAG: 'chr\d+',
                            ALLOSOME_ONLY_FLAG: 'chr[XY]',
                            MITOCHONDRIAL_ONLY_FLAG: 'chrM',
                            MITOCHONDRIAL_EXCLUSION_FLAG: 'chr(?:\d+|[XY])'}
-chrmOMOSOME_EXCLUSION_REGEX = '(?:random)'
+CHROMOSOME_EXCLUSION_REGEX = '(?:random)'
 MOD_BASE_REGEX = '5.+C'
 REGION_REGEX = '(chr(?:\d+|[XYM]))(?::(?P<start>\d+)?-(?P<end>\d+)?)?'
 
@@ -100,14 +100,14 @@ def v_print_timestamp(msg="", threshold=1):
 def _modifychrmExclusionRegex(additionalchrmExclusionFlag):
     """Modify the chrmomosome exclusion regex,
     accroding to the provided flags."""
-    global chrmOMOSOME_EXCLUSION_REGEX  # allow modification of global var
+    global CHROMOSOME_EXCLUSION_REGEX  # allow modification of global var
     # Modify the exclusion regex by adding the regex corresponding
     # to the flag that we wish to exclude. However, the dictionary
     # containing the regexes identify the group specified by the flag
     # (i.e. are inclusion regexes). We therefore invert the additional
     # regex via a modified anchored negative lookahead.
-    chrmOMOSOME_EXCLUSION_REGEX += '|(^((?!' + \
-        chrmOMSOME_TYPE_REGEXES[additionalchrmExclusionFlag] + ').)*$)'
+    CHROMOSOME_EXCLUSION_REGEX += '|(^((?!' + \
+        CHROMOSOME_EXCLUSION_REGEX[additionalchrmExclusionFlag] + ').)*$)'
 
 
 def _ensureRegionValidity(genome, chrm, start, end):
@@ -141,7 +141,8 @@ def getModifiedGenome(genome, modOrder, chrm, start, end):
         referenceSeq = list(chrmomosome.seq[s:e].tostring().upper())
         # Filter the bases to take the modified bases in priority order.
         x = np.transpose(np.nonzero(orderedmodBasesA != '0'))
-        u, idx = np.unique(x[:,0], return_index=True)
+        u, idx = np.unique(x[:, 0], return_index=True)
+
         def maybeGetModBase(m, r):
             """Returns the modified base corresponding to
             the given putatively modified base. The base returned
@@ -158,17 +159,21 @@ def getModifiedGenome(genome, modOrder, chrm, start, end):
                     return complement(m)[0]
                 else:
                     return r
+
         # Initially the sequence is unmodified and we successively modify it.
         allModBases = np.array(referenceSeq, dtype=np.str)
         # We vectorize the function for convinience.
         # NumPy vectorized functions still execute the Python code at
         maybeGetModBase = np.vectorize(maybeGetModBase)
         # Mask the sequence, allowing only base modifications
-            # that modify their 'target' base (i.e. '5fC' = 'f' only modifies 'C').
-            # Return the reference base for all non-modifiable bases
-            # and for unmodified bases.
+        # that modify their 'target' base (i.e. '5fC' = 'f' only modifies 'C').
+        # Return the reference base for all non-modifiable bases
+        # and for unmodified bases.
         if (x.size > 0):
-            np.put(allModBases, x[idx][:,0], maybeGetModBase(orderedmodBasesA[x[idx][:,0], x[idx][:,1]], allModBases[x[idx][:,0]]))
+            np.put(allModBases, x[idx][:, 0],
+                   maybeGetModBase(orderedmodBasesA[x[idx][:, 0],
+                                   x[idx][:, 1]],
+                                   allModBases[x[idx][:, 0]]))
         # Output the unmodified sequence at a verbosity level of at least 2,
         # if not too long, otherwise only output for a high verbosity level.
         v_print_timestamp("Corresponding unmodified reference sequence: \n"
@@ -197,7 +202,7 @@ def selectRandomRegion(genome, length):
     selectablechrmomosomes = {chrmomosome.name: chrmomosome.end for
                               chrmomosome in genome if
                               (chrmomosome.end >= length and
-                               not re.search(chrmOMOSOME_EXCLUSION_REGEX,
+                               not re.search(CHROMOSOME_EXCLUSION_REGEX,
                                              chrmomosome.name))}
     if not selectablechrmomosomes:
         sys.exit(("The region length provided is too long or all "
@@ -305,7 +310,7 @@ region.add_argument('-R', '--randomRegion', nargs='?',
                     small default. The length chosen may constrain the \
                     selection of a chrmomosome.")
 parser.add_argument('-E', '--excludechrms',
-                    choices=chrmOMSOME_TYPE_REGEXES.keys(),
+                    choices=CHROMOSOME_TYPE_REGEXES.keys(),
                     help="Exclude chrmomosome \
                     types. '" + AUTOSOME_ONLY_FLAG + "': \
                     Use only autosomal chrmomosomes  (excludes chrmM). \
@@ -382,7 +387,7 @@ with Genome(genomeDataArchive) as genome:
             print(getModifiedGenome(genome, modOrder, chrm, start, end))
     else:
         for chrmomosome in [chrmomosome for chrmomosome in genome
-                            if not re.search(chrmOMOSOME_EXCLUSION_REGEX,
+                            if not re.search(CHROMOSOME_EXCLUSION_REGEX,
                                              chrmomosome.name)]:
             v_print_timestamp("Outputting the modified genome for: "
                               + chrmomosome.name)
