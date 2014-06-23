@@ -66,6 +66,9 @@ def makePlot(charFreqs, plotPath, subtitle="", pie=False):
         # This is a naive, but sufficient, emulation of the
         # desired behaviour of obtaining the tightest
         # upper bound on the number of items in our list
+        # TODO change this to read colour scheme directly
+        # from the ExtreMEME mod_spec file or to use the
+        # appropriate "RdYlBu" class with custom colours for A/T
         numColours = min(bmapType.keys(), key=lambda n:
                          abs(n - (len(charFreqs) + 1)))
         ppl.barh(ax, range(len(charFreqs)), np.array(zip(*charFreqs)[1]),

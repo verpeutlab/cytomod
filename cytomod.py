@@ -22,6 +22,7 @@ import datetime
 import re
 import random
 from collections import OrderedDict
+from itertools import izip
 
 import numpy as np
 
@@ -130,14 +131,14 @@ def maybeGetModBase(m, r):
     of that base, if the complemented reference is modifiable to it,
     otherwise the reference base itself is returned."""
     if m not in _MODIFIES:
-        return r
+        return r, False
     else:
         if _MODIFIES[m] == r:
-            return m
+            return m, True
         elif _MODIFIES[m] == complement(r)[0]:
-            return complement(m)[0]
+            return complement(m)[0], True
         else:
-            return r
+            return r, False
 
 
 def getModifiedGenome(genome, modOrder, chrm, start, end):
@@ -151,8 +152,9 @@ def getModifiedGenome(genome, modOrder, chrm, start, end):
         e = s + _MAX_REGION_LEN if (end - start) >= _MAX_REGION_LEN else end
         v_print_timestamp("Now outputting " + chrm + " for region: (" + str(s)
                           + ", " + str(e) + ")", 2)
-        modBasesA = np.where(np.logical_and(np.isfinite(chrmomosome[s:e]),
-                             chrmomosome[s:e] != 0), modBases, '0')
+        modBaseScores = chrmomosome[s:e]
+        modBasesA = np.where(np.logical_and(np.isfinite(modBaseScores),
+                             modBaseScores != 0), modBases, '0')
         orderedmodBasesA = modBasesA[:, modOrder]
         referenceSeq = list(chrmomosome.seq[s:e].tostring().upper())
         # Filter the bases to take the modified bases in priority order.
@@ -160,8 +162,35 @@ def getModifiedGenome(genome, modOrder, chrm, start, end):
         # base at the locus.
         # TODO there are better ways of doing this than this, rather
         # 'heavy-handed', filter expression.
-        allModBases = [filter(lambda x: x != '0', (bases))
-                       for bases in orderedmodBasesA]
+        # TODO could be made more efficient if made into 'pure' NumPy.
+        nz = np.nonzero(orderedmodBasesA != '0')
+        d = np.diff(nz, axis=1)
+        x = np.transpose(np.nonzero(orderedmodBasesA != '0'))
+        # XXX CLEANUP
+        u, idx = np.unique(x[:,0], return_index=True)
+        l = [x[i] for i in idx]
+        
+        
+        
+        allModBases = [orderedmodBasesA[x][y] for x,y in l]
+        #np.where(np.logical_or(_MODIFIES[allModBases] == referenceSeq, ))
+        # XXX TODO transform below into a correct NumPy where statement
+        # TODO do so s.t. we get a 2-D array of correctly mod bases and booleans
+        # to allow for simple track construction
+        # XXX currently, this is worse in time complexity by a linear multiple...
+        
+        
+        
+        
+        for i, (m, r) in enumerate(izip(allModBases, referenceSeq), s):
+            b, isMod = maybeGetModBase(m, r)
+            allbasesResult += b
+            # XXX fix to print proper RANGES of values for each mod base...
+            if isMod:
+                print("\t".join([chrm, str(i), str(i+1), b]))
+        
+        #allModBases = [filter(lambda x: x != '0', (bases))
+        #               for bases in orderedmodBasesA]
         # Output the unmodified sequence at a verbosity level of at least 2,
         # if not too long, otherwise only output for a high verbosity level.
         v_print_timestamp("Corresponding unmodified reference sequence: \n"
@@ -171,10 +200,10 @@ def getModifiedGenome(genome, modOrder, chrm, start, end):
         # that modify their 'target' base (i.e. '5fC' = 'f' only modifies 'C').
         # Return the reference base for all non-modifiable bases
         # and for unmodified bases.
-        allbases = [maybeGetModBase(m, r) for m, r in
-                    zip([b[0] if b else '0' for b in allModBases],
-                    referenceSeq)]
-        allbasesResult += ''.join(allbases)
+        #allbases = [maybeGetModBase(m, r) for m, r in
+        #            zip([b[0] if b else '0' for b in allModBases],
+        #            referenceSeq)]
+        #allbasesResult += ''.join(allbases)
     return allbasesResult
 
 
