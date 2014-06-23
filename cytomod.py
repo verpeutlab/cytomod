@@ -142,8 +142,6 @@ def getModifiedGenome(genome, modOrder, chrm, start, end):
         # Filter the bases to take the modified bases in priority order.
         x = np.transpose(np.nonzero(orderedmodBasesA != '0'))
         u, idx = np.unique(x[:,0], return_index=True)
-        l = [x[i] for i in idx]
-        allModBases = [orderedmodBasesA[x][y] for x,y in l]
         def maybeGetModBase(m, r):
             """Returns the modified base corresponding to
             the given putatively modified base. The base returned
@@ -160,22 +158,24 @@ def getModifiedGenome(genome, modOrder, chrm, start, end):
                     return complement(m)[0]
                 else:
                     return r
+        # Initially the sequence is unmodified and we successively modify it.
+        allModBases = np.array(referenceSeq, dtype=np.str)
         # We vectorize the function for convinience.
         # NumPy vectorized functions still execute the Python code at
-        # each iteration, so this is not especially efficient.
         maybeGetModBase = np.vectorize(maybeGetModBase)
         # Mask the sequence, allowing only base modifications
-        # that modify their 'target' base (i.e. '5fC' = 'f' only modifies 'C').
-        # Return the reference base for all non-modifiable bases
-        # and for unmodified bases.
-        allbases = maybeGetModBase(allModBases, referenceSeq)
+            # that modify their 'target' base (i.e. '5fC' = 'f' only modifies 'C').
+            # Return the reference base for all non-modifiable bases
+            # and for unmodified bases.
+        if (x.size > 0):
+            np.put(allModBases, x[idx][:,0], maybeGetModBase(orderedmodBasesA[x[idx][:,0], x[idx][:,1]], allModBases[x[idx][:,0]]))
         # Output the unmodified sequence at a verbosity level of at least 2,
         # if not too long, otherwise only output for a high verbosity level.
         v_print_timestamp("Corresponding unmodified reference sequence: \n"
                           + ''.join(referenceSeq), 2
                           if len(referenceSeq) < 10000 else 6)
         # Concatenate the vector together to form the (string) sequence
-        allbasesResult += ''.join(allbases)
+        allbasesResult += ''.join(allModBases)
     return allbasesResult
 
 
