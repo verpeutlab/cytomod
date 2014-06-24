@@ -28,6 +28,7 @@ from collections import OrderedDict
 from itertools import izip
 
 import numpy as np
+import pybedtools
 
 # Define the "primary" modified bases and their corresponding
 # one base codes, listed in their order of oxidation.
@@ -103,9 +104,9 @@ _MAX_REGION_LEN = 2000000
 _MAX_CONTIG_ATTEMPTS = 3
 
 
-def warn(*msg):
-    """Emit a warning to STDERR."""
-    print(_MSG_PREFIX + "Warning: ", *msg, file=sys.stderr)
+def warn(msg):
+    """Emit a warning to STDERR, deindenting the provided message."""
+    print(_MSG_PREFIX + "Warning: " + textwrap.dedent(msg), file=sys.stderr)
 
 
 def v_print_timestamp(msg="", threshold=1):
@@ -113,6 +114,13 @@ def v_print_timestamp(msg="", threshold=1):
     sys.stderr.write(_MSG_PREFIX + "%s: %s" % (
         datetime.datetime.now().isoformat(), msg + "\n")
         if args.verbose >= threshold else "")
+
+
+def makeList(lstOrVal):
+    """Returns a list of a single item if the object passed is not
+    already a list. This allows one to iterate over objects which
+    may or may not already be lists (and therefore iterable)."""
+    return [lstOrVal] if not isinstance(lstOrVal, list) else lstOrVal
 
 
 def _modifychrmExclusionRegex(additionalchrmExclusionFlag):
@@ -242,8 +250,8 @@ def getModifiedGenome(genome, modOrder, chrm, start,
             # Concatenate the vector together to form the (string) sequence
             allbasesResult += ''.join(allModBases)
     if (not hasModifiedBases and not suppressBED):
-        warn(textwrap.dedent(""""There are no modified bases within the requested
-             region. Accordingly, no BED files have been output."""))
+        warn(""""There are no modified bases within the requested
+             region. Accordingly, no BED files have been output.""")
     return allbasesResult
 
 
@@ -279,9 +287,9 @@ def selectRandomRegion(genome, length):
         if genome[chrm].supercontigs[start:end]:
             break
         elif contigAttempts >= _MAX_CONTIG_ATTEMPTS:
-            warn("Attempts to procure sequence from a supercontig "
-                 "were exhausted. Returning sequence that is not "
-                 "wholly contained within a supercontig.")
+            warn("""Attempts to procure sequence from a supercontig
+                 were exhausted. Returning sequence that is not
+                 wholly contained within a supercontig.""")
             break
         contigAttempts += 1
     return chrm, start, end
@@ -291,6 +299,8 @@ def parseRegion(genome, region):
     """Parses the provided region, ensuring its validity."""
     region = re.sub('[, ]', '', region)  # remove unwanted characters
     regionMatch = re.search(REGION_REGEX, region)
+    if not regionMatch:
+        sys.exit("Invalid region: invalid format.")
     chrm = regionMatch.group(1)
     start = 0
     end = 1
@@ -322,6 +332,7 @@ def determineTrackPriority(genome):
         testRegion = random.randint(chromosome.start, chromosome.end)
         print(chromosome[testRegion:testRegion + 1000])
         break
+
 
 import argparse
 parser = argparse.ArgumentParser()
@@ -355,9 +366,15 @@ genomeArchive.add_argument("-d", "--archiveCompDirs", nargs=2,
                            Use \"-G\" instead to use an existing archive.")
 region = parser.add_mutually_exclusive_group()
 region.add_argument('-r', '--region', help="Only output the modified genome \
-                    for the given region. \
-                    The region must be specified in the format: \
-                    chrm<ID>:<start>-<end> (ex. chrm1:500-510).")
+                    for the given region. This can either be via a file \
+                    or a region specification string. In the latter case, \
+                    the region must be specified in the format: \
+                    chrm<ID>:<start>-<end> (ex. chrm1:500-510). \
+                    If a file is being provided, it can be in \
+                    any BEDTools-supported file format \
+                    (BED, VCF, GFF, and gzipped versions thereof). \
+                    The full path to the file should be provided \
+                    (or just the file name for the current directory).")
 region.add_argument('-R', '--randomRegion', nargs='?',
                     const=_DEFAULT_RAN_LENGTH, type=int,
                     help="Output the modified genome for a random region. \
@@ -390,21 +407,22 @@ parser.add_argument('-p', '--priority', default=_DEFAULT_BASE_PRIORITY,
 BEDGeneration = parser.add_mutually_exclusive_group()
 BEDGeneration.add_argument('-b', '--suppressBED', action='store_true',
                            help="Do not generate any BED tracks.")
-onlyBED = parser.add_mutually_exclusive_group()
 BEDGeneration.add_argument('-B', '--onlyBED', action='store_true',
                            help="Only generate any BED tracks \
                            (i.e. do not output any sequence information). \
                            Note that generated BED files are always \
                            appended to and created in the CWD \
-                           irrespective of the use of this option.")
-onlyBED.add_argument('-f', '--fastaFile', nargs='?', type=str,
-                     const=_DEFAULT_FASTA_FILENAME, help="Output to \
-                     a file instead of STDOUT. Provide a full path \
-                     to a file to append the modified genome in \
-                     FASTA format. If this parameter is invoked \
-                     without any arguments, a default filename \
-                     will be used within the current directory.")
-# XXX correct mutual exclusivity
+                           irrespective of the use of this option. \
+                           This parameter is ignored if '-f' is used.")
+parser.add_argument('-f', '--fastaFile', nargs='?', type=str,
+                    const=_DEFAULT_FASTA_FILENAME, help="Output to \
+                    a file instead of STDOUT. Provide a full path \
+                    to a file to append the modified genome in \
+                    FASTA format. If this parameter is invoked \
+                    without any arguments, a default filename \
+                    will be used within the current directory. \
+                    This will override the '-B' parameter \
+                    (i.e. a FASTA file with always be produced).")
 parser.add_argument('-v', '--verbose', help="increase output verbosity",
                     action="count")
 parser.add_argument('-V', '--version', action='version',
@@ -413,6 +431,10 @@ args = parser.parse_args()
 
 if args.region and args.excludechrms:
     warn("Exclusion regex ignored, since a specific region was specifed.")
+
+if args.onlyBED and args.fastaFile:
+    warn("""Request to only generate BED files ignored,
+             since an output FASTA path was provided.""")
 
 if args.excludechrms:
     _modifychrmExclusionRegex(args.excludechrms)
@@ -449,19 +471,31 @@ with Genome(genomeDataArchive) as genome:
                       + ','.join(list(args.priority)) + ".")
 
     if args.region or args.randomRegion:
-        if args.randomRegion:
-            chrm, start, end = selectRandomRegion(genome, args.randomRegion)
-        else:
-            chrm, start, end = parseRegion(genome, args.region)
-        regionStr = chrm + ":" + str(start) + "-" + str(end)
-        v_print_timestamp("Outputting the modified genome for: "
-                          + regionStr + ".")
-        if args.fastaFile:
-            generateFASTAFile(args.fastaFile, regionStr, genome, modOrder,
-                              chrm, start, end)
-        else:
-            print(getModifiedGenome(genome, modOrder, chrm, start, end,
-                                    args.onlyBED, args.suppressBED))
+        if args.randomRegion:  # Random region
+            chrms, starts, ends = selectRandomRegion(genome, args.randomRegion)
+            regions = np.matrix([chrms, starts, ends])
+        elif os.path.isfile(args.region):  # 'BED-like' set of regions
+            # NB: In pybedtools, all regions behave as if they are 0-based,
+            # despite non-BED files being 1-based. Thus, we do not need to
+            # alter any code in our program.
+            BEDTool = pybedtools.BedTool(args.region)
+            regions = np.matrix([[interval['chrom'], interval['start'],
+                                interval['end']] for interval in BEDTool])
+        else:  # A single, specific, region ('genome browser-like')
+            chrms, starts, ends = parseRegion(genome, args.region)
+            regions = np.matrix([chrms, starts, ends])
+        for i in xrange(0, len(regions.flat), 3):
+            chrm, start, end = regions.flat[i], int(regions.flat[i + 1]), \
+                int(regions.flat[i + 2])
+            regionStr = chrm + ":" + str(start) + "-" + str(end)
+            v_print_timestamp("Outputting the modified genome for: "
+                              + regionStr + ".")
+            if args.fastaFile:
+                generateFASTAFile(args.fastaFile, regionStr, genome, modOrder,
+                                  chrm, start, end, args.suppressBED)
+            else:
+                print(getModifiedGenome(genome, modOrder, chrm, start, end,
+                                        args.onlyBED, args.suppressBED))
     else:
         for chromosome in [chromosome for chromosome in genome
                            if not re.search(CHROMOSOME_EXCLUSION_REGEX,
