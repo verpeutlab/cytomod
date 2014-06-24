@@ -133,7 +133,7 @@ def _modifychrmExclusionRegex(additionalchrmExclusionFlag):
     # (i.e. are inclusion regexes). We therefore invert the additional
     # regex via a modified anchored negative lookahead.
     CHROMOSOME_EXCLUSION_REGEX += '|(^((?!' + \
-        CHROMOSOME_EXCLUSION_REGEX[additionalchrmExclusionFlag] + ').)*$)'
+        CHROMOSOME_TYPE_REGEXES[additionalchrmExclusionFlag] + ').)*$)'
 
 
 def _ensureRegionValidity(genome, chrm, start, end):
@@ -235,6 +235,8 @@ def getModifiedGenome(genome, modOrder, chrm, start,
                         # to the empty string, otherwise the header will
                         # be erroenously prefixed by '#' and interpreted
                         # as a comment by the UCSC browser.
+                        # TODO save as string buffer and gzip after
+                        # That will allow actual compression to occur
                         with gzip.open("track-" + m + ".bed.gz",
                                        'ab') as BEDTrack:
                             np.savetxt(BEDTrack, modBaseStartEnd,
@@ -257,10 +259,12 @@ def getModifiedGenome(genome, modOrder, chrm, start,
 
 def generateFASTAFile(file, id, genome, modOrder, chrm, start,
                       end, suppressBED):
-    """Writes a FASTA file of the modified genome appending to the given file,
-    using the given ID.
+    """Writes an optionally gzipped FASTA file of the modified genome
+    appending to the given file, using the given ID.
     No FASTA ID (i.e. '> ...') is written if no ID is given."""
-    with open(file, 'a') as modGenomeFile:
+    # Write either a gzipped file or not, by using the appropriate function
+    with (gzip.open if file.endswith('.gz') else open)(file, 'ab') \
+            as modGenomeFile:
         if id:
             modGenomeFile.write(">" + id + "\n")
         modGenomeFile.write(getModifiedGenome(genome, modOrder, chrm,
@@ -422,7 +426,9 @@ parser.add_argument('-f', '--fastaFile', nargs='?', type=str,
                     without any arguments, a default filename \
                     will be used within the current directory. \
                     This will override the '-B' parameter \
-                    (i.e. a FASTA file with always be produced).")
+                    (i.e. a FASTA file with always be produced). \
+                    The output file will be gzipped iff the \
+                    path provided ends in \".gz\".")
 parser.add_argument('-v', '--verbose', help="increase output verbosity",
                     action="count")
 parser.add_argument('-V', '--version', action='version',
