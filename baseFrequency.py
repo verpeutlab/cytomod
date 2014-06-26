@@ -9,9 +9,9 @@ from __future__ import print_function
 __version__ = "$Revision: 0.01$"
 
 import sys
-sys.path.reverse()
 import collections
 import re
+import gzip
 
 import numpy as np
 
@@ -90,8 +90,8 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument('-f', '--file', required=True,
                     help="Input FASTA file for nucleobase frequency querying. \
-                    Can either be an existing FASTA file or '"
-                    + _STDIN_SPECIFIER + "' to read from STDIN.")
+                    Can either be an existing (optionally gzipped) FASTA file \
+                    or '" + _STDIN_SPECIFIER + "' to read from STDIN.")
 parser.add_argument('-E', '--explodeBases', default='',
                     help="Explode the given bases in the resulting pie chart \
                     output. The single character base representations to \
@@ -122,6 +122,6 @@ if args.explodeBases and not args.pie:
 if args.file == _STDIN_SPECIFIER:
     f = sys.stdin
 else:
-    f = open(args.file, 'r')
+    f = gzip.open(args.file, 'rb')
 charFreqs = filecharcount(f, LINE_EXCLUSION_REGEX, CHAR_EXCLUSION_REGEX)
 makePlot(charFreqs, args.outputPlotPath, args.regionLabel, args.pie)

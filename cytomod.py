@@ -152,7 +152,8 @@ def _ensureRegionValidity(genome, chrm, start, end):
 def getTrackHeader(m):
     """Generates and returns a valid UCSC track header,
     with an appropriate name, description, and colour
-    for the the given modified nucleobase."""
+    for the the given modified nucleobase.
+    The returned header is terminated by a newline."""
     colour = str(MOD_BASE_COLOURS[MOD_BASES.values().index(m)
                                   if m in MOD_BASES.values()
                                   else (len(MOD_BASE_COLOURS) -
@@ -160,7 +161,7 @@ def getTrackHeader(m):
                                         index(complement(m)[0]) - 1)])
     return 'track name="Nucleobase ' + m + '" description="Track denoting ' + \
         _FULL_MOD_BASE_NAMES[m] + ' covalently modified nucleobases.' + \
-        '" color=' + re.sub('[() ]', '', colour)
+        '" color=' + re.sub('[() ]', '', colour + "\n")
 
 
 def getModifiedGenome(genome, modOrder, chrm, start,
@@ -170,6 +171,23 @@ def getModifiedGenome(genome, modOrder, chrm, start,
     hasModifiedBases = False
     chromosome = genome[chrm]
     allbasesResult = ""
+
+    # Before computing modified bases in blocks, remove any existing BED files
+    # and write the tracks' headers.
+    # Also, store the tracks' names, keyed by modfiied base, for future use.
+    tracknames = {}
+    if not suppressBED:
+        for m in _MODIFIES.keys():
+            trackFileName = "track-" + m + ".bed.gz"
+            tracknames[m] = trackFileName
+            # 'EAFP' way of removing any existing old tracks
+            try:
+                os.remove(trackFileName)
+            except OSError:
+                pass
+            with gzip.open(trackFileName, 'ab') as BEDTrack:
+                BEDTrack.write(getTrackHeader(m))
+
     # Only compute the modified genome in segments.
     # This prevents the creation of excessively large NumPy arrays.
     for s in range(start, end, _MAX_REGION_LEN):
@@ -230,18 +248,17 @@ def getModifiedGenome(genome, modOrder, chrm, start,
                         modBaseStartEnd = np.column_stack((modBaseCoords,
                                                           modBaseCoords+1))
                         # Save the track, appending to a gzipped BED file.
-                        # The header is the UCSC "track" line, which we
-                        # construct. Importantly, 'comments' must be set
-                        # to the empty string, otherwise the header will
-                        # be erroenously prefixed by '#' and interpreted
-                        # as a comment by the UCSC browser.
-                        # TODO save as string buffer and gzip after
-                        # That will allow actual compression to occur
-                        with gzip.open("track-" + m + ".bed.gz",
+                        # TODO save as string buffer (using list joins)
+                        # and gzip after (with cStringIO).
+                        # That will allow actual compression to occur.
+                        with gzip.open(tracknames[m],
                                        'ab') as BEDTrack:
                             np.savetxt(BEDTrack, modBaseStartEnd,
-                                       str(chrm) + "\t%d\t%d\t" + m,
-                                       header=getTrackHeader(m), comments='')
+                                       str(chrm) + "\t%d\t%d\t" + m)
+                    else:
+                        # If there is no track data to write, remove previously
+                        # generated track file, containing only a track header
+                        os.remove(tracknames[m])
         if not suppressFASTA:
             # Output the unmodified sequence at a verbosity level
             # of at least 2, if not too long, otherwise only output
