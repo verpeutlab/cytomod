@@ -28,7 +28,6 @@ from collections import OrderedDict
 from itertools import izip
 
 import numpy as np
-import pybedtools
 
 # Define the "primary" modified bases and their corresponding
 # one base codes, listed in their order of oxidation.
@@ -498,6 +497,7 @@ with Genome(genomeDataArchive) as genome:
             chrms, starts, ends = selectRandomRegion(genome, args.randomRegion)
             regions = np.matrix([chrms, starts, ends])
         elif os.path.isfile(args.region):  # 'BED-like' set of regions
+            import pybedtools
             # NB: In pybedtools, all regions behave as if they are 0-based,
             # despite non-BED files being 1-based. Thus, we do not need to
             # alter any code in our program.
