@@ -13,20 +13,24 @@ from __future__ import with_statement, division, print_function
 import sys
 
 import numpy as np
+import numpy.testing as npt
 from scipy.stats import itemfreq
 
 BOTH_STRANDS = 0
 STRANDS = '+ -' if BOTH_STRANDS else '+'
 FROM_STR = 'custom'
 # The alphabet frequencies used were (WRT Cs only):
-# (assuming uniform background, excepting)
 # 4% 5mC or 5hmC, 0.1% 5hmC, 0.002% 5fC, and 0.0003% 5caC
 # (Song et al. 2012, Ito et al. 2011, and Ehrlich and Wang 1981)
-MOTIF_ALPHABET_BG_FREQUENCIES = {'T': 0.25, 'A': 0.25, 'C': 0.2299885,
-                                 'G': 0.2299885, 'm': 0.0195, '1': 0.0195,
-                                 'h': 0.0005, '2': 0.0005, 'f': 0.00001,
-                                 '3': 0.00001, 'c': 0.0000015, '4': 0.0000015}
-np.testing.assert_allclose([sum(MOTIF_ALPHABET_BG_FREQUENCIES.itervalues())], [1])
+MOTIF_ALPHABET_BG_FREQUENCIES = \
+    {'T': 0.292, 'A': 0.292, 'C': 0.1879885, 'G': 0.1879885,
+     # (using mouse GC content of 41.6%) <- * in use *
+     # From: NCBI Eukaryotic Genome Report File
+     # (assuming uniform background, excepting above) <- not in use
+     # {'T': 0.25, 'A': 0.25, 'C': 0.2299885, 'G': 0.2299885,
+     'm': 0.0195, '1': 0.0195, 'h': 0.0005, '2': 0.0005, 'f': 0.00001,
+     '3': 0.00001, 'c': 0.0000015, '4': 0.0000015}
+npt.assert_allclose([sum(MOTIF_ALPHABET_BG_FREQUENCIES.itervalues())], [1])
 # The MEME Suite uses ASCII ordering for custom alphabets
 # This is the natural lexicographic sorting order, so no "key" is needed
 MOTIF_ALPHABET = sorted(list(MOTIF_ALPHABET_BG_FREQUENCIES.keys()))
