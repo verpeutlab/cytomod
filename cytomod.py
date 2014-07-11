@@ -164,29 +164,12 @@ def getTrackHeader(m):
 
 
 def getModifiedGenome(genome, modOrder, chrm, start,
-                      end, suppressFASTA, suppressBED, trackID=""):
+                      end, suppressFASTA, suppressBED, tnames):
     """Returns the modified genome sequence, for the given genome,
     over the given input region."""
     hasModifiedBases = False
     chromosome = genome[chrm]
     allbasesResult = ""
-    trackID += '-' if trackID else ''
-    # Before computing modified bases in blocks, remove any existing BED files
-    # and write the tracks' headers.
-    # Also, store the tracks' names, keyed by modfiied base, for future use.
-    tracknames = {}
-    if not suppressBED:
-        for m in _MODIFIES.keys():
-            trackFileName = "track-" + trackID + m + ".bed.gz"
-            tracknames[m] = trackFileName
-            # 'EAFP' way of removing any existing old tracks
-            try:
-                os.remove(trackFileName)
-            except OSError:
-                pass
-            with gzip.open(trackFileName, 'ab') as BEDTrack:
-                BEDTrack.write(getTrackHeader(m))
-        trackHasData = dict.fromkeys(tracknames.values())
     # Only compute the modified genome in segments.
     # This prevents the creation of excessively large NumPy arrays.
     for s in range(start, end, _MAX_REGION_LEN):
@@ -240,7 +223,6 @@ def getModifiedGenome(genome, modOrder, chrm, start,
                     baseModIdxs = np.flatnonzero(allModBases[x[idx][:, 0]]
                                                  == m)
                     if baseModIdxs.size > 0:
-                        trackHasData[tracknames[m]] = 1
                         # Get the position of the modified bases in the
                         # sequence, adding the genome start coordinate of
                         # the sequence to operate in actual genome coordinates.
@@ -251,7 +233,7 @@ def getModifiedGenome(genome, modOrder, chrm, start,
                         # TODO save as string buffer (using list joins)
                         # and gzip after (with cStringIO).
                         # That will allow actual compression to occur.
-                        with gzip.open(tracknames[m],
+                        with gzip.open(tnames[m],
                                        'ab') as BEDTrack:
                             np.savetxt(BEDTrack, modBaseStartEnd,
                                        str(chrm) + "\t%d\t%d\t" + m)
@@ -264,19 +246,15 @@ def getModifiedGenome(genome, modOrder, chrm, start,
                               if len(referenceSeq) < 10000 else 6)
             # Concatenate the vector together to form the (string) sequence
             allbasesResult += ''.join(allModBases)
-    for m in _MODIFIES.keys():
-        # If there is no track data to write, remove previously
-        # generated track file, containing only a track header
-        if not trackHasData[tracknames[m]]:
-            os.remove(tracknames[m])
     if (not hasModifiedBases and not suppressBED):
         warn(""""There are no modified bases within the requested
-             region. Accordingly, no BED files have been output.""")
+             region. Accordingly, no BED files have been output
+             for this region.""")
     return allbasesResult
 
 
 def generateFASTAFile(file, id, genome, modOrder, chrm, start,
-                      end, suppressBED):
+                      end, suppressBED, tnames):
     """Writes an optionally gzipped FASTA file of the modified genome
     appending to the given file, using the given ID.
     No FASTA ID (i.e. '> ...') is written if no ID is given."""
@@ -286,8 +264,7 @@ def generateFASTAFile(file, id, genome, modOrder, chrm, start,
         if id:
             modGenomeFile.write(">" + id + "\n")
         modGenomeFile.write(getModifiedGenome(genome, modOrder, chrm,
-                            start, end, False, suppressBED,
-                            os.path.splitext(os.path.basename(file))[0])
+                            start, end, False, suppressBED, tnames)
                             + "\n")
 
 
@@ -496,6 +473,24 @@ with Genome(genomeDataArchive) as genome:
     v_print_timestamp("The order of preference for base modifications is: "
                       + ','.join(list(args.priority)) + ".")
 
+    # Before computing modified bases in blocks, remove any existing BED files
+    # and write the tracks' headers.
+    # Also, store the tracks' names, keyed by modfiied base, for future use.
+    tnames = {}
+    if not args.suppressBED:
+        trackID = os.path.splitext(os.path.basename(args.fastaFile))[0]
+        trackID += '-' if trackID else ''
+        for m in _MODIFIES.keys():
+            trackFileName = "track-" + trackID + m + ".bed.gz"
+            tnames[m] = trackFileName
+            # 'EAFP' way of removing any existing old tracks
+            try:
+                os.remove(trackFileName)
+            except OSError:
+                pass
+            with gzip.open(trackFileName, 'ab') as BEDTrack:
+                BEDTrack.write(getTrackHeader(m))
+
     if args.region or args.randomRegion:
         if args.randomRegion:  # Random region
             chrms, starts, ends = selectRandomRegion(genome, args.randomRegion)
@@ -519,10 +514,11 @@ with Genome(genomeDataArchive) as genome:
                               + regionStr + ".")
             if args.fastaFile:
                 generateFASTAFile(args.fastaFile, regionStr, genome, modOrder,
-                                  chrm, start, end, args.suppressBED)
+                                  chrm, start, end, args.suppressBED, tnames)
             else:
                 print(getModifiedGenome(genome, modOrder, chrm, start, end,
-                                        args.onlyBED, args.suppressBED))
+                                        args.onlyBED, args.suppressBED,
+                                        tnames))
     else:
         for chromosome in [chromosome for chromosome in genome
                            if not re.search(CHROMOSOME_EXCLUSION_REGEX,
@@ -532,6 +528,6 @@ with Genome(genomeDataArchive) as genome:
             generateFASTAFile(args.fastaFile or _DEFAULT_FASTA_FILENAME,
                               chromosome.name, genome, modOrder,
                               chromosome.name, int(chromosome.start),
-                              int(chromosome.end), args.suppressBED)
+                              int(chromosome.end), args.suppressBED, tnames)
 
 v_print_timestamp("Program complete.")
