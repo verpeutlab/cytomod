@@ -122,6 +122,7 @@ if args.explodeBases and not args.pie:
 if args.file == _STDIN_SPECIFIER:
     f = sys.stdin
 else:
-    f = gzip.open(args.file, 'rb')
+    openHandler = gzip.open if args.file.endswith('.gz') else open
+    f = openHandler(args.file, 'rb')
 charFreqs = filecharcount(f, LINE_EXCLUSION_REGEX, CHAR_EXCLUSION_REGEX)
 makePlot(charFreqs, args.outputPlotPath, args.regionLabel, args.pie)
