@@ -164,20 +164,20 @@ def getTrackHeader(m):
 
 
 def getModifiedGenome(genome, modOrder, chrm, start,
-                      end, suppressFASTA, suppressBED):
+                      end, suppressFASTA, suppressBED, trackID=""):
     """Returns the modified genome sequence, for the given genome,
     over the given input region."""
     hasModifiedBases = False
     chromosome = genome[chrm]
     allbasesResult = ""
-
+    trackID += '-' if trackID else ''
     # Before computing modified bases in blocks, remove any existing BED files
     # and write the tracks' headers.
     # Also, store the tracks' names, keyed by modfiied base, for future use.
     tracknames = {}
     if not suppressBED:
         for m in _MODIFIES.keys():
-            trackFileName = "track-" + m + ".bed.gz"
+            trackFileName = "track-" + trackID + m + ".bed.gz"
             tracknames[m] = trackFileName
             # 'EAFP' way of removing any existing old tracks
             try:
@@ -186,7 +186,7 @@ def getModifiedGenome(genome, modOrder, chrm, start,
                 pass
             with gzip.open(trackFileName, 'ab') as BEDTrack:
                 BEDTrack.write(getTrackHeader(m))
-
+        trackHasData = dict.fromkeys(tracknames.values())
     # Only compute the modified genome in segments.
     # This prevents the creation of excessively large NumPy arrays.
     for s in range(start, end, _MAX_REGION_LEN):
@@ -240,6 +240,7 @@ def getModifiedGenome(genome, modOrder, chrm, start,
                     baseModIdxs = np.flatnonzero(allModBases[x[idx][:, 0]]
                                                  == m)
                     if baseModIdxs.size > 0:
+                        trackHasData[tracknames[m]] = 1
                         # Get the position of the modified bases in the
                         # sequence, adding the genome start coordinate of
                         # the sequence to operate in actual genome coordinates.
@@ -254,10 +255,6 @@ def getModifiedGenome(genome, modOrder, chrm, start,
                                        'ab') as BEDTrack:
                             np.savetxt(BEDTrack, modBaseStartEnd,
                                        str(chrm) + "\t%d\t%d\t" + m)
-                    else:
-                        # If there is no track data to write, remove previously
-                        # generated track file, containing only a track header
-                        os.remove(tracknames[m])
         if not suppressFASTA:
             # Output the unmodified sequence at a verbosity level
             # of at least 2, if not too long, otherwise only output
@@ -267,6 +264,11 @@ def getModifiedGenome(genome, modOrder, chrm, start,
                               if len(referenceSeq) < 10000 else 6)
             # Concatenate the vector together to form the (string) sequence
             allbasesResult += ''.join(allModBases)
+    for m in _MODIFIES.keys():
+        # If there is no track data to write, remove previously
+        # generated track file, containing only a track header
+        if not trackHasData[tracknames[m]]:
+            os.remove(tracknames[m])
     if (not hasModifiedBases and not suppressBED):
         warn(""""There are no modified bases within the requested
              region. Accordingly, no BED files have been output.""")
@@ -284,7 +286,9 @@ def generateFASTAFile(file, id, genome, modOrder, chrm, start,
         if id:
             modGenomeFile.write(">" + id + "\n")
         modGenomeFile.write(getModifiedGenome(genome, modOrder, chrm,
-                            start, end, False, suppressBED) + "\n")
+                            start, end, False, suppressBED,
+                            os.path.splitext(os.path.basename(file))[0])
+                            + "\n")
 
 
 def selectRandomRegion(genome, length):
@@ -525,9 +529,9 @@ with Genome(genomeDataArchive) as genome:
                                             chromosome.name)]:
             v_print_timestamp("Outputting the modified genome for: "
                               + chromosome.name)
-            generateFASTAFile(args.fastaFile, chromosome.name,
-                              genome, modOrder, chromosome.name,
-                              int(chromosome.start),
+            generateFASTAFile(args.fastaFile or _DEFAULT_FASTA_FILENAME,
+                              chromosome.name, genome, modOrder,
+                              chromosome.name, int(chromosome.start),
                               int(chromosome.end), args.suppressBED)
 
 v_print_timestamp("Program complete.")
