@@ -4,14 +4,14 @@
 a representative pie chart. Character frequency computation
 code was adapted from: http://rosettacode.org/wiki/Letter_frequency#Python"""
 
-from __future__ import print_function
+from __future__ import with_statement, division, print_function
 
-__version__ = "$Revision: 0.01$"
+__version__ = "$Revision: 0.04$"
 
 import sys
-import collections
 import re
 import gzip
+from collections import Counter
 
 import numpy as np
 
@@ -35,7 +35,7 @@ def filecharcount(openfile, lineExclusionRegex, charExclusionRegex):
     """Counts characters characters, over the given file handle,
     returning a sorted collection. Excludes lines or characters matching
     the given respective exclusion regexes."""
-    return sorted(collections.Counter
+    return sorted(Counter
                   (c for l in openfile if
                    not re.search(lineExclusionRegex, l) for c in l if
                    not re.search(charExclusionRegex, c)).items())
@@ -48,6 +48,10 @@ def makePlot(charFreqs, plotPath, subtitle="", pie=False):
     import prettyplotlib as ppl
 
     fig, ax = plt.subplots(1)
+    # Scale in a way to allow appropriate plotting of both very large
+    # and small values. This is done using a symmetrical logarithmic scale.
+    # See: http://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.xscale
+    ax.set_xscale("symlog")
     if pie:
         explodeBases = []
         for c in zip(*charFreqs)[0]:
@@ -110,6 +114,8 @@ parser.add_argument('-o', '--outputPlotPath', default=_DEFAULT_PLOT_NAME,
                     help="A full path to where the plot should be saved. \
                     Any specified file extension will end up as a part \
                     of the filename itself and not as a genuine extension.")
+parser.add_argument('-t', '--text', action='store_true',
+                    help="Output the nucleobase frequencies.")
 parser.add_argument('-v', '--verbose', help="increase output verbosity",
                     action="count")
 parser.add_argument('-V', '--version', action='version',
@@ -125,4 +131,9 @@ else:
     openHandler = gzip.open if args.file.endswith('.gz') else open
     f = openHandler(args.file, 'rb')
 charFreqs = filecharcount(f, LINE_EXCLUSION_REGEX, CHAR_EXCLUSION_REGEX)
+
+if args.text:
+    sum = sum(zip(*charFreqs)[1])
+    print ('\n'.join(map(str, [(base, fr / sum) for base, fr in charFreqs])))
+
 makePlot(charFreqs, args.outputPlotPath, args.regionLabel, args.pie)

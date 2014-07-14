@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from __future__ import with_statement, division, print_function
 
-__version__ = "$Revision: 0.03$"
+__version__ = "$Revision: 0.04$"
 
 """Cytomod uses information on modification
 locations to replace the appropriate symbols in a reference genome sequence
