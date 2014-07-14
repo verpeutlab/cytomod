@@ -73,7 +73,7 @@ def makePlot(charFreqs, plotPath, subtitle="", pie=False):
                          abs(n - (len(charFreqs) + 1)))
         ppl.barh(ax, range(len(charFreqs)), np.array(zip(*charFreqs)[1]),
                  yticklabels=np.array(zip(*charFreqs)[0]),
-                 cmap=bmapType[numColours].mpl_colormap)
+                 color=bmapType[numColours].mpl_colors)
     # Tight plot boundaries pad for subtitle if it exists
     # Not currently used since padding for a subtitle is not functioning
     # fig.tight_layout(h_pad=100 if regionLabel else 0)
