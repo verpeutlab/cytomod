@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
-"""Computes the frequency of each nucleobase and outputs
-a representative pie chart. Character frequency computation
+"""Computes the counts of each nucleobase and outputs
+a representative horizontal bar plot chart with a logarithmic
+scale, as well as another with the absolute percent frequencies
+of only modified nucleobase. The character counts computation
 code was adapted from: http://rosettacode.org/wiki/Letter_frequency#Python"""
 
 from __future__ import with_statement, division, print_function
@@ -17,10 +19,14 @@ import numpy as np
 
 _STDIN_SPECIFIER = '-'
 _DEFAULT_PLOT_NAME = 'nucleobaseFrequencies'
+_PERCENTAGE_PLOT_SUFFIX = '-inclusionOnlyPercentagePlot'
 _EXPLODE_DISTANCE = 0.1
 
 LINE_EXCLUSION_REGEX = '>'
 CHAR_EXCLUSION_REGEX = '\n'
+
+# Default inclusion regex for output of modified base only plot
+_DEFAULT_SELECTION_INCLUSION_REGEX = '[a-z0-9]'
 
 # Allow for substitution of some simple input to its corresponding unicode
 _UNICODE_SUBS = ('---', u"\u2014"), ('--', u"\u2013")
@@ -41,9 +47,9 @@ def filecharcount(openfile, lineExclusionRegex, charExclusionRegex):
                    not re.search(charExclusionRegex, c)).items())
 
 
-def makePlot(charFreqs, plotPath, subtitle="", pie=False):
+def makeCountPlot(charCounts, plotPath, subtitle="", pie=False):
     """Creates a (bar or pie) chart from the provided, sorted,
-    collection of character frequencies."""
+    collection of character counts."""
     import matplotlib.pyplot as plt
     import prettyplotlib as ppl
 
@@ -51,14 +57,14 @@ def makePlot(charFreqs, plotPath, subtitle="", pie=False):
     # Scale in a way to allow appropriate plotting of both very large
     # and small values. This is done using a symmetrical logarithmic scale.
     # See: http://matplotlib.org/api/pyplot_api.html#matplotlib.pyplot.xscale
-    ax.set_xscale("symlog")
+    ax.set_xscale('symlog')
     if pie:
         explodeBases = []
-        for c in zip(*charFreqs)[0]:
+        for c in zip(*charCounts)[0]:
             explodeBases.append(_EXPLODE_DISTANCE) \
                 if c in args.explodeBases else explodeBases.append(0)
-        plt.pie(zip(*charFreqs)[1], explode=explodeBases,
-                labels=zip(*charFreqs)[0], autopct='%1.1f%%')
+        plt.pie(zip(*charCounts)[1], explode=explodeBases,
+                labels=zip(*charCounts)[0], autopct='%1.1f%%')
     else:
         from brewer2mpl import diverging
         bmapType = diverging.Spectral
@@ -74,20 +80,64 @@ def makePlot(charFreqs, plotPath, subtitle="", pie=False):
         # from the ExtreMEME mod_spec file or to use the
         # appropriate "RdYlBu" class with custom colours for A/T
         numColours = min(bmapType.keys(), key=lambda n:
-                         abs(n - (len(charFreqs) + 1)))
-        ppl.barh(ax, range(len(charFreqs)), np.array(zip(*charFreqs)[1]),
-                 yticklabels=np.array(zip(*charFreqs)[0]),
+                         abs(n - (len(charCounts) + 1)))
+        ppl.barh(ax, range(len(charCounts)), np.array(zip(*charCounts)[1]),
+                 yticklabels=np.array(zip(*charCounts)[0]),
                  color=bmapType[numColours].mpl_colors)
+        plt.xlabel('Count')
+        plt.ylabel('Nucleobase')
     # Tight plot boundaries pad for subtitle if it exists
     # Not currently used since padding for a subtitle is not functioning
     # fig.tight_layout(h_pad=100 if regionLabel else 0)
-    plt.suptitle('Modified Genome Nucleobase Frenquencies',
+
+    plt.suptitle('Modified Genome Nucleobase Counts',
                  bbox={'facecolor': '0.8', 'pad': 5}, fontsize=16)
     # Print the given subtitle and transform to corresponding unicode
     plt.title(reduce(lambda s, kv: s.replace(*kv), _UNICODE_SUBS, subtitle),
               fontsize=12)
     plt.savefig(plotPath + ('.png' if args.rasterize else '.pdf'))
 
+
+def makeSelFreqPlot(charFreqsP, plotPath, selectionInclusionRegex,
+                    subtitle="", pie=False):
+    """Creates a (bar or pie) chart from the provided, sorted,
+    collection of character frequencies.
+    The frequencies (only if plotting a bar chart)
+    are multiplied by 100 to plot them as percentages."""
+    import matplotlib.pyplot as plt
+    import prettyplotlib as ppl
+
+    fig, ax = plt.subplots(1)
+    if pie:
+        explodeBases = []
+        for c in zip(*charCounts)[0]:
+            explodeBases.append(_EXPLODE_DISTANCE) \
+                if c in args.explodeBases else explodeBases.append(0)
+        plt.pie(zip(*charFreqsP)[1], explode=explodeBases,
+                labels=zip(*charFreqsP)[0], autopct='%1.1f%%')
+    else:
+        from brewer2mpl import diverging
+        bmapType = diverging.Spectral
+        bmapType.pop("max", None)  # remove the max pointer
+        # TODO - refer to comment in makeCountPlot
+
+        selectedCharFreqs = [(c, f*100) for c, f in charFreqsP
+                             if re.search(selectionInclusionRegex, c)]
+        numColours = min(bmapType.keys(), key=lambda n:
+                         abs(n - (len(selectedCharFreqs) + 1)))
+        ppl.barh(ax, range(len(selectedCharFreqs)),
+                 np.array(zip(*selectedCharFreqs)[1]),
+                 yticklabels=np.array(zip(*selectedCharFreqs)[0]),
+                 color=bmapType[numColours].mpl_colors)
+        plt.xlabel('Frequency (%)')
+        plt.ylabel('Modified Nucleobase')
+    plt.suptitle('Modified Nucleobase Percent Abundances',
+                 bbox={'facecolor': '0.8', 'pad': 5}, fontsize=16)
+    # Print the given subtitle and transform to corresponding unicode
+    plt.title(reduce(lambda s, kv: s.replace(*kv), _UNICODE_SUBS, subtitle),
+              fontsize=12)
+    plt.savefig(plotPath +
+                ('.png' if args.rasterize else '.pdf'))
 
 import argparse
 parser = argparse.ArgumentParser()
@@ -115,7 +165,14 @@ parser.add_argument('-o', '--outputPlotPath', default=_DEFAULT_PLOT_NAME,
                     Any specified file extension will end up as a part \
                     of the filename itself and not as a genuine extension.")
 parser.add_argument('-t', '--text', action='store_true',
-                    help="Output the nucleobase frequencies.")
+                    help="Output the nucleobase frequencies (to STDOUT).")
+parser.add_argument('-s', '--selectionInclusionRegex',
+                    default=_DEFAULT_SELECTION_INCLUSION_REGEX,
+                    help="A regular expression specifying which characters \
+                    ought to be included for the absolute percentage plot. \
+                    This defaults to include only modifified nucleobases \
+                    (defined as any lower-case alphabetic character \
+                    or any digit).")
 parser.add_argument('-v', '--verbose', help="increase output verbosity",
                     action="count")
 parser.add_argument('-V', '--version', action='version',
@@ -130,10 +187,14 @@ if args.file == _STDIN_SPECIFIER:
 else:
     openHandler = gzip.open if args.file.endswith('.gz') else open
     f = openHandler(args.file, 'rb')
-charFreqs = filecharcount(f, LINE_EXCLUSION_REGEX, CHAR_EXCLUSION_REGEX)
+charCounts = filecharcount(f, LINE_EXCLUSION_REGEX, CHAR_EXCLUSION_REGEX)
+
+totalNumChars = sum(zip(*charCounts)[1])
+charFreqs = [(base, count / totalNumChars) for base, count in charCounts]
 
 if args.text:
-    sum = sum(zip(*charFreqs)[1])
-    print ('\n'.join(map(str, [(base, fr / sum) for base, fr in charFreqs])))
+    print ('\n'.join(map(str, charFreqs)))
 
-makePlot(charFreqs, args.outputPlotPath, args.regionLabel, args.pie)
+makeCountPlot(charCounts, args.outputPlotPath, args.regionLabel, args.pie)
+makeSelFreqPlot(charFreqs, args.outputPlotPath + _PERCENTAGE_PLOT_SUFFIX,
+                args.selectionInclusionRegex, args.regionLabel, args.pie)
