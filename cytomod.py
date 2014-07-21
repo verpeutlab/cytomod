@@ -101,6 +101,8 @@ _DEFAULT_BASE_PRIORITY_COMMENT = """the resolution of the biological protocol
 _DEFAULT_RAN_LENGTH = 2000
 _MAX_REGION_LEN = 2000000
 _MAX_CONTIG_ATTEMPTS = 3
+# tracks to be displayed densely for output UCSC browser tracks
+_DENSE_TRACKS = 'ruler ensGene pubs cpgIslandExt oreganno rmsk snp128'
 
 
 def warn(msg):
@@ -158,9 +160,12 @@ def getTrackHeader(m):
                                   else (len(MOD_BASE_COLOURS) -
                                         MOD_BASES.values().
                                         index(complement(m)[0]) - 1)])
-    return 'track name="Nucleobase ' + m + '" description="Track denoting ' + \
-        _FULL_MOD_BASE_NAMES[m] + ' covalently modified nucleobases.' + \
-        '" color=' + re.sub('[() ]', '', colour + "\n")
+    browserConfLines = "browser hide all\nbrowser dense " + \
+        _DENSE_TRACKS + "\n"
+    return browserConfLines + 'track name="Nucleobase ' + m + \
+        '" description="Track denoting ' + _FULL_MOD_BASE_NAMES[m] + \
+        ' covalently modified nucleobases.' + '" color=' + \
+        re.sub('[() ]', '', colour + "\n")
 
 
 def getModifiedGenome(genome, modOrder, chrm, start,
@@ -478,7 +483,8 @@ with Genome(genomeDataArchive) as genome:
     # Also, store the tracks' names, keyed by modfiied base, for future use.
     tnames = {}
     if not args.suppressBED:
-        trackID = os.path.splitext(os.path.basename(args.fastaFile))[0]
+        trackID = os.path.splitext(os.path.basename(args.fastaFile
+                                   or _DEFAULT_FASTA_FILENAME))[0]
         trackID += '-' if trackID else ''
         for m in _MODIFIES.keys():
             trackFileName = "track-" + trackID + m + ".bed.gz"
