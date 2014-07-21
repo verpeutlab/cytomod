@@ -47,7 +47,7 @@ def filecharcount(openfile, lineExclusionRegex, charExclusionRegex):
                    not re.search(charExclusionRegex, c)).items())
 
 
-def makeCountPlot(charCounts, plotPath, subtitle="", pie=False):
+def makeCountPlot(charCounts, plotPath, subtitle="", pie=False, annPlot=False):
     """Creates a (bar or pie) chart from the provided, sorted,
     collection of character counts."""
     import matplotlib.pyplot as plt
@@ -99,7 +99,7 @@ def makeCountPlot(charCounts, plotPath, subtitle="", pie=False):
 
 
 def makeSelFreqPlot(charFreqsP, plotPath, selectionInclusionRegex,
-                    subtitle="", pie=False):
+                    subtitle="", pie=False, annPlot=False):
     """Creates a (bar or pie) chart from the provided, sorted,
     collection of character frequencies.
     The frequencies (only if plotting a bar chart)
@@ -116,11 +116,12 @@ def makeSelFreqPlot(charFreqsP, plotPath, selectionInclusionRegex,
         plt.pie(zip(*charFreqsP)[1], explode=explodeBases,
                 labels=zip(*charFreqsP)[0], autopct='%1.1f%%')
     else:
+        import matplotlib.ticker as ticker
         from brewer2mpl import diverging
+
         bmapType = diverging.Spectral
         bmapType.pop("max", None)  # remove the max pointer
         # TODO - refer to comment in makeCountPlot
-
         selectedCharFreqs = [(c, f*100) for c, f in charFreqsP
                              if re.search(selectionInclusionRegex, c)]
         numColours = min(bmapType.keys(), key=lambda n:
@@ -128,7 +129,9 @@ def makeSelFreqPlot(charFreqsP, plotPath, selectionInclusionRegex,
         ppl.barh(ax, range(len(selectedCharFreqs)),
                  np.array(zip(*selectedCharFreqs)[1]),
                  yticklabels=np.array(zip(*selectedCharFreqs)[0]),
-                 color=bmapType[numColours].mpl_colors)
+                 color=bmapType[numColours].mpl_colors, annotate=annPlot)
+        ax.xaxis.set_ticks_position('bottom')
+        ax.xaxis.set_minor_locator(ticker.AutoMinorLocator()) 
         plt.xlabel('Frequency (%)')
         plt.ylabel('Modified Nucleobase')
     plt.suptitle('Modified Nucleobase Percent Abundances',
