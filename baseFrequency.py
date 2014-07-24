@@ -31,6 +31,10 @@ _DEFAULT_SELECTION_INCLUSION_REGEX = '[a-z0-9]'
 # Allow for substitution of some simple input to its corresponding unicode
 _UNICODE_SUBS = ('---', u"\u2014"), ('--', u"\u2013")
 
+# Nucleobases defined as being or originating from a specific parent nucleobase
+_FROM_C = ['C', 'm', 'h', 'f', 'c']
+_FROM_G = ['G', '1', '2', '3', '4']
+
 
 def warn(*msg):
     """Emit a warning to STDERR."""
@@ -99,7 +103,7 @@ def makeCountPlot(charCounts, plotPath, subtitle="", pie=False, annPlot=False):
 
 
 def makeSelFreqPlot(charFreqsP, plotPath, selectionInclusionRegex,
-                    subtitle="", pie=False, annPlot=False):
+                    subtitle="", percentC=False, pie=False, annPlot=False):
     """Creates a (bar or pie) chart from the provided, sorted,
     collection of character frequencies.
     The frequencies (only if plotting a bar chart)
@@ -107,23 +111,24 @@ def makeSelFreqPlot(charFreqsP, plotPath, selectionInclusionRegex,
     import matplotlib.pyplot as plt
     import prettyplotlib as ppl
 
+    # TODO - refer to comment in makeCountPlot
+    selectedCharFreqs = [(c, f*100) for c, f in charFreqsP
+                         if re.search(selectionInclusionRegex, c)]
+
     fig, ax = plt.subplots(1)
     if pie:
         explodeBases = []
-        for c in zip(*charCounts)[0]:
+        for c in zip(*selectedCharFreqs)[0]:
             explodeBases.append(_EXPLODE_DISTANCE) \
                 if c in args.explodeBases else explodeBases.append(0)
-        plt.pie(zip(*charFreqsP)[1], explode=explodeBases,
-                labels=zip(*charFreqsP)[0], autopct='%1.1f%%')
+        plt.pie(zip(*selectedCharFreqs)[1], explode=explodeBases,
+                labels=zip(*selectedCharFreqs)[0], autopct='%1.1f%%')
     else:
         import matplotlib.ticker as ticker
         from brewer2mpl import diverging
 
         bmapType = diverging.Spectral
         bmapType.pop("max", None)  # remove the max pointer
-        # TODO - refer to comment in makeCountPlot
-        selectedCharFreqs = [(c, f*100) for c, f in charFreqsP
-                             if re.search(selectionInclusionRegex, c)]
         numColours = min(bmapType.keys(), key=lambda n:
                          abs(n - (len(selectedCharFreqs) + 1)))
         ppl.barh(ax, range(len(selectedCharFreqs)),
@@ -131,8 +136,9 @@ def makeSelFreqPlot(charFreqsP, plotPath, selectionInclusionRegex,
                  yticklabels=np.array(zip(*selectedCharFreqs)[0]),
                  color=bmapType[numColours].mpl_colors, annotate=annPlot)
         ax.xaxis.set_ticks_position('bottom')
-        ax.xaxis.set_minor_locator(ticker.AutoMinorLocator()) 
-        plt.xlabel('Frequency (%)')
+        ax.xaxis.set_minor_locator(ticker.AutoMinorLocator())
+        plt.xlabel('Percent of Total Cytosine Content' if percentC
+                   else 'Percent of Total Genomic Content')
         plt.ylabel('Modified Nucleobase')
     plt.suptitle('Modified Nucleobase Percent Abundances',
                  bbox={'facecolor': '0.8', 'pad': 5}, fontsize=16)
@@ -176,6 +182,10 @@ parser.add_argument('-s', '--selectionInclusionRegex',
                     This defaults to include only modifified nucleobases \
                     (defined as any lower-case alphabetic character \
                     or any digit).")
+parser.add_argument('-C', '--percentC', action='store_true',
+                    help="In the frequency plot, use percent of total \
+                    cytosines (guanines for complentary modified bases), \
+                    instead of the default overall percentages.")
 parser.add_argument('-v', '--verbose', help="increase output verbosity",
                     action="count")
 parser.add_argument('-V', '--version', action='version',
@@ -186,18 +196,33 @@ if args.explodeBases and not args.pie:
     warn("Explosion paramter ignored, since we are not making a pie chart.")
 
 if args.file == _STDIN_SPECIFIER:
-    f = sys.stdin
+    fileH = sys.stdin
 else:
     openHandler = gzip.open if args.file.endswith('.gz') else open
-    f = openHandler(args.file, 'rb')
-charCounts = filecharcount(f, LINE_EXCLUSION_REGEX, CHAR_EXCLUSION_REGEX)
+    fileH = openHandler(args.file, 'rb')
+charCounts = filecharcount(fileH, LINE_EXCLUSION_REGEX, CHAR_EXCLUSION_REGEX)
 
-totalNumChars = sum(zip(*charCounts)[1])
-charFreqs = [(base, count / totalNumChars) for base, count in charCounts]
+charFreqs = 0
+# TODO This could be made much more general (i.e. define a base or
+# set of bases that this op occurs WRT and define a complentation
+# operation for that base etc.).
+if args.percentC:
+    totalNumCs = sum((f for b, f in charCounts if b in _FROM_C))
+    totalNumGs = sum((f for b, f in charCounts if b in _FROM_G))
+    charFreqs = [(base, count / totalNumCs) for base, count in charCounts
+                 if base in _FROM_C]
+    charFreqs += [(base, count / totalNumGs) for base, count in charCounts
+                  if base in _FROM_G]
+else:
+    totalNumChars = sum(zip(*charCounts)[1])
+    charFreqs = [(base, count / totalNumChars) for base, count in charCounts]
 
 if args.text:
+    if args.verbose > 0:
+        print("Program was invoked with:\n" + str(sys.argv[1:]) + "\n\n")
     print ('\n'.join(map(str, charFreqs)))
 
 makeCountPlot(charCounts, args.outputPlotPath, args.regionLabel, args.pie)
 makeSelFreqPlot(charFreqs, args.outputPlotPath + _PERCENTAGE_PLOT_SUFFIX,
-                args.selectionInclusionRegex, args.regionLabel, args.pie)
+                args.selectionInclusionRegex, args.regionLabel, args.percentC,
+                args.pie)
