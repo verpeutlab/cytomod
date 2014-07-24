@@ -20,16 +20,15 @@ BOTH_STRANDS = 0
 STRANDS = '+ -' if BOTH_STRANDS else '+'
 FROM_STR = 'custom'
 # The alphabet frequencies used were (WRT Cs only):
-# 4% 5mC or 5hmC, 0.1% 5hmC, 0.002% 5fC, and 0.0003% 5caC
-# (Song et al. 2012, Ito et al. 2011, and Ehrlich and Wang 1981)
+# 2.95% 5mC, 0.055 ± 0.008% 5hmC, 0.0014 ± 0.0003% 5fC, and 0.000335% 5caC
+# (Respectively: Ito et al. 2011, Booth et al. 2014, Booth et al. 2014,
+# and Ito et al. 2011)
 MOTIF_ALPHABET_BG_FREQUENCIES = \
-    {'T': 0.292, 'A': 0.292, 'C': 0.1879885, 'G': 0.1879885,
-     # (using mouse GC content of 41.6%) <- * in use *
+    {'T': 0.292, 'A': 0.292, 'C': 0.201745991, 'G': 0.201745991,
+     # (using mouse GC content of 41.6%)
      # From: NCBI Eukaryotic Genome Report File
-     # (assuming uniform background, excepting above) <- not in use
-     # {'T': 0.25, 'A': 0.25, 'C': 0.2299885, 'G': 0.2299885,
-     'm': 0.0195, '1': 0.0195, 'h': 0.0005, '2': 0.0005, 'f': 0.00001,
-     '3': 0.00001, 'c': 0.0000015, '4': 0.0000015}
+     'm': 0.006136, '1': 0.006136, 'h': 0.0001144, '2': 0.0001144,
+     'f': 0.000002912, '3': 0.000002912, 'c': 0.000000697, '4': 0.000000697}
 npt.assert_allclose([sum(MOTIF_ALPHABET_BG_FREQUENCIES.itervalues())], [1])
 # The MEME Suite uses ASCII ordering for custom alphabets
 # This is the natural lexicographic sorting order, so no "key" is needed
