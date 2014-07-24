@@ -95,7 +95,7 @@ REGION_REGEX = '(chr(?:\d+|[XYM]))(?::(?P<start>\d+)?-(?P<end>\d+)?)?'
 
 _MSG_PREFIX = '>> <Cytomod> '
 _DEFAULT_FASTA_FILENAME = 'modGenome.fa'
-_DEFAULT_BASE_PRIORITY = 'hmfc'
+_DEFAULT_BASE_PRIORITY = 'fhmc'
 _DEFAULT_BASE_PRIORITY_COMMENT = """the resolution of the biological protocol
 (i.e. single-base > any chemical > any DIP)"""
 _DEFAULT_RAN_LENGTH = 2000
