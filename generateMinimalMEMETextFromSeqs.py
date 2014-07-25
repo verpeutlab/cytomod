@@ -1,7 +1,8 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
-"""Creates a minimal MEME text file, suitable for FIMO, from an
-input set of sequences (one raw sequence per line).
+"""Prints (to STDOUT) a minimal MEME text file, suitable for FIMO,
+from an input set of sequences (one raw sequence per line).
 Accepts a single argument: the full path to the input file.
 The background frequencies should be manually adjusted to use case.
 NB: This script is not intended for general use, but rather was
