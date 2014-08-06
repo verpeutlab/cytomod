@@ -1,11 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# XXX Fix help message (i.e. '-h'); it currently causes an exception.
-
 from __future__ import with_statement, division, print_function
-
-__version__ = "$Revision: 0.04$"
 
 """Prints (to STDOUT) a minimal MEME text file, suitable for FIMO,
 from an input set of sequences (one raw sequence per line)
@@ -15,7 +11,6 @@ to use case. Modified output (if applicable) is always
 written to a file, while the MEME output written to STDOUT
 always correpsonds to the unmodified motif."""
 
-import sys
 import os
 import textwrap
 import re
@@ -28,14 +23,14 @@ except:
 import numpy as np
 import numpy.testing as npt
 from scipy.stats import itemfreq
-from bidict import bidict
+
+import cUtils
+__version__ = cUtils.VERSION
 
 _DELIM = "\t"
 BOTH_STRANDS = 0
 STRANDS = '+ -' if BOTH_STRANDS else '+'
 FROM_STR = 'custom'
-MOD_BASE_NAMES = {'m': '5mC', 'h': '5hmC', 'f': '5fC', 'c': '5caC'}
-MOD_BASE_COMPLEMENTS = bidict({'m': '1', 'h': '2', 'f': '3', 'c': '4'})
 # The alphabet frequencies used were (WRT Cs only):
 # 2.95% 5mC, 0.055 ± 0.008% 5hmC, 0.0014 ± 0.0003% 5fC, and 0.000335% 5caC
 # (Respectively: Ito et al. 2011, Booth et al. 2014, Booth et al. 2014,
@@ -84,48 +79,21 @@ Background letter frequencies (from %s):
 
 """ % (STRANDS, FROM_STR, MOTIF_ALPHABET_BG_FREQUENCIES_OUTPUT)
 
-_PARAM_A_CONST_VAL = 999
 
-
-def errorMsg(msg, msgType):
-    """Emit an error message to STDERR."""
-    prefix = '>> <' + os.path.basename(__file__) + '> ' + msgType
-    print(textwrap.dedent(textwrap.fill(msg, initial_indent=prefix,
-          subsequent_indent=re.sub('.', ' ', prefix))), file=sys.stderr)
+def die(msg):
+    cUtils.die(msg, os.path.basename(__file__))
 
 
 def warn(msg):
-    """Emit a warning message to STDERR."""
-    errorMsg(msg, 'Warning: ')
-
-
-def die(msg):
-    """Emit a fatal error message to STDERR."""
-    errorMsg(msg, 'Fatal: ')
-    exit(1)
-
-
-def getCompMaybeFromMB(modBase):
-    """Maps the given modified based to the corresponding
-    modified guanine nucleobase (i.e. the complemented modified base).
-    Applies the identity transformation if the given base is
-    already a complemented modified nucleobase."""
-    # use forward mapping
-    return MOD_BASE_COMPLEMENTS.get(modBase) or modBase
-
-
-def getMBMaybeFromComp(modBase):
-    """Maps the given modified based to the corresponding
-    modified cytosine nucleobase (i.e. the actual modified base).
-    Applies the identity transformation if the given base is
-    already a modified cytosine nucleobase."""
-    # use reverse mapping (i.e. invert the bijection)
-    return (~MOD_BASE_COMPLEMENTS).get(modBase) or modBase
-
+    cUtils.warn(msg, os.path.basename(__file__))
 
 import argparse
 parser = argparse.ArgumentParser()
-inputFile = parser.add_mutually_exclusive_group(required=True)
+inputFileGroupTitle = \
+    parser.add_argument_group(title="Input File", description="The input set \
+                              of sequences or matrix from which to create a \
+                              MEME minimal text output file.")
+inputFile = inputFileGroupTitle.add_mutually_exclusive_group(required=True)
 inputFile.add_argument('-s', '--inSeqFile', type=str, help="File containing \
                        an input set of raw sequences.")
 inputFile.add_argument('-p', '--inPWMFile', type=str, help="File containing \
@@ -150,7 +118,7 @@ modBaseSpecifiers.add_argument('-M', '--baseModification', type=str,
                                help="Modify the motif to use the modified base \
                                provided in this argument at the position \
                                specified by '-P'. The resultant motif will \
-                               use the given modified base with 100% \
+                               use the given modified base with 100%% \
                                frequency at the specified positions. \
                                This will cause the program to write a file \
                                (as opposed to the usual output to STDOUT) \
@@ -159,7 +127,7 @@ modBasePositions.add_argument('-P', '--baseModPosition', type=int, help="The pos
                               at which to modify the motif (using the base \
                               specified by '-M'), * indexed from 1 *.")
 modBaseSpecifiers.add_argument('-C', '--tryAllCModsAtPos', type=int,
-                               nargs='?', const=_PARAM_A_CONST_VAL,
+                               nargs='?', const=cUtils._PARAM_A_CONST_VAL,
                                help="Modify the motif at the given position, \
                                whose consensus sequence should correspond to \
                                a cytosine at the given position. \
@@ -170,13 +138,13 @@ modBaseSpecifiers.add_argument('-C', '--tryAllCModsAtPos', type=int,
                                for each cytosine modification and the \
                                unmodified motif will be output to STDOUT \
                                as well. The resultant motif will use the \
-                               given modified base with 100% frequency at \
+                               given modified base with 100%% frequency at \
                                the specified positions. Note that this is \
                                * indexed from 1 *.")
 modBasePositions.add_argument('-A',
                               '--baseModificationAtAllModifiablePosFractions',
                               type=str, nargs='?',
-                              const=str(_PARAM_A_CONST_VAL),
+                              const=str(cUtils._PARAM_A_CONST_VAL),
                               help="Modify the motif to use the modified base \
                               provided for all modifiable motif positions. \
                               A position is considered a modifiable one iff \
@@ -237,12 +205,12 @@ if bool(args.baseModification) ^ bool(args.baseModPosition):
 
 if (not args.tryAllCModsAtPos and
         (args.baseModificationAtAllModifiablePosFractions
-         == _PARAM_A_CONST_VAL)):
+         == cUtils._PARAM_A_CONST_VAL)):
     die("""You must either provide the modified base to '-A' or use
         '-C' to use all possible nucleobases.""")
 
 if (not args.baseModificationAtAllModifiablePosFractions and
-        args.tryAllCModsAtPos == _PARAM_A_CONST_VAL):
+        args.tryAllCModsAtPos == cUtils._PARAM_A_CONST_VAL):
     die("""You must either provide the position to modify to '-C' or use
         '-A' to use all possible positions.""")
 
@@ -347,17 +315,17 @@ else:  # PWM or PFM
             args.baseModificationAtAllModifiablePosFractions):
         modFreqMatrix = np.copy(freqMatrix)
         baseModPos = args.tryAllCModsAtPos or args.baseModPosition
-        for b in (MOD_BASE_NAMES.keys() if args.tryAllCModsAtPos
+        for b in (cUtils.MOD_BASE_NAMES.keys() if args.tryAllCModsAtPos
                   else (args.baseModification or
                   args.baseModificationAtAllModifiablePosFractions)):
             if args.baseModificationAtAllModifiablePosFractions:
                 # modify cytosine fractions
-                modFreqMatrix[:, MOTIF_ALPHABET.index(getMBMaybeFromComp(b))] = \
+                modFreqMatrix[:, MOTIF_ALPHABET.index(cUtils.getMBMaybeFromComp(b))] = \
                     modFreqMatrix[:, MOTIF_ALPHABET.index('C')]
                 modFreqMatrix[:, MOTIF_ALPHABET.index('C')] = \
                     np.zeros(modFreqMatrix.shape[0])
                 # modify guanine fractions
-                modFreqMatrix[:, MOTIF_ALPHABET.index(getCompMaybeFromMB(b))] = \
+                modFreqMatrix[:, MOTIF_ALPHABET.index(cUtils.getCompMaybeFromMB(b))] = \
                     modFreqMatrix[:, MOTIF_ALPHABET.index('G')]
                 modFreqMatrix[:, MOTIF_ALPHABET.index('G')] = \
                     np.zeros(modFreqMatrix.shape[0])
@@ -370,8 +338,8 @@ else:  # PWM or PFM
                     np.zeros((1, freqMatrix.shape[1]))
                 modFreqMatrix[(baseModPos - 1),
                               MOTIF_ALPHABET.index(b)] = 1
-            with open((os.path.splitext(filename)[0] + '-' + MOD_BASE_NAMES[b]
-                       + '.meme'), "a") as outFile:
+            with open((os.path.splitext(filename)[0] + '-' +
+                       cUtils.MOD_BASE_NAMES[b] + '.meme'), "a") as outFile:
                 outFile.write(MEME_HEADER)
                 outFile.write(MEMEBody)
                 np.savetxt(outFile, modFreqMatrix, '%f', _DELIM)

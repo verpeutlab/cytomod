@@ -8,14 +8,15 @@ code was adapted from: http://rosettacode.org/wiki/Letter_frequency#Python"""
 
 from __future__ import with_statement, division, print_function
 
-__version__ = "$Revision: 0.04$"
-
 import sys
 import re
 import gzip
 from collections import Counter
 
 import numpy as np
+
+import cUtils
+__version__ = cUtils.VERSION
 
 _STDIN_SPECIFIER = '-'
 _DEFAULT_PLOT_NAME = 'nucleobaseFrequencies'
@@ -30,10 +31,6 @@ _DEFAULT_SELECTION_INCLUSION_REGEX = '[a-z0-9]'
 
 # Allow for substitution of some simple input to its corresponding unicode
 _UNICODE_SUBS = ('---', u"\u2014"), ('--', u"\u2013")
-
-# Nucleobases defined as being or originating from a specific parent nucleobase
-_FROM_C = ['C', 'm', 'h', 'f', 'c']
-_FROM_G = ['G', '1', '2', '3', '4']
 
 
 def warn(*msg):
@@ -207,12 +204,14 @@ charFreqs = 0
 # set of bases that this op occurs WRT and define a complentation
 # operation for that base etc.).
 if args.percentC:
-    totalNumCs = sum((f for b, f in charCounts if b in _FROM_C))
-    totalNumGs = sum((f for b, f in charCounts if b in _FROM_G))
+    totalNumCs = sum((f for b, f in charCounts if b is 'C' or
+                      cUtils._MODIFIES[b] == 'C'))
+    totalNumGs = sum((f for b, f in charCounts if b is 'G' or
+                      cUtils._MODIFIES[b] == 'G'))
     charFreqs = [(base, count / totalNumCs) for base, count in charCounts
-                 if base in _FROM_C]
+                 if base is 'C' or cUtils._MODIFIES[base] == 'C']
     charFreqs += [(base, count / totalNumGs) for base, count in charCounts
-                  if base in _FROM_G]
+                  if base is 'G' or cUtils._MODIFIES[base] == 'G']
 else:
     totalNumChars = sum(zip(*charCounts)[1])
     charFreqs = [(base, count / totalNumChars) for base, count in charCounts]

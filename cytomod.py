@@ -1,7 +1,6 @@
 #!/usr/bin/env python
-from __future__ import with_statement, division, print_function
 
-__version__ = "$Revision: 0.04$"
+from __future__ import with_statement, division, print_function
 
 """Cytomod uses information on modification
 locations to replace the appropriate symbols in a reference genome sequence
@@ -18,66 +17,18 @@ import warnings
 import sys
 import os
 import glob
-import datetime
 import re
 import random
 import colorbrewer
-import textwrap
 import gzip
-from collections import OrderedDict
-from itertools import izip
 
 import numpy as np
 
-# Define the "primary" modified bases and their corresponding
-# one base codes, listed in their order of oxidation.
-MOD_BASES = OrderedDict([('5mC', 'm'), ('5hmC', 'h'),
-                        ('5fC', 'f'), ('5caC', 'c')])
-# Create a dictionary mapping each "primary" modified base to
-# the base it modifies.
-_MODIFIES = dict.fromkeys(MOD_BASES.values(), 'C')
+import cUtils
+__version__ = cUtils.VERSION
 
-# All IUPAC nucleobases and their complements, plus 'X',
-# which is just an additional alias for any nucleobase.
-COMPLEMENTS = {'A': 'T', 'G': 'C',
-               'R': 'Y', 'M': 'K',
-               'W': 'W', 'S': 'S',
-               'B': 'V', 'D': 'H',
-               'N': 'N', 'X': 'X'}
-# Add all modified nucleobases.
-modifiedBasesToComplements = \
-    izip(MOD_BASES.values(), ''.
-         join(str(i) for i in range(1, len(MOD_BASES) + 1)))
-# Add all modified nucleobase complements.
-# They are ordered by the originating modification's oxidation order.
-COMPLEMENTS.update(modifiedBasesToComplements)
-# Add all complements in the other direction
-# (i.e. ensure the language is closed under complementation)
-COMPLEMENTS.update([(c, m) for m, c in COMPLEMENTS.items()])
-
-
-# TODO use a decorator to properly return a scalar for scalar input
-# and a list for list input.
-def complement(bases):
-    """Complements the given, potentially modified, base."""
-    return [COMPLEMENTS[base] for base in bases]
-
-# Update the dictionary mapping with every complemented modification.
-_MODIFIES.update(izip(complement(_MODIFIES.keys()),
-                 complement(_MODIFIES.values())))
-
-_FULL_BASE_NAMES = {'A': 'Adenine', 'T': 'Thymine',
-                    'G': 'Guanine', 'C': 'Cytosine'}
-_FULL_MOD_BASE_NAMES = {'m': '5-Methylcytosine',
-                        'h': '5-Hydroxymethylcytosine',
-                        'f': '5-Formylcytosine',
-                        'c': '5-Carboxylcytosine'}
-# Add the names of all modified base complements, using existing nomenclature.
-for b in complement(MOD_BASES.values()):
-    _FULL_MOD_BASE_NAMES.update(izip(b, [_FULL_BASE_NAMES[_MODIFIES[b]] +
-                                ':' + _FULL_MOD_BASE_NAMES[COMPLEMENTS[b]]]))
 # The colours of the modified bases, for use in the tracks
-MOD_BASE_COLOURS = colorbrewer.RdYlBu[2*len(MOD_BASES)]
+MOD_BASE_COLOURS = colorbrewer.RdYlBu[2*len(cUtils.MOD_BASES)]
 
 AUTOSOME_ONLY_FLAG = 'u'
 ALLOSOME_ONLY_FLAG = 'l'
@@ -93,7 +44,6 @@ CHROMOSOME_EXCLUSION_REGEX = '(?:random)'
 MOD_BASE_REGEX = '5.+C'
 REGION_REGEX = '(chr(?:\d+|[XYM]))(?::(?P<start>\d+)?-(?P<end>\d+)?)?'
 
-_MSG_PREFIX = '>> <Cytomod> '
 _DEFAULT_FASTA_FILENAME = 'modGenome.fa'
 _DEFAULT_BASE_PRIORITY = 'fhmc'
 _DEFAULT_BASE_PRIORITY_COMMENT = """the resolution of the biological protocol
@@ -105,23 +55,17 @@ _MAX_CONTIG_ATTEMPTS = 3
 _DENSE_TRACKS = 'ruler ensGene pubs cpgIslandExt oreganno rmsk snp128'
 
 
+def die(msg):
+    cUtils.die(msg, os.path.basename(__file__))
+
+
 def warn(msg):
-    """Emit a warning to STDERR, deindenting the provided message."""
-    print(_MSG_PREFIX + "Warning: " + textwrap.dedent(msg), file=sys.stderr)
+    cUtils.warn(msg, os.path.basename(__file__))
 
 
-def v_print_timestamp(msg="", threshold=1):
-    """Print a timestamped message iff verbosity is at least threshold."""
-    sys.stderr.write(_MSG_PREFIX + "%s: %s" % (
-        datetime.datetime.now().isoformat(), msg + "\n")
-        if args.verbose >= threshold else "")
-
-
-def makeList(lstOrVal):
-    """Returns a list of a single item if the object passed is not
-    already a list. This allows one to iterate over objects which
-    may or may not already be lists (and therefore iterable)."""
-    return [lstOrVal] if not isinstance(lstOrVal, list) else lstOrVal
+def v_print_timestamp(verbosity, msg="", threshold=1):
+    cUtils.v_print_timestamp(verbosity, msg, threshold,
+                             os.path.basename(__file__))
 
 
 def _modifychrmExclusionRegex(additionalchrmExclusionFlag):
@@ -155,15 +99,15 @@ def getTrackHeader(m):
     with an appropriate name, description, and colour
     for the the given modified nucleobase.
     The returned header is terminated by a newline."""
-    colour = str(MOD_BASE_COLOURS[MOD_BASES.values().index(m)
-                                  if m in MOD_BASES.values()
+    colour = str(MOD_BASE_COLOURS[cUtils.MOD_BASES.values().index(m)
+                                  if m in cUtils.MOD_BASES.values()
                                   else (len(MOD_BASE_COLOURS) -
-                                        MOD_BASES.values().
-                                        index(complement(m)[0]) - 1)])
+                                        cUtils.MOD_BASES.values().
+                                        index(cUtils.complement(m)[0]) - 1)])
     browserConfLines = "browser hide all\nbrowser dense " + \
         _DENSE_TRACKS + "\n"
     return browserConfLines + 'track name="Nucleobase ' + m + \
-        '" description="Track denoting ' + _FULL_MOD_BASE_NAMES[m] + \
+        '" description="Track denoting ' + cUtils._FULL_MOD_BASE_NAMES[m] + \
         ' covalently modified nucleobases.' + '" color=' + \
         re.sub('[() ]', '', colour + "\n")
 
@@ -179,8 +123,8 @@ def getModifiedGenome(genome, modOrder, chrm, start,
     # This prevents the creation of excessively large NumPy arrays.
     for s in range(start, end, _MAX_REGION_LEN):
         e = s + _MAX_REGION_LEN if (end - start) >= _MAX_REGION_LEN else end
-        v_print_timestamp("Now outputting " + chrm + " for region: (" + str(s)
-                          + ", " + str(e) + ")", 2)
+        v_print_timestamp(args.verbose, "Now outputting " + chrm +
+                          " for region: (" + str(s) + ", " + str(e) + ")", 2)
         modBaseScores = chromosome[s:e]
         modBasesA = np.where(np.logical_and(np.isfinite(modBaseScores),
                              modBaseScores != 0), modBases, '0')
@@ -198,13 +142,13 @@ def getModifiedGenome(genome, modOrder, chrm, start,
             reference base is modifiable to the input base, or the complement
             of that base, if the complemented reference is modifiable to it,
             otherwise the reference base itself is returned."""
-            if m not in _MODIFIES:
+            if m not in cUtils._MODIFIES:
                 return r
             else:
-                if _MODIFIES[m] == r:
+                if cUtils._MODIFIES[m] == r:
                     return m
-                elif _MODIFIES[m] == complement(r)[0]:
-                    return complement(m)[0]
+                elif cUtils._MODIFIES[m] == cUtils.complement(r)[0]:
+                    return cUtils.complement(m)[0]
                 else:
                     return r
         # Initially the sequence is unmodified and we successively modify it.
@@ -223,7 +167,7 @@ def getModifiedGenome(genome, modOrder, chrm, start,
                                    x[idx][:, 1]],
                                    allModBases[x[idx][:, 0]]))
             if not suppressBED:
-                for m in _MODIFIES.keys():
+                for m in cUtils._MODIFIES.keys():
                     # NB: This could be done in a more efficient manner.
                     baseModIdxs = np.flatnonzero(allModBases[x[idx][:, 0]]
                                                  == m)
@@ -246,8 +190,9 @@ def getModifiedGenome(genome, modOrder, chrm, start,
             # Output the unmodified sequence at a verbosity level
             # of at least 2, if not too long, otherwise only output
             # for a high verbosity level.
-            v_print_timestamp("Corresponding unmodified reference sequence: \n"
-                              + ''.join(referenceSeq), 2
+            v_print_timestamp(args.verbose, """Corresponding unmodified
+                              reference sequence: \n""" +
+                              ''.join(referenceSeq), 2
                               if len(referenceSeq) < 10000 else 6)
             # Concatenate the vector together to form the (string) sequence
             allbasesResult += ''.join(allModBases)
@@ -405,7 +350,7 @@ parser.add_argument('-E', '--excludechrms',
                     specific genomic region is queried \
                     via '-r'.")
 parser.add_argument('-p', '--priority', default=_DEFAULT_BASE_PRIORITY,
-                    choices=MOD_BASES.values(),
+                    choices=cUtils.MOD_BASES.values(),
                     help="Specify the priority \
                     of modified bases. The default is:"
                     + _DEFAULT_BASE_PRIORITY + ", which is based upon"
@@ -451,7 +396,7 @@ from genomedata import Genome, load_genomedata
 
 genomeDataArchive = ""
 if args.archiveCompDirs:
-    v_print_timestamp("Creating genomedata archive.")
+    v_print_timestamp(args.verbose, "Creating genomedata archive.")
     genomeDataArchive = args.archiveCompDirs[1] + "/archive/"
     # Create the genome data archive
     # Load all supported track files in the tracks directory
@@ -465,18 +410,20 @@ if args.archiveCompDirs:
         verbose=args.verbose)
 
 else:
-    v_print_timestamp("Using existing genomedata archive.")
+    v_print_timestamp(args.verbose, "Using existing genomedata archive.")
     genomeDataArchive = args.genomedataArchive
 
 with Genome(genomeDataArchive) as genome:
     warnings.simplefilter("ignore")  # Ignore supercontig warnings
-    v_print_timestamp("Genomedata archive successfully loaded.")
+    v_print_timestamp(args.verbose, "Genomedata archive successfully loaded.")
     modBases = []
     for track in genome.tracknames_continuous:
-        modBases.append(MOD_BASES[re.search(MOD_BASE_REGEX, track).group(0)])
+        modBases.append(cUtils.MOD_BASES[re.search(MOD_BASE_REGEX, track)
+                        .group(0)])
     modOrder = [modBases.index(b) for b in list(args.priority)]
-    v_print_timestamp("The order of preference for base modifications is: "
-                      + ','.join(list(args.priority)) + ".")
+    v_print_timestamp(args.verbose, """The order of preference for base
+                      modifications is: """ + ','.join(list(args.priority)) +
+                      ".")
 
     # Before computing modified bases in blocks, remove any existing BED files
     # and write the tracks' headers.
@@ -486,7 +433,7 @@ with Genome(genomeDataArchive) as genome:
         trackID = os.path.splitext(os.path.basename(args.fastaFile
                                    or _DEFAULT_FASTA_FILENAME))[0]
         trackID += '-' if trackID else ''
-        for m in _MODIFIES.keys():
+        for m in cUtils._MODIFIES.keys():
             trackFileName = "track-" + trackID + m + ".bed.gz"
             tnames[m] = trackFileName
             # 'EAFP' way of removing any existing old tracks
@@ -516,8 +463,8 @@ with Genome(genomeDataArchive) as genome:
             chrm, start, end = regions.flat[i], int(regions.flat[i + 1]), \
                 int(regions.flat[i + 2])
             regionStr = chrm + ":" + str(start) + "-" + str(end)
-            v_print_timestamp("Outputting the modified genome for: "
-                              + regionStr + ".")
+            v_print_timestamp(args.verbose, """Outputting the modified
+                              genome for: """ + regionStr + ".")
             if args.fastaFile:
                 generateFASTAFile(args.fastaFile, regionStr, genome, modOrder,
                                   chrm, start, end, args.suppressBED, tnames)
@@ -529,11 +476,11 @@ with Genome(genomeDataArchive) as genome:
         for chromosome in [chromosome for chromosome in genome
                            if not re.search(CHROMOSOME_EXCLUSION_REGEX,
                                             chromosome.name)]:
-            v_print_timestamp("Outputting the modified genome for: "
-                              + chromosome.name)
+            v_print_timestamp(args.verbose, """Outputting the modified
+                              genome for: """ + chromosome.name)
             generateFASTAFile(args.fastaFile or _DEFAULT_FASTA_FILENAME,
                               chromosome.name, genome, modOrder,
                               chromosome.name, int(chromosome.start),
                               int(chromosome.end), args.suppressBED, tnames)
 
-v_print_timestamp("Program complete.")
+v_print_timestamp(args.verbose, "Program complete.")
