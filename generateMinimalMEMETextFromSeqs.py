@@ -9,14 +9,16 @@ __version__ = "$Revision: 0.04$"
 
 """Prints (to STDOUT) a minimal MEME text file, suitable for FIMO,
 from an input set of sequences (one raw sequence per line)
-or an input PWM/PFM. The background frequencies should be manually
-adjusted to use case. Modified output (if applicable) is always
+or an input PWM, PFM, TRANSFAC matrix, or JASPAR matrix.
+The background frequencies should be manually adjusted
+to use case. Modified output (if applicable) is always
 written to a file, while the MEME output written to STDOUT
 always correpsonds to the unmodified motif."""
 
 import sys
 import os
 import textwrap
+import re
 
 try:
     from cStringIO import StringIO
@@ -126,14 +128,21 @@ inputFile = parser.add_mutually_exclusive_group(required=True)
 inputFile.add_argument('-s', '--inSeqFile', type=str, help="File containing \
                        an input set of raw sequences.")
 inputFile.add_argument('-p', '--inPWMFile', type=str, help="File containing \
-                       an input tab-delimited PWM (i.e. frequency matrix). \
-                       The file must only contain floats (but see '-A'), \
-                       lexicographically ordered (i.e. A, C, G, T).")
+                       an input whitespace-delimited PWM (i.e. frequency \
+                       matrix). The file must only contain floats \
+                       (but see '-A'), lexicographically ordered \
+                       (i.e. A, C, G, T).")
 inputFile.add_argument('-c', '--inPFMFile', type=str, help="File containing \
-                       an input tab-delimited PFM (i.e. a count matrix; \
-                       e.g. a TRANSFAC-derived matrix). The file must only \
+                       an input whitespace-delimited PFM (i.e. a count \
+                       matrix; e.g. a hPDI matrix). The file must only \
                        contain floats (but see '-A'), lexicographically \
                        ordered (i.e. A, C, G, T).")
+inputFile.add_argument('-t', '--inTRANSFACFile', type=str, help="File containing \
+                       an input TRANSFAC matrix. The file must exactly \
+                       conform to the TRANSFAC matrix format.")
+inputFile.add_argument('-j', '--inJASPARFile', type=str, help="File containing \
+                       an input JASPAR matrix. The file must exactly \
+                       conform to the JASPAR matrix format.")
 modBaseSpecifiers = parser.add_mutually_exclusive_group()
 modBasePositions = parser.add_mutually_exclusive_group()
 modBaseSpecifiers.add_argument('-M', '--baseModification', type=str,
@@ -225,7 +234,8 @@ if (not args.baseModificationAtAllModifiablePosFractions and
     die("""You must either provide the position to modify to '-C' or use
         '-A' to use all possible positions.""")
 
-filename = args.inSeqFile or args.inPWMFile or args.inPFMFile
+filename = (args.inSeqFile or args.inPWMFile or args.inPFMFile or
+            args.inTRANSFACFile or args.inJASPARFile)
 
 if args.inSeqFile:
     # NB: min dimensionality of 1 is needed for the character view
@@ -249,70 +259,88 @@ if args.inSeqFile:
                                       base in MOTIF_ALPHABET))))
         freqMatrix = np.vstack([freqMatrix, np.loadtxt(matIn)])
 else:  # PWM or PFM
-    # transpose the matrix for MEME format compatibility via unpack
+    # process the matrix for MEME format compatibility
+    # If needed, skip columns or rows accordingly and/or
+    # use unpack to transpose the matrix.
     ncols = 0
-    if args.annotated:
-        with open(filename, 'rb') as inFile:
-            ncols = len(inFile.readline().split(_DELIM))
-    csvData = np.loadtxt(open(filename, 'rb'), delimiter=_DELIM,
-                         unpack=True, dtype=np.float,
-                         usecols=range(1, ncols) if args.annotated else None)
-    if args.inPFMFile:  # Preprocess PFM to a PWM
-        """This function transforms a given PFM column to a PWM column.
-        That is, it computes the frequency of each element of the input
-        1D array (which is itself a count), and replaces the count with
-        its computed frequency. The function also returns the resultant
-        array, despite its having been modified in place."""
-        def _computeFresFromCountSlice(countsForBase):
-            sum = np.sum(countsForBase)
-            for count in np.nditer(countsForBase, op_flags=['readwrite']):
-                count[...] = count / sum
-            return countsForBase  # needed to use numpy.apply_along_axis
-        np.apply_along_axis(_computeFresFromCountSlice, 1, csvData)
-
-    freqMatrix = np.hstack((np.zeros((csvData.shape[0],
-                           MOTIF_ALPHABET.index('A'))), csvData,
-                           np.zeros((csvData.shape[0],
-                                    (len(MOTIF_ALPHABET) - 1) -
-                                    MOTIF_ALPHABET.index('T')))))
-    totalNumBases = csvData.shape[0]
-
-MEMEBody = """MOTIF %s
-letter-probability matrix: nsites= %d
-""" % (filename, totalNumBases)
-
-if ((args.baseModification and args.baseModPosition)
-        or args.tryAllCModsAtPos or
-        args.baseModificationAtAllModifiablePosFractions):
-    modFreqMatrix = np.copy(freqMatrix)
-    baseModPos = args.tryAllCModsAtPos or args.baseModPosition
-    for b in (MOD_BASE_NAMES.keys() if args.tryAllCModsAtPos
-              else (args.baseModification or
-              args.baseModificationAtAllModifiablePosFractions)):
-        if args.baseModificationAtAllModifiablePosFractions:
-            # modify cytosine fractions
-            modFreqMatrix[:, MOTIF_ALPHABET.index(getMBMaybeFromComp(b))] = \
-                modFreqMatrix[:, MOTIF_ALPHABET.index('C')]
-            modFreqMatrix[:, MOTIF_ALPHABET.index('C')] = \
-                np.zeros(modFreqMatrix.shape[0])
-            # modify guanine fractions
-            modFreqMatrix[:, MOTIF_ALPHABET.index(getCompMaybeFromMB(b))] = \
-                modFreqMatrix[:, MOTIF_ALPHABET.index('G')]
-            modFreqMatrix[:, MOTIF_ALPHABET.index('G')] = \
-                np.zeros(modFreqMatrix.shape[0])
+    with open(filename, 'rb') as inFile:
+        if args.annotated:
+                ncols = len(inFile.readline().split())
+        elif args.inJASPARFile:
+            # count number of columns and remove unwanted characters
+            temp = ''
+            for i, line in enumerate(inFile):
+                line = re.sub('[\[\]]', '', line)
+                if i == 0:
+                    ncols = len(line.split())
+                temp += line
+            inFile = StringIO(temp)
+        csvData = 0
+        if args.inTRANSFACFile:
+            csvData = np.loadtxt(inFile, dtype=np.float,
+                                 usecols=range(1, 5), skiprows=1)
         else:
-            # zero all entries along the frequency matrix, for the given (row)
-            # position, except that corresponding to the (column) index of the
-            # modified base, which is set to unity.
-            modFreqMatrix[(baseModPos - 1), ] = \
-                np.zeros((1, freqMatrix.shape[1]))
-            modFreqMatrix[(baseModPos - 1),
-                          MOTIF_ALPHABET.index(b)] = 1
-        with open((os.path.splitext(filename)[0] + '-' + MOD_BASE_NAMES[b] +
-                   '.meme'), "a") as outFile:
-            outFile.write(MEME_HEADER)
-            outFile.write(MEMEBody)
-            np.savetxt(outFile, modFreqMatrix, '%f', _DELIM)
+            csvData = np.loadtxt(inFile,
+                                 unpack=True, dtype=np.float,
+                                 usecols=range(1, ncols)
+                                 if args.annotated or args.inJASPARFile
+                                 else None)
+        if args.inPFMFile or args.inTRANSFACFile or args.inJASPARFile:
+            """This function transforms a given PFM column to a PWM column.
+            That is, it computes the frequency of each element of the input
+            1D array (which is itself a count), and replaces the count with
+            its computed frequency. The function also returns the resultant
+            array, despite its having been modified in place."""
+            def _computeFresFromCountSlice(countsForBase):
+                sum = np.sum(countsForBase)
+                for count in np.nditer(countsForBase, op_flags=['readwrite']):
+                    count[...] = count / sum
+                return countsForBase  # needed to use numpy.apply_along_axis
+            np.apply_along_axis(_computeFresFromCountSlice, 1, csvData)
+
+        freqMatrix = np.hstack((np.zeros((csvData.shape[0],
+                               MOTIF_ALPHABET.index('A'))), csvData,
+                               np.zeros((csvData.shape[0],
+                                        (len(MOTIF_ALPHABET) - 1) -
+                                        MOTIF_ALPHABET.index('T')))))
+        totalNumBases = csvData.shape[0]
+
+    MEMEBody = textwrap.dedent("""MOTIF %s\nletter-probability matrix: nsites= %d\n""") \
+        % (filename, totalNumBases)
+
+    if ((args.baseModification and args.baseModPosition)
+            or args.tryAllCModsAtPos or
+            args.baseModificationAtAllModifiablePosFractions):
+        modFreqMatrix = np.copy(freqMatrix)
+        baseModPos = args.tryAllCModsAtPos or args.baseModPosition
+        for b in (MOD_BASE_NAMES.keys() if args.tryAllCModsAtPos
+                  else (args.baseModification or
+                  args.baseModificationAtAllModifiablePosFractions)):
+            if args.baseModificationAtAllModifiablePosFractions:
+                # modify cytosine fractions
+                modFreqMatrix[:, MOTIF_ALPHABET.index(getMBMaybeFromComp(b))] = \
+                    modFreqMatrix[:, MOTIF_ALPHABET.index('C')]
+                modFreqMatrix[:, MOTIF_ALPHABET.index('C')] = \
+                    np.zeros(modFreqMatrix.shape[0])
+                # modify guanine fractions
+                modFreqMatrix[:, MOTIF_ALPHABET.index(getCompMaybeFromMB(b))] = \
+                    modFreqMatrix[:, MOTIF_ALPHABET.index('G')]
+                modFreqMatrix[:, MOTIF_ALPHABET.index('G')] = \
+                    np.zeros(modFreqMatrix.shape[0])
+            else:
+                # zero all entries along the frequency matrix,
+                # for the given (row) position, except that corresponding
+                # to the (column) index of the modified base,
+                # which is set to unity.
+                modFreqMatrix[(baseModPos - 1), ] = \
+                    np.zeros((1, freqMatrix.shape[1]))
+                modFreqMatrix[(baseModPos - 1),
+                              MOTIF_ALPHABET.index(b)] = 1
+            with open((os.path.splitext(filename)[0] + '-' + MOD_BASE_NAMES[b]
+                       + '.meme'), "a") as outFile:
+                outFile.write(MEME_HEADER)
+                outFile.write(MEMEBody)
+                np.savetxt(outFile, modFreqMatrix, '%f', _DELIM)
 
 output = StringIO()
 np.savetxt(output, freqMatrix, '%f', _DELIM)
