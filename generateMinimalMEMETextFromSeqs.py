@@ -89,8 +89,9 @@ _PARAM_A_CONST_VAL = 999
 
 def errorMsg(msg, msgType):
     """Emit an error message to STDERR."""
-    print('>> <' + os.path.basename(__file__) + '> ' + msgType +
-          textwrap.dedent(msg), file=sys.stderr)
+    prefix = '>> <' + os.path.basename(__file__) + '> ' + msgType
+    print(textwrap.dedent(textwrap.fill(msg, initial_indent=prefix,
+          subsequent_indent=re.sub('.', ' ', prefix))), file=sys.stderr)
 
 
 def warn(msg):
@@ -210,6 +211,17 @@ parser.add_argument('-a', '--annotated', action='store_true',
                     identifiers in the first column. This option allows \
                     for them to be removed and prevents them from \
                     interfering with the processing of the input file.")
+parser.add_argument('-S', '--skipMotifPortion', nargs='+', action='append',
+                    help="Skip a portion of a motif. This might be used \
+                    if one wishes to limit a motif to its highly \
+                    informative portion. Generally, one would only \
+                    remove bases from the start or end of a motif, \
+                    but this option also permits removal of the middle \
+                    of a motif. Specify the portion to remove via: \
+                    space-delimited row indicies (from 0) \
+                    or via \"start:end\". In the latter case, \
+                    the given interval is interpreted as the \
+                    half-open interval: [start, end).")
 parser.add_argument('-v', '--verbose', help="increase output verbosity",
                     action="count")
 parser.add_argument('-V', '--version', action='version',
@@ -303,7 +315,29 @@ else:  # PWM or PFM
                                np.zeros((csvData.shape[0],
                                         (len(MOTIF_ALPHABET) - 1) -
                                         MOTIF_ALPHABET.index('T')))))
-        totalNumBases = csvData.shape[0]
+
+    if args.skipMotifPortion:
+        skipRows = args.skipMotifPortion
+        match = re.search('(\d*):(\d*)', str(skipRows).strip('[]'))
+        if match:
+            start = int(match.group(1)) if match.group(1) else 0
+            end = int(match.group(2)) if match.group(2) \
+                else freqMatrix.shape[0]
+            if (start > end):
+                die("""The start index of the motif rows to skip cannot be greater \
+                than the end.""")
+            if (end > freqMatrix.shape[0]):
+                die("""The provided end index of the motif rows to skip exceeds \
+                the motif length.""")
+            if ((end - start) <= 1):
+                warn("""The provided skip interval will only cause one motif row \
+                to be excluded. Recall that intervals provided in colon \
+                notation are half-open and that a single row to skip can \
+                be specified by only providing that row number alone.""")
+            skipRows = range(start, end)
+        freqMatrix = np.delete(freqMatrix, skipRows, 0)
+
+    totalNumBases = freqMatrix.shape[0]
 
     MEMEBody = textwrap.dedent("""MOTIF %s\nletter-probability matrix: nsites= %d\n""") \
         % (filename, totalNumBases)
