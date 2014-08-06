@@ -107,8 +107,16 @@ inputFile.add_argument('-c', '--inPFMFile', type=str, help="File containing \
                        contain floats (but see '-A'), lexicographically \
                        ordered (i.e. A, C, G, T).")
 inputFile.add_argument('-t', '--inTRANSFACFile', type=str, help="File containing \
-                       an input TRANSFAC matrix. The file must exactly \
-                       conform to the TRANSFAC matrix format.")
+                       an input TRANSFAC count matrix. The file must exactly \
+                       conform to the standard TRANSFAC matrix output format. \
+                       It must neither begin nor be terminated with \"XX\" \
+                       (i.e. those delimiters should be omitted).")
+inputFile.add_argument('-f', '--inTRANSFACFreqFile', type=str, help="File containing \
+                       an input TRANSFAC frequency matrix. The file must \
+                       exactly conform to the STAMP TRANSFAC frequency matrix \
+                       output format. The usual \"XX\" footer that this file \
+                       is usually terminated by must be removed manually. \
+                       The file should not contain any \"XX\" delimiters.")
 inputFile.add_argument('-j', '--inJASPARFile', type=str, help="File containing \
                        an input JASPAR matrix. The file must exactly \
                        conform to the JASPAR matrix format.")
@@ -214,8 +222,9 @@ if (not args.baseModificationAtAllModifiablePosFractions and
     die("""You must either provide the position to modify to '-C' or use
         '-A' to use all possible positions.""")
 
-filename = (args.inSeqFile or args.inPWMFile or args.inPFMFile or
-            args.inTRANSFACFile or args.inJASPARFile)
+filename = (args.inSeqFile or args.inPWMFile or
+            args.inPFMFile or args.inTRANSFACFile or
+            args.inTRANSFACFreqFile or args.inJASPARFile)
 
 if args.inSeqFile:
     # NB: min dimensionality of 1 is needed for the character view
@@ -256,7 +265,7 @@ else:  # PWM or PFM
                 temp += line
             inFile = StringIO(temp)
         csvData = 0
-        if args.inTRANSFACFile:
+        if args.inTRANSFACFile or args.inTRANSFACFreqFile:
             csvData = np.loadtxt(inFile, dtype=np.float,
                                  usecols=range(1, 5), skiprows=1)
         else:
