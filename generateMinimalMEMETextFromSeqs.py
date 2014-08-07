@@ -131,9 +131,17 @@ modBaseSpecifiers.add_argument('-M', '--baseModification', type=str,
                                This will cause the program to write a file \
                                (as opposed to the usual output to STDOUT) \
                                for the given modification.")
-modBasePositions.add_argument('-P', '--baseModPosition', type=int, help="The position \
-                              at which to modify the motif (using the base \
-                              specified by '-M'), * indexed from 1 *.")
+modBasePositions.add_argument('-P', '--baseModPosition', type=int,
+                              # nargs='?', const=cUtils._PARAM_A_CONST_VAL,
+                              help="The position at which to modify the motif \
+                              (using the base specified by '-M'), \
+                              * indexed from 1 *.")
+#                             Not yet implemented (maybe do so in the future)
+#                             The argument for this option \
+#                             can be omitted to indicate that the position \
+#                             should be automatically determined by finding \
+#                             the centre CpG dinucleotide, in which case only \
+#                             the cytosine of the CpG will be modified.
 modBaseSpecifiers.add_argument('-C', '--tryAllCModsAtPos', type=int,
                                nargs='?', const=cUtils._PARAM_A_CONST_VAL,
                                help="Modify the motif at the given position, \
@@ -200,6 +208,27 @@ parser.add_argument('-S', '--skipMotifPortion', nargs='+', action='append',
                     half-open interval: [start, end).")
 parser.add_argument('--revcomp', help="Reverse complement the input motif.",
                     action='store_true')
+parser.add_argument('--modCFractions', action='store_true',
+                    help="Modify fractions of cytosines instead of setting \
+                    the modified base frequency to 1. Has no effect with \
+                    options already specifying this behaviour (e.g. '-A').\
+                    This option is silently ignored if no modifications \
+                    are requested.")
+parser.add_argument('--modGFractions', action='store_true',
+                    help="Modify fractions of gunanines instead of setting \
+                    the modified base frequency to 1. Has no effect with \
+                    options already specifying this behaviour (e.g. '-A').\
+                    This option is silently ignored if no modifications \
+                    are requested.")
+parser.add_argument('-m', '--modAllFractions', action='store_true',
+                    help="Convinience option to set both \
+                    '--modCFractions' and '--modGFractions'. \
+                    This will modify fractions of both cytosine and guanine \
+                    irrespective of their individual settings. \
+                    Has no effect with \
+                    options already specifying this behaviour (e.g. '-A').\
+                    This option is silently ignored if no modifications \
+                    are requested.")
 parser.add_argument('-v', '--verbose', help="increase output verbosity",
                     action='count')
 parser.add_argument('-V', '--version', action='version',
@@ -291,8 +320,8 @@ else:  # PWM or PFM
 
         if args.revcomp:
             csvData = np.flipud(csvData)  # reverse
-            csvData[:,[0, 3]] = csvData[:,[3, 0]]  # complement A/T
-            csvData[:,[1, 2]] = csvData[:,[2, 1]]  # complement C/G
+            csvData[:, [0, 3]] = csvData[:, [3, 0]]  # complement A/T
+            csvData[:, [1, 2]] = csvData[:, [2, 1]]  # complement C/G
 
         freqMatrix = np.hstack((np.zeros((csvData.shape[0],
                                MOTIF_ALPHABET.index('A'))), csvData,
@@ -326,25 +355,34 @@ else:  # PWM or PFM
     MEMEBody = textwrap.dedent("""MOTIF %s\nletter-probability matrix: nsites= %d\n""") \
         % (filename, totalNumBases)
 
+    modCFracs = (args.baseModificationAtAllModifiablePosFractions or
+                 args.modAllFractions or args.modCFractions)
+    modGFracs = (args.baseModificationAtAllModifiablePosFractions or
+                 args.modAllFractions or args.modGFractions)
+
     if ((args.baseModification and args.baseModPosition)
             or args.tryAllCModsAtPos or
             args.baseModificationAtAllModifiablePosFractions):
         modFreqMatrix = np.copy(freqMatrix)
+
         baseModPos = args.tryAllCModsAtPos or args.baseModPosition
+        # index is either positional or comprises all nucleobases
+        modBaseIndex = (baseModPos - 1) if baseModPos else slice(None)
         for b in (cUtils.MOD_BASE_NAMES.keys() if args.tryAllCModsAtPos
                   else (args.baseModification or
                   args.baseModificationAtAllModifiablePosFractions)):
-            if args.baseModificationAtAllModifiablePosFractions:
+            if modCFracs:
                 # modify cytosine fractions
-                modFreqMatrix[:, MOTIF_ALPHABET.index(cUtils.getMBMaybeFromComp(b))] = \
-                    modFreqMatrix[:, MOTIF_ALPHABET.index('C')]
-                modFreqMatrix[:, MOTIF_ALPHABET.index('C')] = \
-                    np.zeros(modFreqMatrix.shape[0])
+                modFreqMatrix[modBaseIndex, MOTIF_ALPHABET.index(cUtils.getMBMaybeFromComp(b))] = \
+                    modFreqMatrix[modBaseIndex, MOTIF_ALPHABET.index('C')]
+                modFreqMatrix[modBaseIndex, MOTIF_ALPHABET.index('C')] = \
+                    (0 if baseModPos else np.zeros(modFreqMatrix.shape[0]))
+            if modGFracs:
                 # modify guanine fractions
-                modFreqMatrix[:, MOTIF_ALPHABET.index(cUtils.getCompMaybeFromMB(b))] = \
-                    modFreqMatrix[:, MOTIF_ALPHABET.index('G')]
-                modFreqMatrix[:, MOTIF_ALPHABET.index('G')] = \
-                    np.zeros(modFreqMatrix.shape[0])
+                modFreqMatrix[modBaseIndex, MOTIF_ALPHABET.index(cUtils.getCompMaybeFromMB(b))] = \
+                    modFreqMatrix[modBaseIndex, MOTIF_ALPHABET.index('G')]
+                modFreqMatrix[modBaseIndex, MOTIF_ALPHABET.index('G')] = \
+                    (0 if baseModPos else np.zeros(modFreqMatrix.shape[0]))
             else:
                 # zero all entries along the frequency matrix,
                 # for the given (row) position, except that corresponding

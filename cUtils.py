@@ -47,6 +47,8 @@ COMPLEMENTS = bidict(COMPLEMENTS)
 
 _FULL_BASE_NAMES = {'A': 'Adenine', 'T': 'Thymine',
                     'G': 'Guanine', 'C': 'Cytosine'}
+
+MOD_BASE_NAMES = {'m': '5mC', 'h': '5hmC', 'f': '5fC', 'c': '5caC'}
 _FULL_MOD_BASE_NAMES = {'m': '5-Methylcytosine',
                         'h': '5-Hydroxymethylcytosine',
                         'f': '5-Formylcytosine',
