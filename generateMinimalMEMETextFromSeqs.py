@@ -198,8 +198,10 @@ parser.add_argument('-S', '--skipMotifPortion', nargs='+', action='append',
                     or via \"start:end\". In the latter case, \
                     the given interval is interpreted as the \
                     half-open interval: [start, end).")
+parser.add_argument('--revcomp', help="Reverse complement the input motif.",
+                    action='store_true')
 parser.add_argument('-v', '--verbose', help="increase output verbosity",
-                    action="count")
+                    action='count')
 parser.add_argument('-V', '--version', action='version',
                     version="%(prog)s " + __version__)
 args = parser.parse_args()
@@ -286,6 +288,11 @@ else:  # PWM or PFM
                     count[...] = count / sum
                 return countsForBase  # needed to use numpy.apply_along_axis
             np.apply_along_axis(_computeFresFromCountSlice, 1, csvData)
+
+        if args.revcomp:
+            csvData = np.flipud(csvData)  # reverse
+            csvData[:,[0, 3]] = csvData[:,[3, 0]]  # complement A/T
+            csvData[:,[1, 2]] = csvData[:,[2, 1]]  # complement C/G
 
         freqMatrix = np.hstack((np.zeros((csvData.shape[0],
                                MOTIF_ALPHABET.index('A'))), csvData,
