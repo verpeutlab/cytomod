@@ -45,9 +45,6 @@ npt.assert_allclose([sum(MOTIF_ALPHABET_BG_FREQUENCIES.itervalues())], [1])
 # The MEME Suite uses ASCII ordering for custom alphabets
 # This is the natural lexicographic sorting order, so no "key" is needed
 MOTIF_ALPHABET = sorted(list(MOTIF_ALPHABET_BG_FREQUENCIES.keys()))
-MOTIF_ALPHABET_BG_FREQUENCIES_OUTPUT = \
-    ' '.join([str(k) + ' ' + str(v) for k, v
-              in iter(sorted(MOTIF_ALPHABET_BG_FREQUENCIES.iteritems()))])
 
 MEME_HEADER = """MEME version 4
 
@@ -75,9 +72,7 @@ END ALPHABET
 strands: %s
 
 Background letter frequencies (from %s):
-%s
-
-""" % (STRANDS, FROM_STR, MOTIF_ALPHABET_BG_FREQUENCIES_OUTPUT)
+""" % (STRANDS, FROM_STR)
 
 
 def die(msg):
@@ -208,6 +203,8 @@ parser.add_argument('-S', '--skipMotifPortion', nargs='+', action='append',
                     half-open interval: [start, end).")
 parser.add_argument('--revcomp', help="Reverse complement the input motif.",
                     action='store_true')
+parser.add_argument('--no5caC', help="Do not use 5caC.",
+                    action='store_true')
 parser.add_argument('--modCFractions', action='store_true',
                     help="Modify fractions of cytosines instead of setting \
                     the modified base frequency to 1. Has no effect with \
@@ -254,6 +251,17 @@ if (not args.baseModificationAtAllModifiablePosFractions and
     die("""You must either provide the position to modify to '-C' or use
         '-A' to use all possible positions.""")
 
+if args.no5caC:
+    MOTIF_ALPHABET_BG_FREQUENCIES['C'] += MOTIF_ALPHABET_BG_FREQUENCIES['c']
+    MOTIF_ALPHABET_BG_FREQUENCIES['G'] += MOTIF_ALPHABET_BG_FREQUENCIES['4']
+    del MOTIF_ALPHABET_BG_FREQUENCIES['c']
+    del MOTIF_ALPHABET_BG_FREQUENCIES['4']
+    MEME_HEADER = re.sub('.*5-Carboxylcytosine.*\n', '', MEME_HEADER)
+MOTIF_ALPHABET_BG_FREQUENCIES_OUTPUT = \
+    ' '.join([str(k) + ' ' + str(v) for k, v
+             in iter(sorted(MOTIF_ALPHABET_BG_FREQUENCIES.iteritems()))])
+MEME_HEADER += MOTIF_ALPHABET_BG_FREQUENCIES_OUTPUT + "\n\n"
+
 filename = (args.inSeqFile or args.inPWMFile or
             args.inPFMFile or args.inTRANSFACFile or
             args.inTRANSFACFreqFile or args.inJASPARFile)
@@ -287,6 +295,7 @@ else:  # PWM or PFM
     with open(filename, 'rb') as inFile:
         if args.annotated:
                 ncols = len(inFile.readline().split())
+                inFile.seek(0)
         elif args.inJASPARFile:
             # count number of columns and remove unwanted characters
             temp = ''
@@ -304,7 +313,7 @@ else:  # PWM or PFM
             csvData = np.loadtxt(inFile,
                                  unpack=True, dtype=np.float,
                                  usecols=range(1, ncols)
-                                 if args.annotated or args.inJASPARFile
+                                 if (args.annotated or args.inJASPARFile)
                                  else None)
         if args.inPFMFile or args.inTRANSFACFile or args.inJASPARFile:
             """This function transforms a given PFM column to a PWM column.
