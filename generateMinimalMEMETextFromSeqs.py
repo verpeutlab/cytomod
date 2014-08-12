@@ -348,9 +348,9 @@ else:  # PWM or PFM
 
     if args.skipMotifPortions:
         addName += '-skip' + args.skipMotifPortions[0][0]
+        skipRows = list()
         for skipMotifPortion in args.skipMotifPortions[0][0].split(','):
-            skipRows = skipMotifPortion
-            match = re.search('(\d*):(\d*)', str(skipRows).strip('[]'))
+            match = re.search('(\d*):(\d*)', str(skipMotifPortion).strip('[]'))
             if match:
                 start = int(match.group(1)) if match.group(1) else 0
                 end = int(match.group(2)) if match.group(2) \
@@ -366,8 +366,8 @@ else:  # PWM or PFM
                     to be excluded. Recall that intervals provided in colon \
                     notation are half-open and that a single row to skip can \
                     be specified by only providing that row number alone.""")
-                skipRows = range(start, end)
-            freqMatrix = np.delete(freqMatrix, skipRows, 0)
+                skipRows.extend(range(start, end))
+        freqMatrix = np.delete(freqMatrix, skipRows, 0)
 
     totalNumBases = freqMatrix.shape[0]
 
