@@ -341,7 +341,7 @@ else:  # PWM or PFM
                                         MOTIF_ALPHABET.index('T')))))
 
     if args.skipMotifPortion:
-        addName += '-skip' + args.skipMotifPortion
+        addName += '-skip' + str(args.skipMotifPortion)
         skipRows = args.skipMotifPortion
         match = re.search('(\d*):(\d*)', str(skipRows).strip('[]'))
         if match:
