@@ -190,7 +190,7 @@ parser.add_argument('-a', '--annotated', action='store_true',
                     identifiers in the first column. This option allows \
                     for them to be removed and prevents them from \
                     interfering with the processing of the input file.")
-parser.add_argument('-S', '--skipMotifPortion', nargs='+', action='append',
+parser.add_argument('-S', '--skipMotifPortions', nargs='+', action='append',
                     help="Skip a portion of a motif. This might be used \
                     if one wishes to limit a motif to its highly \
                     informative portion. Generally, one would only \
@@ -200,7 +200,13 @@ parser.add_argument('-S', '--skipMotifPortion', nargs='+', action='append',
                     space-delimited row indicies (from 0) \
                     or via \"start:end\". In the latter case, \
                     the given interval is interpreted as the \
-                    half-open interval: [start, end).")
+                    half-open interval: [start, end). \
+                    Intervals to skip are comma-delimited. \
+                    For example, to include only positions 3 to 8, \
+                    inclusive and indexed from 1, one would use: \
+                    \"-S 0:2,6:\". Empty start or end intervals \
+                    specify that the given interval should either start \
+                    from 0 or go until the end of the motif.")
 parser.add_argument('--revcomp', help="Reverse complement the input motif.",
                     action='store_true')
 parser.add_argument('--no5caC', help="Do not use 5caC.",
@@ -340,27 +346,28 @@ else:  # PWM or PFM
                                         (len(MOTIF_ALPHABET) - 1) -
                                         MOTIF_ALPHABET.index('T')))))
 
-    if args.skipMotifPortion:
-        addName += '-skip' + str(args.skipMotifPortion)
-        skipRows = args.skipMotifPortion
-        match = re.search('(\d*):(\d*)', str(skipRows).strip('[]'))
-        if match:
-            start = int(match.group(1)) if match.group(1) else 0
-            end = int(match.group(2)) if match.group(2) \
-                else freqMatrix.shape[0]
-            if (start > end):
-                die("""The start index of the motif rows to skip cannot be greater \
-                than the end.""")
-            if (end > freqMatrix.shape[0]):
-                die("""The provided end index of the motif rows to skip exceeds \
-                the motif length.""")
-            if ((end - start) <= 1):
-                warn("""The provided skip interval will only cause one motif row \
-                to be excluded. Recall that intervals provided in colon \
-                notation are half-open and that a single row to skip can \
-                be specified by only providing that row number alone.""")
-            skipRows = range(start, end)
-        freqMatrix = np.delete(freqMatrix, skipRows, 0)
+    if args.skipMotifPortions:
+        addName += '-skip' + args.skipMotifPortions[0][0]
+        for skipMotifPortion in args.skipMotifPortions[0][0].split(','):
+            skipRows = skipMotifPortion
+            match = re.search('(\d*):(\d*)', str(skipRows).strip('[]'))
+            if match:
+                start = int(match.group(1)) if match.group(1) else 0
+                end = int(match.group(2)) if match.group(2) \
+                    else freqMatrix.shape[0]
+                if (start > end):
+                    die("""The start index of the motif rows to skip cannot be greater \
+                    than the end.""")
+                if (end > freqMatrix.shape[0]):
+                    die("""The provided end index of the motif rows to skip exceeds \
+                    the motif length.""")
+                if ((end - start) <= 1):
+                    warn("""The provided skip interval will only cause one motif row \
+                    to be excluded. Recall that intervals provided in colon \
+                    notation are half-open and that a single row to skip can \
+                    be specified by only providing that row number alone.""")
+                skipRows = range(start, end)
+            freqMatrix = np.delete(freqMatrix, skipRows, 0)
 
     totalNumBases = freqMatrix.shape[0]
 
