@@ -388,10 +388,10 @@ else:  # PWM or PFM
             or args.tryAllCModsAtPos or
             args.baseModificationAtAllModifiablePosFractions):
         modFreqMatrix = np.copy(freqMatrix)
+        baseModPos = args.tryAllCModsAtPos or args.baseModPosition
         if args.baseModificationAtAllModifiablePosFractions:
             addName += '-allPos'
-        baseModPos = args.tryAllCModsAtPos or args.baseModPosition
-        if baseModPos:
+        elif baseModPos:
             addName += '-P' + str(baseModPos)
         # index is either positional or comprises all nucleobases
         modBaseIndex = (baseModPos - 1) if (baseModPos and baseModPos !=
