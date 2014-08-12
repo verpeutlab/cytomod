@@ -348,7 +348,6 @@ else:  # PWM or PFM
         if args.no5caC:
             freqMatrix = np.delete(freqMatrix, MOTIF_ALPHABET.index('c'), 1)
             freqMatrix = np.delete(freqMatrix, MOTIF_ALPHABET.index('4'), 1)
-
             MOTIF_ALPHABET.remove('c')
             MOTIF_ALPHABET.remove('4')
 
@@ -395,7 +394,9 @@ else:  # PWM or PFM
         if baseModPos:
             addName += '-P' + str(baseModPos)
         # index is either positional or comprises all nucleobases
-        modBaseIndex = (baseModPos - 1) if baseModPos else slice(None)
+        modBaseIndex = (baseModPos - 1) if (baseModPos and baseModPos !=
+                                            cUtils._PARAM_A_CONST_VAL) \
+            else slice(None)
         for b in (cUtils.MOD_BASE_NAMES.keys() if args.tryAllCModsAtPos
                   else (args.baseModification or
                   args.baseModificationAtAllModifiablePosFractions)):
