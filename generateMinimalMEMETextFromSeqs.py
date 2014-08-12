@@ -136,7 +136,7 @@ modBasePositions.add_argument('-P', '--baseModPosition', type=int,
                               help="The position at which to modify the motif \
                               (using the base specified by '-M'), \
                               * indexed from 1 *.")
-#                             Not yet implemented (maybe do so in the future)
+#                             Not yet implemented (may do so in the future)
 #                             The argument for this option \
 #                             can be omitted to indicate that the position \
 #                             should be automatically determined by finding \
@@ -235,6 +235,7 @@ parser.add_argument('-V', '--version', action='version',
                     version="%(prog)s " + __version__)
 args = parser.parse_args()
 
+addName = ''
 if bool(args.baseModification) ^ bool(args.baseModPosition):
     warn("""Any base modification specification must specify both the
          particular base to be modified (via '-M') and the position
@@ -319,6 +320,7 @@ else:  # PWM or PFM
             np.apply_along_axis(_computeFresFromCountSlice, 1, csvData)
 
         if args.revcomp:
+            addName += '-revcomp'
             csvData = np.flipud(csvData)  # reverse
             csvData[:, [0, 3]] = csvData[:, [3, 0]]  # complement A/T
             csvData[:, [1, 2]] = csvData[:, [2, 1]]  # complement C/G
@@ -330,6 +332,7 @@ else:  # PWM or PFM
                                         MOTIF_ALPHABET.index('T')))))
 
     if args.skipMotifPortion:
+        addName += '-skip' + args.skipMotifPortion
         skipRows = args.skipMotifPortion
         match = re.search('(\d*):(\d*)', str(skipRows).strip('[]'))
         if match:
@@ -364,8 +367,11 @@ else:  # PWM or PFM
             or args.tryAllCModsAtPos or
             args.baseModificationAtAllModifiablePosFractions):
         modFreqMatrix = np.copy(freqMatrix)
-
+        if args.baseModificationAtAllModifiablePosFractions:
+            addName += '-allPos'
         baseModPos = args.tryAllCModsAtPos or args.baseModPosition
+        if baseModPos:
+            addName += '-P' + str(baseModPos)
         # index is either positional or comprises all nucleobases
         modBaseIndex = (baseModPos - 1) if baseModPos else slice(None)
         for b in (cUtils.MOD_BASE_NAMES.keys() if args.tryAllCModsAtPos
@@ -392,8 +398,11 @@ else:  # PWM or PFM
                     np.zeros((1, freqMatrix.shape[1]))
                 modFreqMatrix[(baseModPos - 1),
                               MOTIF_ALPHABET.index(b)] = 1
-            with open((os.path.splitext(filename)[0] + '-' +
-                       cUtils.MOD_BASE_NAMES[b] + '.meme'), "a") as outFile:
+            with open((os.path.basename(os.path.splitext(filename)[0]) + '-' +
+                       cUtils.MOD_BASE_NAMES[b] + addName +
+                       ('-mCFracs' if modCFracs else '') +
+                       ('-mGFracs' if modGFracs else '') +
+                       '.meme'), "a") as outFile:
                 outFile.write(MEME_HEADER)
                 outFile.write(MEMEBody)
                 np.savetxt(outFile, modFreqMatrix, '%f', _DELIM)
