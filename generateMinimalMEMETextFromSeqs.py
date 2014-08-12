@@ -345,6 +345,12 @@ else:  # PWM or PFM
                                np.zeros((csvData.shape[0],
                                         (len(MOTIF_ALPHABET) - 1) -
                                         MOTIF_ALPHABET.index('T')))))
+        if args.no5caC:
+            freqMatrix = np.delete(freqMatrix, MOTIF_ALPHABET.index('c'), 1)
+            freqMatrix = np.delete(freqMatrix, MOTIF_ALPHABET.index('4'), 1)
+
+            MOTIF_ALPHABET.remove('c')
+            MOTIF_ALPHABET.remove('4')
 
     if args.skipMotifPortions:
         addName += '-skip' + args.skipMotifPortions[0][0]
@@ -393,6 +399,8 @@ else:  # PWM or PFM
         for b in (cUtils.MOD_BASE_NAMES.keys() if args.tryAllCModsAtPos
                   else (args.baseModification or
                   args.baseModificationAtAllModifiablePosFractions)):
+            if args.no5caC and b == 'c':
+                continue
             if modCFracs:
                 # modify cytosine fractions
                 modFreqMatrix[modBaseIndex, MOTIF_ALPHABET.index(cUtils.getMBMaybeFromComp(b))] = \
