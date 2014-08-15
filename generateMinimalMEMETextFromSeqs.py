@@ -257,6 +257,13 @@ if (not args.baseModificationAtAllModifiablePosFractions and
     die("""You must either provide the position to modify to '-C' or use
         '-A' to use all possible positions.""")
 
+if args.no5caC:
+    MOTIF_ALPHABET_BG_FREQUENCIES['C'] += MOTIF_ALPHABET_BG_FREQUENCIES['c']
+    MOTIF_ALPHABET_BG_FREQUENCIES['G'] += MOTIF_ALPHABET_BG_FREQUENCIES['4']
+    del MOTIF_ALPHABET_BG_FREQUENCIES['c']
+    del MOTIF_ALPHABET_BG_FREQUENCIES['4']
+    MEME_HEADER = re.sub('.*5-Carboxylcytosine.*\n', '', MEME_HEADER)
+
 MOTIF_ALPHABET_BG_FREQUENCIES_OUTPUT = \
     ' '.join([str(k) + ' ' + str(v) for k, v
              in iter(sorted(MOTIF_ALPHABET_BG_FREQUENCIES.iteritems()))])
@@ -273,6 +280,10 @@ if args.inSeqFile:
     totalNumBases = len(motifChars)
 
     freqMatrix = np.zeros((motifChars.shape[1],
+                           # add two to length as we want 5caC still present
+                           # here, since we remove it later
+                          len(MOTIF_ALPHABET_BG_FREQUENCIES) + 2
+                          if args.no5caC else
                           len(MOTIF_ALPHABET_BG_FREQUENCIES)))
     for i in range(0, motifChars.shape[1]):
         motifCharsInts = motifChars[:, i].view(np.uint8)
@@ -342,11 +353,6 @@ else:  # PWM or PFM
                                         (len(MOTIF_ALPHABET) - 1) -
                                         MOTIF_ALPHABET.index('T')))))
 if args.no5caC:
-    MOTIF_ALPHABET_BG_FREQUENCIES['C'] += MOTIF_ALPHABET_BG_FREQUENCIES['c']
-    MOTIF_ALPHABET_BG_FREQUENCIES['G'] += MOTIF_ALPHABET_BG_FREQUENCIES['4']
-    del MOTIF_ALPHABET_BG_FREQUENCIES['c']
-    del MOTIF_ALPHABET_BG_FREQUENCIES['4']
-    MEME_HEADER = re.sub('.*5-Carboxylcytosine.*\n', '', MEME_HEADER)
     freqMatrix = np.delete(freqMatrix, MOTIF_ALPHABET.index('c'), 1)
     freqMatrix = np.delete(freqMatrix, MOTIF_ALPHABET.index('4'), 1)
     MOTIF_ALPHABET.remove('c')
