@@ -35,7 +35,7 @@ ALLOSOME_ONLY_FLAG = 'l'
 MITOCHONDRIAL_ONLY_FLAG = 'm'
 MITOCHONDRIAL_EXCLUSION_FLAG = MITOCHONDRIAL_ONLY_FLAG.upper()
 
-SUPPORTED_FILE_FORMATS_REGEX = '\.(bed|wig|bed[gG]raph)$'
+SUPPORTED_FORMATS_REGEX = '\.(bed|wig|bed[gG]raph)$'
 CHROMOSOME_TYPE_REGEXES = {AUTOSOME_ONLY_FLAG: 'chr\d+',
                            ALLOSOME_ONLY_FLAG: 'chr[XY]',
                            MITOCHONDRIAL_ONLY_FLAG: 'chrM',
@@ -309,6 +309,10 @@ genomeArchive.add_argument("-d", "--archiveCompDirs", nargs=2,
                            and \".bedGraph\". The filename of each track \
                            must specify what modified nucleobase it \
                            pertains to (i.e. \"5hmC\"). \
+                           Instead of a track directory, a single filename \
+                           that meets the aforementioned requirements may \
+                           be provided if the archive is to contain only \
+                           one track.\
                            Ensure that all tracks are mapped to the same \
                            assembly and that this assembly matches the \
                            genome provided. This will \
@@ -403,9 +407,16 @@ if args.archiveCompDirs:
     # Load all FASTA files in the sequences directory
     load_genomedata.load_genomedata(
         genomeDataArchive,
-        tracks=[(track, args.archiveCompDirs[1] + track)
+        # args.archiveCompDirs[1] is either a directory of tracks
+        # or is the full path to a single track.
+        tracks=([(os.path.basename(args.archiveCompDirs[1]),
+                  args.archiveCompDirs[1])]
+                if os.path.isfile(args.archiveCompDirs[1]) and
+                re.search(SUPPORTED_FORMATS_REGEX, args.archiveCompDirs[1])
+                else [(track, args.archiveCompDirs[1] + track)
                 for track in os.listdir(args.archiveCompDirs[1])
-                if re.search(SUPPORTED_FILE_FORMATS_REGEX, track)],
+                if re.search(SUPPORTED_FORMATS_REGEX, track)]),
+        # args.archiveCompDirs[0] contains the directory with all FASTAs
         seqfilenames=glob.glob(args.archiveCompDirs[0] + "/*.fa*"),
         verbose=args.verbose)
 
