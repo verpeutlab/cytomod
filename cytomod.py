@@ -306,7 +306,9 @@ genomeArchive.add_argument("-d", "--archiveCompDirs", nargs=2,
                            They must have an extension describing \
                            their format. We currently support: \
                            \".wig\", \".bed\", \
-                           and \".bedGraph\". The filename of each track \
+                           and \".bedGraph\". \
+                           Provided BED files must have exactly \
+                           four columns. The filename of each track \
                            must specify what modified nucleobase it \
                            pertains to (i.e. \"5hmC\"). \
                            Instead of a track directory, a single filename \
