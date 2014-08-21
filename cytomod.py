@@ -40,7 +40,7 @@ CHROMOSOME_TYPE_REGEXES = {AUTOSOME_ONLY_FLAG: 'chr\d+',
                            ALLOSOME_ONLY_FLAG: 'chr[XY]',
                            MITOCHONDRIAL_ONLY_FLAG: 'chrM',
                            MITOCHONDRIAL_EXCLUSION_FLAG: 'chr(?:\d+|[XY])'}
-CHROMOSOME_EXCLUSION_REGEX = '(?:random)'
+CHROMOSOME_EXCLUSION_REGEX = '(?:random|hap)'
 MOD_BASE_REGEX = '5(m|hm|f|ca)C'
 REGION_REGEX = '(chr(?:\d+|[XYM]))(?::(?P<start>\d+)?-(?P<end>\d+)?)?'
 
