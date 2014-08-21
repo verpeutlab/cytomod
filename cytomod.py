@@ -403,7 +403,9 @@ from genomedata import Genome, load_genomedata
 genomeDataArchive = ""
 if args.archiveCompDirs:
     v_print_timestamp(args.verbose, "Creating genomedata archive.")
-    genomeDataArchive = args.archiveCompDirs[1] + "/archive/"
+    # Create the archive in the directory of the track files
+    genomeDataArchive = "./archive/" if os.path.isfile(args.archiveCompDirs[1]) \
+        else args.archiveCompDirs[1] + "/archive/"
     # Create the genome data archive
     # Load all supported track files in the tracks directory
     # Load all FASTA files in the sequences directory
