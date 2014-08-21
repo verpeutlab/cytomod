@@ -41,7 +41,7 @@ CHROMOSOME_TYPE_REGEXES = {AUTOSOME_ONLY_FLAG: 'chr\d+',
                            MITOCHONDRIAL_ONLY_FLAG: 'chrM',
                            MITOCHONDRIAL_EXCLUSION_FLAG: 'chr(?:\d+|[XY])'}
 CHROMOSOME_EXCLUSION_REGEX = '(?:random)'
-MOD_BASE_REGEX = '5.+C'
+MOD_BASE_REGEX = '5(m|hm|f|ca)C'
 REGION_REGEX = '(chr(?:\d+|[XYM]))(?::(?P<start>\d+)?-(?P<end>\d+)?)?'
 
 _DEFAULT_FASTA_FILENAME = 'modGenome.fa'
@@ -308,9 +308,10 @@ genomeArchive.add_argument("-d", "--archiveCompDirs", nargs=2,
                            \".wig\", \".bed\", \
                            and \".bedGraph\". \
                            Provided BED files must have exactly \
-                           four columns. The filename of each track \
-                           must specify what modified nucleobase it \
-                           pertains to (i.e. \"5hmC\"). \
+                           four columns. The fourth column must be numeric. \
+                           The filename of each track must specify what \
+                           modified nucleobase it pertains to; \
+                           one of: {5mC, 5hmC, 5fC, 5caC}. \
                            Instead of a track directory, a single filename \
                            that meets the aforementioned requirements may \
                            be provided if the archive is to contain only \
@@ -436,7 +437,8 @@ with Genome(genomeDataArchive) as genome:
     for track in genome.tracknames_continuous:
         modBases.append(cUtils.MOD_BASES[re.search(MOD_BASE_REGEX, track)
                         .group(0)])
-    modOrder = [modBases.index(b) for b in list(args.priority)]
+    modOrder = [modBases.index(b) for b in list(args.priority)
+                if b in modBases]
     v_print_timestamp(args.verbose, """The order of preference for base
                       modifications is: """ + ','.join(list(args.priority)) +
                       ".")
