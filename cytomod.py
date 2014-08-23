@@ -22,12 +22,15 @@ import random
 import colorbrewer
 import gzip
 
+from collections import OrderedDict
+
 import numpy as np
 
 import cUtils
 __version__ = cUtils.VERSION
 
 # The colours of the modified bases, for use in the tracks
+# TODO correctly procure ambiguous base colours
 MOD_BASE_COLOURS = colorbrewer.RdYlBu[2*len(cUtils.MOD_BASES)]
 
 AUTOSOME_ONLY_FLAG = 'u'
@@ -94,26 +97,36 @@ def _ensureRegionValidity(genome, chrm, start, end):
         sys.exit("Invalid region: invalid end position.")
 
 
+def _maybeGetAmbigMapping(b, ambigMap):
+    """Maps the given base to its ambiguous base, if possible."""
+    return (ambigMap.get(b) or
+            (cUtils.complement(ambigMap.get(cUtils.complement(b)))
+            if ambigMap.get(cUtils.complement(b)) else None) or b)
+
+
 def getTrackHeader(m):
     """Generates and returns a valid UCSC track header,
     with an appropriate name, description, and colour
     for the the given modified nucleobase.
     The returned header is terminated by a newline."""
-    colour = str(MOD_BASE_COLOURS[cUtils.MOD_BASES.values().index(m)
-                                  if m in cUtils.MOD_BASES.values()
+
+    # Colours are retrieved using the first unequivocal base (fUB)
+    fUB = cUtils.getFirstUnivocalBase(m)
+    colour = str(MOD_BASE_COLOURS[cUtils.MOD_BASES.values().index(fUB)
+                                  if fUB in cUtils.MOD_BASES.values()
                                   else (len(MOD_BASE_COLOURS) -
                                         cUtils.MOD_BASES.values().
-                                        index(cUtils.complement(m)[0]) - 1)])
+                                        index(cUtils.complement(fUB)[0]) - 1)])
     browserConfLines = "browser hide all\nbrowser dense " + \
         _DENSE_TRACKS + "\n"
     return browserConfLines + 'track name="Nucleobase ' + m + \
-        '" description="Track denoting ' + cUtils._FULL_MOD_BASE_NAMES[m] + \
+        '" description="Track denoting ' + cUtils.FULL_MOD_BASE_NAMES[m] + \
         ' covalently modified nucleobases.' + '" color=' + \
         re.sub('[() ]', '', colour + "\n")
 
 
-def getModifiedGenome(genome, modOrder, chrm, start,
-                      end, suppressFASTA, suppressBED, tnames):
+def getModifiedGenome(genome, modOrder, chrm, start, end,
+                      suppressFASTA, suppressBED, tnames, ambigMap):
     """Returns the modified genome sequence, for the given genome,
     over the given input region."""
     hasModifiedBases = False
@@ -135,22 +148,25 @@ def getModifiedGenome(genome, modOrder, chrm, start,
         x = np.transpose(np.nonzero(orderedmodBasesA != '0'))
         u, idx = np.unique(x[:, 0], return_index=True)
 
-        def maybeGetModBase(m, r):
+        def maybeGetModBase(m, r, ambigMap):
             """Returns the modified base corresponding to
-            the given putatively modified base. The base returned
+            the given putatively modified base (m). The base returned
             is the input putatively modified base if the corresponding
-            reference base is modifiable to the input base, or the complement
-            of that base, if the complemented reference is modifiable to it,
-            otherwise the reference base itself is returned."""
-            if m not in cUtils._MODIFIES:
-                return r
+            reference base (r) is modifiable to the input base, or the
+            complement of that base, if the complemented reference is
+            modifiable to it, otherwise the reference base (r) itself
+            is returned. This function also maps modified bases to any
+            applicable ambiguity codes that are provided in ambigMap."""
+            m = ambigMap.get(m) or m  # maybe map to an ambiguous base
+            if m not in cUtils.MODIFIES:
+                return ambigMap.get(r) or r
             else:
-                if cUtils._MODIFIES[m] == r:
+                if cUtils.MODIFIES[m] == r:
                     return m
-                elif cUtils._MODIFIES[m] == cUtils.complement(r)[0]:
+                elif cUtils.MODIFIES[m] == cUtils.complement(r)[0]:
                     return cUtils.complement(m)[0]
                 else:
-                    return r
+                    return ambigMap.get(r) or r
         # Initially the sequence is unmodified and we successively modify it.
         allModBases = np.copy(referenceSeq)
         # We vectorize the function for convenience.
@@ -160,14 +176,25 @@ def getModifiedGenome(genome, modOrder, chrm, start,
         # that modify their 'target' base (i.e. '5fC' = 'f' only modifies 'C').
         # Return the reference base for all non-modifiable bases
         # and for unmodified bases.
+
         if x.size > 0:
             hasModifiedBases = True
+            # Modify bases
             np.put(allModBases, x[idx][:, 0],
                    maybeGetModBase(orderedmodBasesA[x[idx][:, 0],
                                    x[idx][:, 1]],
-                                   allModBases[x[idx][:, 0]]))
+                                   allModBases[x[idx][:, 0]], ambigMap))
+            if ambigMap:  # Replace with ambiguous bases in unmodified sequence
+                unmodBaseIndices = np.delete(np.indices(np.shape(allModBases)),
+                                             x[idx][:, 0])
+                np.put(allModBases, unmodBaseIndices, np.vectorize(lambda b:
+                       _maybeGetAmbigMapping(b, ambigMap))
+                       (np.delete(allModBases, x[idx][:, 0])))
             if not suppressBED:
-                for m in cUtils._MODIFIES.keys():
+                # Create a BED track for each unequivocal modified base,
+                # ensuring not to re-create tracks in the case of ambiguity
+                for m in [_maybeGetAmbigMapping(b, ambigMap)
+                          for b in cUtils.getUnivocalModBases()]:
                     # NB: This could be done in a more efficient manner.
                     baseModIdxs = np.flatnonzero(allModBases[x[idx][:, 0]]
                                                  == m)
@@ -204,7 +231,7 @@ def getModifiedGenome(genome, modOrder, chrm, start,
 
 
 def generateFASTAFile(file, id, genome, modOrder, chrm, start,
-                      end, suppressBED, tnames):
+                      end, suppressBED, tnames, ambigMap):
     """Writes an optionally gzipped FASTA file of the modified genome
     appending to the given file, using the given ID.
     No FASTA ID (i.e. '> ...') is written if no ID is given."""
@@ -214,7 +241,7 @@ def generateFASTAFile(file, id, genome, modOrder, chrm, start,
         if id:
             modGenomeFile.write(">" + id + "\n")
         modGenomeFile.write(getModifiedGenome(genome, modOrder, chrm,
-                            start, end, False, suppressBED, tnames)
+                            start, end, False, suppressBED, tnames, ambigMap)
                             + "\n")
 
 
@@ -383,6 +410,30 @@ parser.add_argument('-f', '--fastaFile', nargs='?', type=str,
                     (i.e. a FASTA file with always be produced). \
                     The output file will be gzipped iff the \
                     path provided ends in \".gz\".")
+ambigModUsage = \
+    parser.add_argument_group(title="Use of Ambiguous Modification Data",
+                              description="Specify that some of the data \
+                              provided for a given modified base is unable \
+                              to differentiate between some number of \
+                              modifications. This ensures that Cytomod \
+                              outputs the correct ambiguity code such that \
+                              modified genomes do not purport to convey \
+                              greater information than they truly contain. \
+                              The most general applicable ambiguities should \
+                              be speicified. Therefore, each modified \
+                              nucleobase may reside in at most one specified \
+                              set of ambiguities.")
+ambigModUsage.add_argument('--mh', action='store_const', const='mh',
+                           help="Specify that input data is not able to \
+                           differentiate between 5mC and 5hmC. This would \
+                           be the case if the data originated from a protocol \
+                           which only included Reduced Representation \
+                           Bisulfite Seqeuncing (RRBS).", default='')
+ambigModUsage.add_argument('--fC', action='store_const', const='fC',
+                           help="Specify that input data is not able to \
+                           differentiate between 5fC and C. This would be the \
+                           case if the data originated from a protocol which \
+                           only included oxidative RRBS.", default='')
 parser.add_argument('-v', '--verbose', help="increase output verbosity",
                     action="count")
 parser.add_argument('-V', '--version', action='version',
@@ -398,6 +449,20 @@ if args.onlyBED and args.fastaFile:
 
 if args.excludechrms:
     _modifychrmExclusionRegex(args.excludechrms)
+
+# NB: Ensure to update this to include all arguments in the ambigModUsage group
+# TODO It would be nice if there was an automated means of accomplishing this
+# Ensure provided ambiguities are unique
+if (''.join(OrderedDict.fromkeys(args.mh + args.fC).keys()) !=
+        args.mh + args.fC):
+    die("Provided ambiguity codes must be unique.")
+# Create a map from ambiguity codes to the specified ambiguities
+ambigMap = {}
+for k in [args.fC, args.mh]:
+    ambigMap.update({b: cUtils.INVERTED_AMBIG_MOD_BASES[k]
+                     for b in ''.join(k)})
+v_print_timestamp(args.verbose, "Using the following ambiguity map: " +
+                  str(ambigMap) + ".", 2)
 
 from genomedata import Genome, load_genomedata
 
@@ -451,7 +516,10 @@ with Genome(genomeDataArchive) as genome:
         trackID = os.path.splitext(os.path.basename(args.fastaFile
                                    or _DEFAULT_FASTA_FILENAME))[0]
         trackID += '-' if trackID else ''
-        for m in cUtils._MODIFIES.keys():
+        procModBases = []
+        # Don't re-create tracks if an ambiguous one for the base exists
+        for m in [_maybeGetAmbigMapping(b, ambigMap)
+                  for b in cUtils.getUnivocalModBases()]:
             trackFileName = "track-" + trackID + m + ".bed.gz"
             tnames[m] = trackFileName
             # 'EAFP' way of removing any existing old tracks
@@ -489,7 +557,7 @@ with Genome(genomeDataArchive) as genome:
             else:
                 print(getModifiedGenome(genome, modOrder, chrm, start, end,
                                         args.onlyBED, args.suppressBED,
-                                        tnames))
+                                        tnames, ambigMap))
     else:
         for chromosome in [chromosome for chromosome in genome
                            if not re.search(CHROMOSOME_EXCLUSION_REGEX,

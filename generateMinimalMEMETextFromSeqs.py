@@ -9,7 +9,10 @@ or an input PWM, PFM, TRANSFAC matrix, or JASPAR matrix.
 The background frequencies should be manually adjusted
 to use case. Modified output (if applicable) is always
 written to a file, while the MEME output written to STDOUT
-always correpsonds to the unmodified motif."""
+always correpsonds to the unmodified motif.
+
+Currently only designed to work with mESC data as the background
+model in use is hard-coded for them."""
 
 import os
 import textwrap
@@ -31,20 +34,27 @@ _DELIM = "\t"
 BOTH_STRANDS = 0
 STRANDS = '+ -' if BOTH_STRANDS else '+'
 FROM_STR = 'custom'
+
+# TODO  Generalize to allow customizations to the alphabet and background
+#       models (e.g. for arbitrary modified base exclusions and other
+#       background models for different cell lines or organisms).
+
 # The alphabet frequencies used were (WRT Cs only):
 # 2.95% 5mC, 0.055 ± 0.008% 5hmC, 0.0014 ± 0.0003% 5fC, and 0.000335% 5caC
 # (Respectively: Ito et al. 2011, Booth et al. 2014, Booth et al. 2014,
 # and Ito et al. 2011)
-MOTIF_ALPHABET_BG_FREQUENCIES = \
+mESC_MOTIF_ALPHABET_BG_FREQUENCIES = \
     {'T': 0.292, 'A': 0.292, 'C': 0.201745991, 'G': 0.201745991,
      # (using mouse GC content of 41.6%)
      # From: NCBI Eukaryotic Genome Report File
      'm': 0.006136, '1': 0.006136, 'h': 0.0001144, '2': 0.0001144,
      'f': 0.000002912, '3': 0.000002912, 'c': 0.000000697, '4': 0.000000697}
-npt.assert_allclose([sum(MOTIF_ALPHABET_BG_FREQUENCIES.itervalues())], [1])
+npt.assert_allclose([sum(mESC_MOTIF_ALPHABET_BG_FREQUENCIES.itervalues())],
+                    [1])
+
 # The MEME Suite uses ASCII ordering for custom alphabets
 # This is the natural lexicographic sorting order, so no "key" is needed
-MOTIF_ALPHABET = sorted(list(MOTIF_ALPHABET_BG_FREQUENCIES.keys()))
+MOTIF_ALPHABET = sorted(list(mESC_MOTIF_ALPHABET_BG_FREQUENCIES.keys()))
 
 MEME_HEADER = """MEME version 4
 
@@ -55,6 +65,12 @@ m "5-Methylcytosine" D73027 ~ 1 "Guanine:5-Methylcytosine" 4575B4
 h "5-Hydroxymethylcytosine" F46D43 ~ 2 "Guanine:5-Hydroxymethylcytosine" 74ADD1
 f "5-Formylcytosine" FDAE61 ~ 3 "Guanine:5-Formylcytosine" ABD9E9
 c "5-Carboxylcytosine" FEE090 ~ 4 "Guanine:5-Carboxylcytosine" E0F3F8
+z = Cmhfc
+9 = G1234
+y = Cf
+8 = G3
+x = mh
+7 = 12
 R = AG
 Y = CT
 K = GT
@@ -87,7 +103,8 @@ parser = argparse.ArgumentParser()
 inputFileGroupTitle = \
     parser.add_argument_group(title="Input File", description="The input set \
                               of sequences or matrix from which to create a \
-                              MEME minimal text output file.")
+                              MEME minimal text output file. \
+                              The output file uses mESC background frequences")
 inputFile = inputFileGroupTitle.add_mutually_exclusive_group(required=True)
 inputFile.add_argument('-s', '--inSeqFile', type=str, help="File containing \
                        an input set of raw sequences.")
@@ -258,15 +275,17 @@ if (not args.baseModificationAtAllModifiablePosFractions and
         '-A' to use all possible positions.""")
 
 if args.no5caC:
-    MOTIF_ALPHABET_BG_FREQUENCIES['C'] += MOTIF_ALPHABET_BG_FREQUENCIES['c']
-    MOTIF_ALPHABET_BG_FREQUENCIES['G'] += MOTIF_ALPHABET_BG_FREQUENCIES['4']
-    del MOTIF_ALPHABET_BG_FREQUENCIES['c']
-    del MOTIF_ALPHABET_BG_FREQUENCIES['4']
+    mESC_MOTIF_ALPHABET_BG_FREQUENCIES['C'] += \
+        mESC_MOTIF_ALPHABET_BG_FREQUENCIES['c']
+    mESC_MOTIF_ALPHABET_BG_FREQUENCIES['G'] += \
+        mESC_MOTIF_ALPHABET_BG_FREQUENCIES['4']
+    del mESC_MOTIF_ALPHABET_BG_FREQUENCIES['c']
+    del mESC_MOTIF_ALPHABET_BG_FREQUENCIES['4']
     MEME_HEADER = re.sub('.*5-Carboxylcytosine.*\n', '', MEME_HEADER)
 
 MOTIF_ALPHABET_BG_FREQUENCIES_OUTPUT = \
     ' '.join([str(k) + ' ' + str(v) for k, v
-             in iter(sorted(MOTIF_ALPHABET_BG_FREQUENCIES.iteritems()))])
+             in iter(sorted(mESC_MOTIF_ALPHABET_BG_FREQUENCIES.iteritems()))])
 MEME_HEADER += MOTIF_ALPHABET_BG_FREQUENCIES_OUTPUT + "\n\n"
 
 filename = (args.inSeqFile or args.inPWMFile or
@@ -282,9 +301,9 @@ if args.inSeqFile:
     freqMatrix = np.zeros((motifChars.shape[1],
                            # add two to length as we want 5caC still present
                            # here, since we remove it later
-                          len(MOTIF_ALPHABET_BG_FREQUENCIES) + 2
+                          len(mESC_MOTIF_ALPHABET_BG_FREQUENCIES) + 2
                           if args.no5caC else
-                          len(MOTIF_ALPHABET_BG_FREQUENCIES)))
+                          len(mESC_MOTIF_ALPHABET_BG_FREQUENCIES)))
     for i in range(0, motifChars.shape[1]):
         motifCharsInts = motifChars[:, i].view(np.uint8)
         # NB: itemfreq internally uses bincount; we must map to and from ints
