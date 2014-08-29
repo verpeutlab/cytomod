@@ -434,6 +434,24 @@ ambigModUsage.add_argument('--fC', action='store_const', const='fC',
                            differentiate between 5fC and C. This would be the \
                            case if the data originated from a protocol which \
                            only included oxidative RRBS.", default='')
+# TODO Implement this?
+# NB: neither TRF nor dustmasker work upon modified genomes
+# parser.add_argument('-M', '--hardMaskRepetitiveRegions',
+#                     help="Hard mask low complexity regions. The program \
+#                     first will attempt to use the Tandem Repeat Finder \
+#                     (TRF) program, by Gary Benson, using a system call \
+#                     to the 'trf' executable. If this is not available, \
+#                     the program will attempt to use dustmasker, of the NCBI \
+#                     toolkit, by Morgulis et al (executed via 'dustmasker'). \
+#                     By default, a threshold of 16 is used with dustmasker, \
+#                     incrasing its masking, as done by Frith et al. 2010. \
+#                     An argument containing the first letter of a tool \
+#                     may be passed to override this behaviour. \
+#                     Additionally, passing 'B' or 'F' will use TRF \
+#                     with parameters recommended by the TRF author \
+#                     or from Frith et al., respectively. \
+#                     Default behaviour is equivalent to providing the \
+#                     'F' sub-argument.", action='store_const', const='F')
 parser.add_argument('-v', '--verbose', help="increase output verbosity",
                     action="count")
 parser.add_argument('-V', '--version', action='version',
@@ -476,6 +494,13 @@ if args.archiveCompDirs:
     # Create the genome data archive
     # Load all supported track files in the tracks directory
     # Load all FASTA files in the sequences directory
+    FASTA_file_list = glob.glob(args.archiveCompDirs[0] + "/*.fa*")
+    if not FASTA_file_list:
+        FASTA_file_list = glob.glob(args.archiveCompDirs[0] + "/*.mask*")
+        v_print_timestamp(args.verbose, """Detected that a repeat masked
+                          genome is being used for archive creation.""")
+    if not FASTA_file_list:
+        die("Unable to locate FASTA input files for archive creation.")
     load_genomedata.load_genomedata(
         genomeDataArchive,
         # args.archiveCompDirs[1] is either a directory of tracks
@@ -488,7 +513,7 @@ if args.archiveCompDirs:
                 for track in os.listdir(args.archiveCompDirs[1])
                 if re.search(SUPPORTED_FORMATS_REGEX, track)]),
         # args.archiveCompDirs[0] contains the directory with all FASTAs
-        seqfilenames=glob.glob(args.archiveCompDirs[0] + "/*.fa*"),
+        seqfilenames=FASTA_file_list,
         verbose=args.verbose)
 
 else:
@@ -553,7 +578,8 @@ with Genome(genomeDataArchive) as genome:
                               genome for: """ + regionStr + ".")
             if args.fastaFile:
                 generateFASTAFile(args.fastaFile, regionStr, genome, modOrder,
-                                  chrm, start, end, args.suppressBED, tnames)
+                                  chrm, start, end, args.suppressBED, tnames,
+                                  ambigMap)
             else:
                 print(getModifiedGenome(genome, modOrder, chrm, start, end,
                                         args.onlyBED, args.suppressBED,
@@ -567,6 +593,7 @@ with Genome(genomeDataArchive) as genome:
             generateFASTAFile(args.fastaFile or _DEFAULT_FASTA_FILENAME,
                               chromosome.name, genome, modOrder,
                               chromosome.name, int(chromosome.start),
-                              int(chromosome.end), args.suppressBED, tnames)
+                              int(chromosome.end), args.suppressBED, tnames,
+                              ambigMap)
 
 v_print_timestamp(args.verbose, "Program complete.")
