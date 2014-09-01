@@ -327,9 +327,11 @@ genomeArchive.add_argument("-d", "--archiveCompDirs", nargs=2,
                            modified base tracks. The genome directory must \
                            contain (optionally gzipped) FASTA files of \
                            chromosomes and/or scaffolds. \
+                           The sequence files must end in either a \
+                           \".fa\" or \".mask\" extension \
+                           (with an optional \".gz\" suffix). \
                            The track directory must contain \
-                           (optionally gzipped) \
-                           genome tracks. \
+                           (optionally gzipped) genome tracks. \
                            They must have an extension describing \
                            their format. We currently support: \
                            \".wig\", \".bed\", \
@@ -427,13 +429,14 @@ ambigModUsage.add_argument('--mh', action='store_const', const='mh',
                            help="Specify that input data is not able to \
                            differentiate between 5mC and 5hmC. This would \
                            be the case if the data originated from a protocol \
-                           which only included Reduced Representation \
-                           Bisulfite Seqeuncing (RRBS).", default='')
+                           which only included conventional bisulfite \
+                           sequencing.", default='')
 ambigModUsage.add_argument('--fC', action='store_const', const='fC',
                            help="Specify that input data is not able to \
                            differentiate between 5fC and C. This would be the \
                            case if the data originated from a protocol which \
-                           only included oxidative RRBS.", default='')
+                           only included oxidative bisulfite sequencing.",
+                           default='')
 # TODO Implement this?
 # NB: neither TRF nor dustmasker work upon modified genomes
 # parser.add_argument('-M', '--hardMaskRepetitiveRegions',
@@ -494,9 +497,12 @@ if args.archiveCompDirs:
     # Create the genome data archive
     # Load all supported track files in the tracks directory
     # Load all FASTA files in the sequences directory
-    FASTA_file_list = glob.glob(args.archiveCompDirs[0] + "/*.fa*")
+    # TODO this could be generalized and could be made less redundant
+    FASTA_file_list = glob.glob(args.archiveCompDirs[0] + "/*.fa") or \
+        glob.glob(args.archiveCompDirs[0] + "/*.fa.gz")
     if not FASTA_file_list:
-        FASTA_file_list = glob.glob(args.archiveCompDirs[0] + "/*.mask*")
+        FASTA_file_list = glob.glob(args.archiveCompDirs[0] + "/*.mask") or \
+            glob.glob(args.archiveCompDirs[0] + "/*.mask.gz")
         v_print_timestamp(args.verbose, """Detected that a repeat masked
                           genome is being used for archive creation.""")
     if not FASTA_file_list:
