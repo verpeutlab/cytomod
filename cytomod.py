@@ -49,6 +49,7 @@ REGION_REGEX = '(chr(?:\d+|[XYM]))(?::(?P<start>\d+)?-(?P<end>\d+)?)?'
 
 _DEFAULT_FASTA_FILENAME = 'modGenome.fa'
 _DEFAULT_BASE_PRIORITY = 'fhmc'
+_DEFAULT_CENTRED_REGION_LENGTH = 500
 _DEFAULT_BASE_PRIORITY_COMMENT = """the resolution of the biological protocol
 (i.e. single-base > any chemical > any DIP)"""
 _DEFAULT_RAN_LENGTH = 2000
@@ -356,12 +357,23 @@ region.add_argument('-r', '--region', help="Only output the modified genome \
                     for the given region. This can either be via a file \
                     or a region specification string. In the latter case, \
                     the region must be specified in the format: \
-                    chrm<ID>:<start>-<end> (ex. chrm1:500-510). \
+                    chrm<ID>:<start>-<end> (ex. chr1:500-510). \
                     If a file is being provided, it can be in \
                     any BEDTools-supported file format \
                     (BED, VCF, GFF, and gzipped versions thereof). \
                     The full path to the file should be provided \
                     (or just the file name for the current directory).")
+parser.add_argument('-c', '--centeredRegion', nargs='?', type=int,
+                    const=_DEFAULT_CENTRED_REGION_LENGTH,
+                    help="If used in conjunction with '-r', \
+                    only output the modified genome \
+                    for the given base pair interval (defaults to 500 bp), \
+                    centered around the given region. \
+                    NB: This region does not necessarily correspond to the \
+                    centre of the peak, since the region's start and end \
+                    coordinates alone are used to find the centre, \
+                    as opposed to any peak information \
+                    (from a narrowPeaks file, for example).")
 region.add_argument('-R', '--randomRegion', nargs='?',
                     const=_DEFAULT_RAN_LENGTH, type=int,
                     help="Output the modified genome for a random region. \
@@ -463,6 +475,10 @@ args = parser.parse_args()
 
 if args.region and args.excludechrms:
     warn("Exclusion regex ignored, since a specific region was specifed.")
+
+if args.centeredRegion and not args.region:
+    warn("""Centered region argument ignored, since no specific regions
+            were specifed. Specify '-r' with '-c' to use centred regions.""")
 
 if args.onlyBED and args.fastaFile:
     warn("""Request to only generate BED files ignored,
@@ -579,6 +595,14 @@ with Genome(genomeDataArchive) as genome:
         for i in xrange(0, len(regions.flat), 3):
             chrm, start, end = regions.flat[i], int(regions.flat[i + 1]), \
                 int(regions.flat[i + 2])
+            if args.centeredRegion:
+                centre = int(round((start + end) / 2))
+                start = int(centre - args.centeredRegion / 2)
+                if start < 0:
+                    start = 0
+                end = int(centre + args.centeredRegion / 2)
+                if end > int(genome[chrm].end):
+                    end = int(genome[chrm].end)
             regionStr = chrm + ":" + str(start) + "-" + str(end)
             v_print_timestamp(args.verbose, """Outputting the modified
                               genome for: """ + regionStr + ".")
