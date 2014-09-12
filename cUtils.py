@@ -31,7 +31,7 @@ MOD_BASES = OrderedDict([('5mC', 'm'), ('5hmC', 'h'),
 # the list of possible interpretations of an ambiguity code.
 AMBIG_MOD_BASES = OrderedDict([('z', ['m', 'h', 'f',
                                       'c', 'C']),
-                               ('y', ['f', 'C']),
+                               ('y', ['f', 'c', 'C']),
                                ('x', ['m', 'h'])])
 # Permits ambiguity code lookup using concatenated modified bases
 # NB: Assumes that values are unique (they should always be)
