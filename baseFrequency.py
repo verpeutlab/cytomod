@@ -122,6 +122,7 @@ def makeSelFreqPlot(charFreqsP, plotPath, selectionInclusionRegex,
                 labels=zip(*selectedCharFreqs)[0], autopct='%1.1f%%')
     else:
         import matplotlib.ticker as ticker
+        from matplotlib.ticker import FormatStrFormatter
         from brewer2mpl import diverging
 
         bmapType = diverging.Spectral
@@ -134,6 +135,8 @@ def makeSelFreqPlot(charFreqsP, plotPath, selectionInclusionRegex,
                  color=bmapType[numColours].mpl_colors, annotate=annPlot)
         ax.xaxis.set_ticks_position('bottom')
         ax.xaxis.set_minor_locator(ticker.AutoMinorLocator())
+        if percentC:  # add '%' symbol to each x-axis tick label
+            plt.gca().xaxis.set_major_formatter(FormatStrFormatter('%1.2f%%'))
         plt.xlabel('Percent of Total Cytosine Content' if percentC
                    else 'Percent of Total Genomic Content')
         plt.ylabel('Modified Nucleobase')
@@ -205,13 +208,13 @@ charFreqs = 0
 # operation for that base etc.).
 if args.percentC:
     totalNumCs = sum((f for b, f in charCounts if b is 'C' or
-                      cUtils.MODIFIES[b] == 'C'))
+                      cUtils.MODIFIES.get(b) == 'C'))
     totalNumGs = sum((f for b, f in charCounts if b is 'G' or
-                      cUtils.MODIFIES[b] == 'G'))
+                      cUtils.MODIFIES.get(b) == 'G'))
     charFreqs = [(base, count / totalNumCs) for base, count in charCounts
-                 if base is 'C' or cUtils.MODIFIES[base] == 'C']
+                 if base is 'C' or cUtils.MODIFIES.get(base) == 'C']
     charFreqs += [(base, count / totalNumGs) for base, count in charCounts
-                  if base is 'G' or cUtils.MODIFIES[base] == 'G']
+                  if base is 'G' or cUtils.MODIFIES.get(base) == 'G']
 else:
     totalNumChars = sum(zip(*charCounts)[1])
     charFreqs = [(base, count / totalNumChars) for base, count in charCounts]
