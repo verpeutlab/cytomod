@@ -135,8 +135,8 @@ def makeSelFreqPlot(charFreqsP, plotPath, selectionInclusionRegex,
                  color=bmapType[numColours].mpl_colors, annotate=annPlot)
         ax.xaxis.set_ticks_position('bottom')
         ax.xaxis.set_minor_locator(ticker.AutoMinorLocator())
-        if percentC:  # add '%' symbol to each x-axis tick label
-            plt.gca().xaxis.set_major_formatter(FormatStrFormatter('%1.2f%%'))
+        # add '%' symbol to each x-axis tick label
+        plt.gca().xaxis.set_major_formatter(FormatStrFormatter('%1.2f%%'))
         plt.xlabel('Percent of Total Cytosine Content' if percentC
                    else 'Percent of Total Genomic Content')
         plt.ylabel('Modified Nucleobase')
