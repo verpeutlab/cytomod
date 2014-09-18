@@ -1,6 +1,6 @@
 from __future__ import with_statement, division, print_function
 
-VERSION = "$Revision: 0.05$"
+VERSION = "$Revision: 0.06$"
 
 import sys
 import re
