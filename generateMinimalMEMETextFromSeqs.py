@@ -326,8 +326,13 @@ if args.notNucleobases:
             motifAlphBGFreqs[cUtils.complement(base)]
         del motifAlphBGFreqs[base]
         del motifAlphBGFreqs[cUtils.complement(base)]
+        # remove excluded nucleobase from alphabet
         MEME_HEADER = re.sub('.*' + cUtils.FULL_MOD_BASE_NAMES[base]
                              + '.*\n', '', MEME_HEADER)
+        # remove excluded nucleobase from any containing ambiguity codes
+        MEME_HEADER = re.sub('(. = .*)(?:' + base + '|'
+                             + cUtils.complement(base) + ')(.*\n)',
+                             '\g<1>\g<2>', MEME_HEADER, flags=re.MULTILINE)
 
 # The MEME Suite uses ASCII ordering for custom alphabets
 # This is the natural lexicographic sorting order, so no "key" is needed
