@@ -240,7 +240,7 @@ parser.add_argument('-m', '--modAllFractions', action='store_true',
 parser.add_argument('-b', '--background', default=_DEFAULT_BG,
                     help="The background model to \
                     add to the output file for use by MEME. \
-                    The background model must be a first-order Markov model. \
+                    The background model must be a zero-order Markov model. \
                     Either a background model type can be specified or \
                     a file can be provided. The background model \
                     type can be one of: 'mESC' or 'AML'. \
@@ -315,7 +315,7 @@ if args.background:
                  'm': 0.01455, '1': 0.01455, 'h': 0.000195, '2': 0.000195,
                  'f': 0.000010906, '3': 0.000010906}
 
-# The first-order Markov model must sum to unity to be sensical
+# The zero-order Markov model must sum to unity to be sensical
 npt.assert_allclose([sum(motifAlphBGFreqs.itervalues())], [1])
 
 if args.notNucleobases:
