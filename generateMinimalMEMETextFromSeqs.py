@@ -9,10 +9,7 @@ or an input PWM, PFM, TRANSFAC matrix, or JASPAR matrix.
 The background frequencies should be manually adjusted
 to use case. Modified output (if applicable) is always
 written to a file, while the MEME output written to STDOUT
-always correpsonds to the unmodified motif.
-
-Currently only designed to work with mESC data as the background
-model in use is hard-coded for them."""
+always correpsonds to the unmodified motif."""
 
 import os
 import textwrap
@@ -88,7 +85,8 @@ inputFileGroupTitle = \
     parser.add_argument_group(title="Input File", description="The input set \
                               of sequences or matrix from which to create a \
                               MEME minimal text output file. \
-                              The output file uses mESC background frequences")
+                              Ensure to also use arguments '-a' and '-S' \
+                              as needed for the input file used.")
 inputFile = inputFileGroupTitle.add_mutually_exclusive_group(required=True)
 inputFile.add_argument('-s', '--inSeqFile', type=str, help="File containing \
                        an input set of raw sequences.")
