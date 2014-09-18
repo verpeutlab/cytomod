@@ -320,6 +320,9 @@ npt.assert_allclose([sum(motifAlphBGFreqs.itervalues())], [1])
 
 if args.notNucleobases:
     for base in args.notNucleobases.split(_ARG_DELIM):
+        if base not in cUtils.MODIFIES:
+            die(""""Only "primary" modified nucleobases can be
+            specified for removal.""")
         motifAlphBGFreqs[cUtils.MODIFIES[base]] += \
             motifAlphBGFreqs[base]
         motifAlphBGFreqs[cUtils.complement(cUtils.MODIFIES[base])] += \
@@ -330,9 +333,11 @@ if args.notNucleobases:
         MEME_HEADER = re.sub('.*' + cUtils.FULL_MOD_BASE_NAMES[base]
                              + '.*\n', '', MEME_HEADER)
         # remove excluded nucleobase from any containing ambiguity codes
-        MEME_HEADER = re.sub('(. = .*)(?:' + base + '|'
+        MEME_HEADER = re.sub('^(. = .*)(?:' + base + '|'
                              + cUtils.complement(base) + ')(.*\n)',
                              '\g<1>\g<2>', MEME_HEADER, flags=re.MULTILINE)
+    # remove any ambiguity codes that are now empty
+    MEME_HEADER = re.sub('(. = \n)', '', MEME_HEADER, flags=re.MULTILINE)
 
 # The MEME Suite uses ASCII ordering for custom alphabets
 # This is the natural lexicographic sorting order, so no "key" is needed
