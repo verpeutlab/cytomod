@@ -398,12 +398,12 @@ else:  # PWM or PFM
             1D array (which is itself a count), and replaces the count with
             its computed frequency. The function also returns the resultant
             array, despite its having been modified in place."""
-            def _computeFresFromCountSlice(countsForBase):
+            def _computeFreqFromCountSlice(countsForBase):
                 sum = np.sum(countsForBase)
                 for count in np.nditer(countsForBase, op_flags=['readwrite']):
                     count[...] = count / sum
                 return countsForBase  # needed to use numpy.apply_along_axis
-            np.apply_along_axis(_computeFresFromCountSlice, 1, csvData)
+            np.apply_along_axis(_computeFreqFromCountSlice, 1, csvData)
 
         if args.revcomp:
             addName += '-revcomp'
