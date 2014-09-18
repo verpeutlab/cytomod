@@ -30,31 +30,15 @@ from scipy.stats import itemfreq
 import cUtils
 __version__ = cUtils.VERSION
 
+_mESC_BG_NAME = 'mESC'
+_AML_BG_NAME = 'AML'
+_DEFAULT_BG = _mESC_BG_NAME
+
 _DELIM = "\t"
+_ARG_DELIM = ','
 BOTH_STRANDS = 0
 STRANDS = '+ -' if BOTH_STRANDS else '+'
 FROM_STR = 'custom'
-
-# TODO  Generalize to allow customizations to the alphabet and background
-#       models (e.g. for arbitrary modified base exclusions and other
-#       background models for different cell lines or organisms).
-
-# The alphabet frequencies used were (WRT Cs only):
-# 2.95% 5mC, 0.055 ± 0.008% 5hmC, 0.0014 ± 0.0003% 5fC, and 0.000335% 5caC
-# (Respectively: Ito et al. 2011, Booth et al. 2014, Booth et al. 2014,
-# and Ito et al. 2011)
-mESC_MOTIF_ALPHABET_BG_FREQUENCIES = \
-    {'T': 0.292, 'A': 0.292, 'C': 0.201745991, 'G': 0.201745991,
-     # (using mouse GC content of 41.6%)
-     # From: NCBI Eukaryotic Genome Report File
-     'm': 0.006136, '1': 0.006136, 'h': 0.0001144, '2': 0.0001144,
-     'f': 0.000002912, '3': 0.000002912, 'c': 0.000000697, '4': 0.000000697}
-npt.assert_allclose([sum(mESC_MOTIF_ALPHABET_BG_FREQUENCIES.itervalues())],
-                    [1])
-
-# The MEME Suite uses ASCII ordering for custom alphabets
-# This is the natural lexicographic sorting order, so no "key" is needed
-MOTIF_ALPHABET = sorted(list(mESC_MOTIF_ALPHABET_BG_FREQUENCIES.keys()))
 
 MEME_HEADER = """MEME version 4
 
@@ -148,7 +132,7 @@ modBasePositions.add_argument('-P', '--baseModPosition', type=int,
                               help="The position at which to modify the motif \
                               (using the base specified by '-M'), \
                               * indexed from 1 *.")
-#                             Not yet implemented (may do so in the future)
+#                             The below is not yet implemented.
 #                             The argument for this option \
 #                             can be omitted to indicate that the position \
 #                             should be automatically determined by finding \
@@ -226,8 +210,14 @@ parser.add_argument('-S', '--skipMotifPortions', nargs='+', action='append',
                     from 0 or go until the end of the motif.")
 parser.add_argument('--revcomp', help="Reverse complement the input motif.",
                     action='store_true')
-parser.add_argument('--no5caC', help="Do not use 5caC.",
-                    action='store_true')
+parser.add_argument('-N', '--notNucleobases', help="Do not use the \
+                    provided (comma-delimited) list of nucleobases. \
+                    These may be specified by either their abbreviation \
+                    or base. However, the base specified must be a \
+                    \"primary\" and not a complemented nucleobase \
+                    (i.e. 'm' and not '1'). For example, \"c, 5hmC\", \
+                    would use neither 5-carboxylcytosine nor \
+                    5-hydroxymethylcytosine.")
 parser.add_argument('--modCFractions', action='store_true',
                     help="Modify fractions of cytosines instead of setting \
                     the modified base frequency to 1. Has no effect with \
@@ -249,6 +239,24 @@ parser.add_argument('-m', '--modAllFractions', action='store_true',
                     options already specifying this behaviour (e.g. '-A').\
                     This option is silently ignored if no modifications \
                     are requested.")
+parser.add_argument('-b', '--background', default=_DEFAULT_BG,
+                    help="The background model to \
+                    add to the output file for use by MEME. \
+                    The background model must be a first-order Markov model. \
+                    Either a background model type can be specified or \
+                    a file can be provided. The background model \
+                    type can be one of: 'mESC' or 'AML'. \
+                    It is important to note that the AML background model \
+                    does not include 5caC and has its 5fC value estimated \
+                    from a melanoma cell line (WM-266-4). \
+                    If a file is provided, it must be a tab-delimited \
+                    file, containing lines of exactly two columns, \
+                    the first being the nucleobase(s) whose background \
+                    frequency is being specified (e.g. 'A') \
+                    and the second being its frequency (e.g. 0.292). \
+                    All lines starting with '#' in the file will be ignored. \
+                    If this argument is not provided, it will default to \
+                    the mESC background model.")
 parser.add_argument('-v', '--verbose', help="increase output verbosity",
                     action='count')
 parser.add_argument('-V', '--version', action='version',
@@ -274,18 +282,62 @@ if (not args.baseModificationAtAllModifiablePosFractions and
     die("""You must either provide the position to modify to '-C' or use
         '-A' to use all possible positions.""")
 
-if args.no5caC:
-    mESC_MOTIF_ALPHABET_BG_FREQUENCIES['C'] += \
-        mESC_MOTIF_ALPHABET_BG_FREQUENCIES['c']
-    mESC_MOTIF_ALPHABET_BG_FREQUENCIES['G'] += \
-        mESC_MOTIF_ALPHABET_BG_FREQUENCIES['4']
-    del mESC_MOTIF_ALPHABET_BG_FREQUENCIES['c']
-    del mESC_MOTIF_ALPHABET_BG_FREQUENCIES['4']
-    MEME_HEADER = re.sub('.*5-Carboxylcytosine.*\n', '', MEME_HEADER)
+motifAlphBGFreqs = ()
+if args.background:
+    if os.path.isfile(args.background):
+        with open(args.background) as bgFile:
+            for bFreq in bgFile:
+                (base, freq) = bFreq.split(_DELIM)
+                motifAlphBGFreqs[int(base)] = freq
+    else:
+        if args.background == _mESC_BG_NAME:
+            # The alphabet frequencies used are (WRT Cs only):
+            # 2.95% 5mC, 0.055 ± 0.008% 5hmC, 0.0014 ± 0.0003% 5fC,
+            # and 0.000335% 5caC
+            # (Respectively: Ito et al. 2011, Booth et al. 2014,
+            # Booth et al. 2014, and Ito et al. 2011)
+            motifAlphBGFreqs = \
+                {'T': 0.292, 'A': 0.292, 'C': 0.201745991, 'G': 0.201745991,
+                 # (using mouse GC content of 41.6%)
+                 # From: NCBI Eukaryotic Genome Report File
+                 'm': 0.006136, '1': 0.006136, 'h': 0.0001144, '2': 0.0001144,
+                 'f': 0.000002912, '3': 0.000002912,
+                 'c': 0.000000697, '4': 0.000000697}
+        elif args.background == _AML_BG_NAME:
+            # The alphabet frequencies used were (WRT all bases):
+            # 2.91 ± 0.11% 5mC and 0.039% 5hmC.
+            # (Respectively: Liu et al. 2007 and Kroeze et al. 2014)
+            # 5fC at 0.0021812% was estimated from the 5fC to 5hmC ratio
+            # within the melanoma cell line WM-266-4,
+            # which was analyzed by Liu S. et al.
+            motifAlphBGFreqs = \
+                {'T': 0.295, 'A': 0.295, 'C': 0.190244094, 'G': 0.190244094,
+                 # (using human GC content of 41.0%)
+                 # From: NCBI Eukaryotic Genome Report File
+                 'm': 0.01455, '1': 0.01455, 'h': 0.000195, '2': 0.000195,
+                 'f': 0.000010906, '3': 0.000010906}
+
+# The first-order Markov model must sum to unity to be sensical
+npt.assert_allclose([sum(motifAlphBGFreqs.itervalues())], [1])
+
+if args.notNucleobases:
+    for base in args.notNucleobases.split(_ARG_DELIM):
+        motifAlphBGFreqs[cUtils.MODIFIES[base]] += \
+            motifAlphBGFreqs[base]
+        motifAlphBGFreqs[cUtils.complement(cUtils.MODIFIES[base])] += \
+            motifAlphBGFreqs[cUtils.complement(base)]
+        del motifAlphBGFreqs[base]
+        del motifAlphBGFreqs[cUtils.complement(base)]
+        MEME_HEADER = re.sub('.*' + cUtils.FULL_MOD_BASE_NAMES[base]
+                             + '.*\n', '', MEME_HEADER)
+
+# The MEME Suite uses ASCII ordering for custom alphabets
+# This is the natural lexicographic sorting order, so no "key" is needed
+MOTIF_ALPHABET = sorted(list(motifAlphBGFreqs.keys()))
 
 MOTIF_ALPHABET_BG_FREQUENCIES_OUTPUT = \
     ' '.join([str(k) + ' ' + str(v) for k, v
-             in iter(sorted(mESC_MOTIF_ALPHABET_BG_FREQUENCIES.iteritems()))])
+             in iter(sorted(motifAlphBGFreqs.iteritems()))])
 MEME_HEADER += MOTIF_ALPHABET_BG_FREQUENCIES_OUTPUT + "\n\n"
 
 filename = (args.inSeqFile or args.inPWMFile or
@@ -298,12 +350,7 @@ if args.inSeqFile:
     motifChars = motifs.view('S1').reshape((motifs.size, -1))
     totalNumBases = len(motifChars)
 
-    freqMatrix = np.zeros((motifChars.shape[1],
-                           # add two to length as we want 5caC still present
-                           # here, since we remove it later
-                          len(mESC_MOTIF_ALPHABET_BG_FREQUENCIES) + 2
-                          if args.no5caC else
-                          len(mESC_MOTIF_ALPHABET_BG_FREQUENCIES)))
+    freqMatrix = np.zeros((motifChars.shape[1], len(motifAlphBGFreqs)))
     for i in range(0, motifChars.shape[1]):
         motifCharsInts = motifChars[:, i].view(np.uint8)
         # NB: itemfreq internally uses bincount; we must map to and from ints
@@ -371,11 +418,6 @@ else:  # PWM or PFM
                                np.zeros((csvData.shape[0],
                                         (len(MOTIF_ALPHABET) - 1) -
                                         MOTIF_ALPHABET.index('T')))))
-if args.no5caC:
-    freqMatrix = np.delete(freqMatrix, MOTIF_ALPHABET.index('c'), 1)
-    freqMatrix = np.delete(freqMatrix, MOTIF_ALPHABET.index('4'), 1)
-    MOTIF_ALPHABET.remove('c')
-    MOTIF_ALPHABET.remove('4')
 
 if args.skipMotifPortions:
     addName += '-skip' + args.skipMotifPortions[0][0]
@@ -413,7 +455,6 @@ modGFracs = (args.baseModificationAtAllModifiablePosFractions or
 if ((args.baseModification and args.baseModPosition)
         or args.tryAllCModsAtPos or
         args.baseModificationAtAllModifiablePosFractions):
-    modFreqMatrix = np.copy(freqMatrix)
     baseModPos = args.tryAllCModsAtPos or args.baseModPosition
     if args.baseModificationAtAllModifiablePosFractions:
         addName += '-allPos'
@@ -423,10 +464,17 @@ if ((args.baseModification and args.baseModPosition)
     modBaseIndex = (baseModPos - 1) if (baseModPos and baseModPos !=
                                         cUtils._PARAM_A_CONST_VAL) \
         else slice(None)
-    for b in (cUtils.MOD_BASE_NAMES.keys() if args.tryAllCModsAtPos
+    for b in (motifAlphBGFreqs.keys() if args.tryAllCModsAtPos
               else (args.baseModification or
-              args.baseModificationAtAllModifiablePosFractions)):
-        if args.no5caC and b == 'c':
+                    args.baseModificationAtAllModifiablePosFractions)):
+        modFreqMatrix = np.copy(freqMatrix)
+        # only proceed for "primary" modified nucleobases
+        if (b not in cUtils.MOD_BASE_NAMES.keys()):
+            if ((b not in cUtils.COMPLEMENTS.keys()) and
+                    (b not in cUtils.COMPLEMENTS.values())):
+                warn("Base " + b + " provided in the background is not " +
+                     "a currently supported modified nucleobase." +
+                     "It has, accordingly, been skipped.")
             continue
         if modCFracs:
             # modify cytosine fractions
