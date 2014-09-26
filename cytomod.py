@@ -21,6 +21,7 @@ import re
 import random
 import colorbrewer
 import gzip
+import math
 
 from collections import OrderedDict
 
@@ -399,7 +400,9 @@ parser.add_argument('-A', '--alterIncludedChromosomes',
                     NB: default chromosomal exclusions include: \
                     unmapped data, haplotypes, and chrM. \
                     This parameter will be ignored if a \
-                    specific genomic region is queried via '-r'.")
+                    specific genomic region is queried via '-r', \
+                    but will be considered if a file of genomic \
+                    regions is provided (also via '-r').")
 parser.add_argument('-p', '--priority', default=_DEFAULT_BASE_PRIORITY,
                     choices=cUtils.MOD_BASES.values(),
                     help="Specify the priority \
@@ -590,19 +593,19 @@ with Genome(genomeDataArchive) as genome:
             # despite non-BED files being 1-based. Thus, we do not need to
             # alter any code in our program.
             BEDTool = pybedtools.BedTool(args.region)
+            # generate regions, only including the appropriate chromosomes
             regions = np.matrix([[interval['chrom'], interval['start'],
-                                interval['end']] for interval in BEDTool])
+                                interval['end']] for interval in BEDTool
+                                if not re.search(CHROMOSOME_EXCLUSION_REGEX,
+                                                 interval['chrom'])])
         else:  # A single, specific, region ('genome browser-like')
             chrms, starts, ends = parseRegion(genome, args.region)
-            # only include the appropriate chromosomes
-            chrms = [chrm for chrm in chrms
-                     if not re.search(CHROMOSOME_EXCLUSION_REGEX, chrm)]
             regions = np.matrix([chrms, starts, ends])
         for i in xrange(0, len(regions.flat), 3):
             chrm, start, end = regions.flat[i], int(regions.flat[i + 1]), \
                 int(regions.flat[i + 2])
             if args.centeredRegion:
-                centre = int(round((start + end) / 2))
+                centre = int(math.floor((start + end) / 2))
                 start = int(centre - args.centeredRegion / 2)
                 if start < 0:
                     start = 0
