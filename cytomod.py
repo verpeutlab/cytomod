@@ -594,6 +594,9 @@ with Genome(genomeDataArchive) as genome:
                                 interval['end']] for interval in BEDTool])
         else:  # A single, specific, region ('genome browser-like')
             chrms, starts, ends = parseRegion(genome, args.region)
+            # only include the appropriate chromosomes
+            chrms = [chrm for chrm in chrms
+                     if not re.search(CHROMOSOME_EXCLUSION_REGEX, chrm)]
             regions = np.matrix([chrms, starts, ends])
         for i in xrange(0, len(regions.flat), 3):
             chrm, start, end = regions.flat[i], int(regions.flat[i + 1]), \
