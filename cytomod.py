@@ -476,7 +476,7 @@ parser.add_argument('-V', '--version', action='version',
                     version="%(prog)s " + __version__)
 args = parser.parse_args()
 
-if args.region and args.excludechrms:
+if args.region and args.alterIncludedChromosomes:
     warn("Exclusion regex ignored, since a specific region was specifed.")
 
 if args.centeredRegion and not args.region:
@@ -487,8 +487,8 @@ if args.onlyBED and args.fastaFile:
     warn("""Request to only generate BED files ignored,
              since an output FASTA path was provided.""")
 
-if args.excludechrms:
-    _modifychrmExclusionRegex(args.excludechrms)
+if args.alterIncludedChromosomes:
+    _modifychrmExclusionRegex(args.alterIncludedChromosomes)
 
 # NB: Ensure to update this to include all arguments in the ambigModUsage group
 # TODO It would be nice if there was an automated means of accomplishing this
