@@ -322,7 +322,7 @@ genomeArchive.add_argument('-G', '--genomedataArchive',
                            It must contain all needed \
                            sequence and track files. \
                            If one is not yet created, \
-                           use \"-g\" and \"-t\" instead to create it.")
+                           use '-d' instead to create it.")
 genomeArchive.add_argument("-d", "--archiveCompDirs", nargs=2,
                            metavar=('GENOME_DIR', 'TRACKS_DIR'),
                            help="Two arguments first specifying the directory containing \
