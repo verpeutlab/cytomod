@@ -323,6 +323,7 @@ genomeArchive.add_argument('-G', '--genomedataArchive',
                            If one is not yet created, \
                            use \"-g\" and \"-t\" instead to create it.")
 genomeArchive.add_argument("-d", "--archiveCompDirs", nargs=2,
+                           metavar=('GENOME_DIR', 'TRACKS_DIR'),
                            help="Two arguments first specifying the directory containing \
                            the genome and then the directory containing all \
                            modified base tracks. The genome directory must \
