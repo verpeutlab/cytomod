@@ -206,7 +206,7 @@ def getModifiedGenome(genome, modOrder, chrm, start, end,
                         modBaseCoords = x[idx][:, 0][baseModIdxs] + s
                         modBaseStartEnd = np.column_stack((modBaseCoords,
                                                           modBaseCoords+1))
-                        # Save the track, appending to a gzipped BED file.
+                        # Save the track, appending to a Gzipped BED file.
                         # TODO save as string buffer (using list joins)
                         # and gzip after (with cStringIO).
                         # That will allow actual compression to occur.
@@ -233,10 +233,10 @@ def getModifiedGenome(genome, modOrder, chrm, start, end,
 
 def generateFASTAFile(file, id, genome, modOrder, chrm, start,
                       end, suppressBED, tnames, ambigMap):
-    """Writes an optionally gzipped FASTA file of the modified genome
+    """Writes an optionally Gzipped FASTA file of the modified genome
     appending to the given file, using the given ID.
     No FASTA ID (i.e. '> ...') is written if no ID is given."""
-    # Write either a gzipped file or not, by using the appropriate function
+    # Write either a Gzipped file or not, by using the appropriate function
     with (gzip.open if file.endswith('.gz') else open)(file, 'ab') \
             as modGenomeFile:
         if id:
@@ -327,13 +327,13 @@ genomeArchive.add_argument("-d", "--archiveCompDirs", nargs=2,
                            help="Two arguments first specifying the directory containing \
                            the genome and then the directory containing all \
                            modified base tracks. The genome directory must \
-                           contain (optionally gzipped) FASTA files of \
+                           contain (optionally Gzipped) FASTA files of \
                            chromosomes and/or scaffolds. \
                            The sequence files must end in either a \
                            \".fa\" or \".mask\" extension \
                            (with an optional \".gz\" suffix). \
                            The track directory must contain \
-                           (optionally gzipped) genome tracks. \
+                           (optionally Gzipped) genome tracks. \
                            They must have an extension describing \
                            their format. We currently support: \
                            \".wig\", \".bed\", \
@@ -350,8 +350,8 @@ genomeArchive.add_argument("-d", "--archiveCompDirs", nargs=2,
                            Ensure that all tracks are mapped to the same \
                            assembly and that this assembly matches the \
                            genome provided. This will \
-                           create a genome data archive in an \"archive\". \
-                           subdirectory of the provided track directory. \
+                           create a genome data archive in an \"archive\" \
+                           sub-directory of the provided track directory. \
                            Use \"-G\" instead to use an existing archive.")
 region = parser.add_mutually_exclusive_group()
 region.add_argument('-r', '--region', help="Only output the modified genome \
@@ -361,7 +361,7 @@ region.add_argument('-r', '--region', help="Only output the modified genome \
                     chrm<ID>:<start>-<end> (ex. chr1:500-510). \
                     If a file is being provided, it can be in \
                     any BEDTools-supported file format \
-                    (BED, VCF, GFF, and gzipped versions thereof). \
+                    (BED, VCF, GFF, and Gzipped versions thereof). \
                     The full path to the file should be provided \
                     (or just the file name for the current directory).")
 parser.add_argument('-c', '--centeredRegion', nargs='?', type=int,
@@ -423,7 +423,7 @@ parser.add_argument('-f', '--fastaFile', nargs='?', type=str,
                     will be used within the current directory. \
                     This will override the '-B' parameter \
                     (i.e. a FASTA file with always be produced). \
-                    The output file will be gzipped iff the \
+                    The output file will be Gzipped iff the \
                     path provided ends in \".gz\".")
 ambigModUsage = \
     parser.add_argument_group(title="Use of Ambiguous Modification Data",
