@@ -36,14 +36,15 @@ MOD_BASE_COLOURS = colorbrewer.RdYlBu[2*len(cUtils.MOD_BASES)]
 AUTOSOME_ONLY_FLAG = 'u'
 ALLOSOME_ONLY_FLAG = 'l'
 MITOCHONDRIAL_ONLY_FLAG = 'm'
-MITOCHONDRIAL_EXCLUSION_FLAG = MITOCHONDRIAL_ONLY_FLAG.upper()
+MITOCHONDRIAL_INCLUSION_FLAG = MITOCHONDRIAL_ONLY_FLAG.upper()
 
 SUPPORTED_FORMATS_REGEX = '\.(bed|wig|bed[gG]raph)$'
 CHROMOSOME_TYPE_REGEXES = {AUTOSOME_ONLY_FLAG: 'chr\d+',
                            ALLOSOME_ONLY_FLAG: 'chr[XY]',
                            MITOCHONDRIAL_ONLY_FLAG: 'chrM',
-                           MITOCHONDRIAL_EXCLUSION_FLAG: 'chr(?:\d+|[XY])'}
-CHROMOSOME_EXCLUSION_REGEX = '(?:random|hap)'
+                           MITOCHONDRIAL_INCLUSION_FLAG: 'chr(?:\d+|[XYM])'}
+# default chromosomal exclusions include: unmapped data, haplotypes, and chrM
+CHROMOSOME_EXCLUSION_REGEX = '(?:random|hap|chrM)'
 MOD_BASE_REGEX = '5(m|hm|f|ca)C'
 REGION_REGEX = '(chr(?:\d+|[XYM]))(?::(?P<start>\d+)?-(?P<end>\d+)?)?'
 
@@ -384,20 +385,21 @@ region.add_argument('-R', '--randomRegion', nargs='?',
                     or it will otherwise be set to a reasonably \
                     small default. The length chosen may constrain the \
                     selection of a chromosome.")
-parser.add_argument('-E', '--excludechrms',
+parser.add_argument('-A', '--alterIncludedChromosomes',
                     choices=CHROMOSOME_TYPE_REGEXES.keys(),
-                    help="Exclude chromosome \
+                    help="Include or exclude chromosome \
                     types. '" + AUTOSOME_ONLY_FLAG + "': \
-                    Use only autosomal chromosomes  (excludes chrmM). \
+                    Use only autosomal chromosomes  (excludes chrM). \
                     '" + ALLOSOME_ONLY_FLAG + "': \
-                    Use only allosomal chromosomes (excludes chrmM). \
+                    Use only allosomal chromosomes (excludes chrM). \
                     '" + MITOCHONDRIAL_ONLY_FLAG + "': \
                     Use only the mitochondrial chromosome. \
-                    '" + MITOCHONDRIAL_EXCLUSION_FLAG + "': \
-                    Exclude the mitochondrial chromosome. \
-                    NB: This paprameter will be ignored if a \
-                    specific genomic region is queried \
-                    via '-r'.")
+                    '" + MITOCHONDRIAL_INCLUSION_FLAG + "': \
+                    Include the mitochondrial chromosome. \
+                    NB: default chromosomal exclusions include: \
+                    unmapped data, haplotypes, and chrM. \
+                    This parameter will be ignored if a \
+                    specific genomic region is queried via '-r'.")
 parser.add_argument('-p', '--priority', default=_DEFAULT_BASE_PRIORITY,
                     choices=cUtils.MOD_BASES.values(),
                     help="Specify the priority \
