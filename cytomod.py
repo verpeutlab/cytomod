@@ -402,7 +402,7 @@ parser.add_argument('-p', '--priority', default=_DEFAULT_BASE_PRIORITY,
                     choices=cUtils.MOD_BASES.values(),
                     help="Specify the priority \
                     of modified bases. The default is:"
-                    + _DEFAULT_BASE_PRIORITY + ", which is based upon"
+                    + _DEFAULT_BASE_PRIORITY + ", which is based upon "
                     + _DEFAULT_BASE_PRIORITY_COMMENT + ".")
 BEDGeneration = parser.add_mutually_exclusive_group()
 BEDGeneration.add_argument('-b', '--suppressBED', action='store_true',
