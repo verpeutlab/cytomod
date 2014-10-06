@@ -38,14 +38,57 @@ def warn(*msg):
     print("Warning: ", *msg, file=sys.stderr)
 
 
+def orderBase(base):
+    """Key function for ordering nucleobases.
+    Sort by complemented modified bases, normal nucleobases, followed by
+    "primary" modified nucleobases, in their natural order
+    (i.e. by their order in the cytosine demethylation cascade).
+    Ambiguous bases are placed after their last modified nucleobase.
+    The result returned is the reverse of this ordering, since matplotlib
+    barh plots in the reverse of the given key ordering."""
+    # Account for ambiguious bases by mapping to the
+    # last unequivocal modified base for ordering purposes
+    ambigAdj = 0
+    if base not in cUtils.getUnivocalModBases():
+        # adjust value by one if ambiguous base, to ensure
+        # that the ambigous bases come after the last
+        # unambiguous modified base
+        ambigAdj = 1
+        base = cUtils.getLastUnivocalModBase(base)
+    if base[0] in cUtils.MOD_BASES.values():
+        # place modified bases in the reverse of their
+        # natural order (by subtracting from # of mod bases)
+        # and before everything else (so subtract large int)
+        return (len(cUtils.MOD_BASES.values()) -
+                cUtils.MOD_BASES.values().
+                index(base[0]) - sys.maxsize - ambigAdj)
+    elif cUtils.getMBMaybeFromComp(base[0]) in cUtils.MOD_BASES.values():
+        # if complemented modified base, place in reverse
+        # numeric order (so subtract from # of mod bases)
+        return (len(cUtils.MOD_BASES.values()) -
+                cUtils.MOD_BASES.values().
+                index(cUtils.getMBMaybeFromComp(base[0])) - ambigAdj)
+    elif cUtils.FULL_BASE_NAMES.get(base[0]):
+        # if not mod base, place in ASCII order,
+        # but before "primary" mod bases (so flip sign)
+        return -ord(base[0])
+    else:
+        # if neither a canonical nucleobase (i.e. A/C/G/T),
+        # nor a modified nucleobase, make sure it comes after the
+        # canonical nucleobases (by subtracting the ASCII value of 'Z')
+        return -ord(base[0]) - ord('Z')
+
+
 def filecharcount(openfile, lineExclusionRegex, charExclusionRegex):
     """Counts characters characters, over the given file handle,
-    returning a sorted collection. Excludes lines or characters matching
-    the given respective exclusion regexes."""
+    returning a collection in natural sorted order (see orderBase()).
+    Excludes lines or characters matching the given, respective,
+    exclusion regexes."""
     return sorted(Counter
                   (c for l in openfile if
                    not re.search(lineExclusionRegex, l) for c in l if
-                   not re.search(charExclusionRegex, c)).items())
+                   not re.search(charExclusionRegex, c)).items(),
+                  key=lambda baseAndFreq: orderBase(baseAndFreq[0]))
 
 
 def makeCountPlot(charCounts, plotPath, subtitle="", pie=False, annPlot=False):
@@ -69,7 +112,7 @@ def makeCountPlot(charCounts, plotPath, subtitle="", pie=False, annPlot=False):
     else:
         from brewer2mpl import diverging
         bmapType = diverging.Spectral
-        bmapType.pop("max", None)  # remove the max pointer,
+        bmapType.pop("max", None)  # Remove the max pointer,
         # since if we need that we'll find that key eventually
         # Allocate a number of colours corresponding to the
         # the closest number of possible colours for the given class
@@ -135,7 +178,7 @@ def makeSelFreqPlot(charFreqsP, plotPath, selectionInclusionRegex,
                  color=bmapType[numColours].mpl_colors, annotate=annPlot)
         ax.xaxis.set_ticks_position('bottom')
         ax.xaxis.set_minor_locator(ticker.AutoMinorLocator())
-        # add '%' symbol to each x-axis tick label
+        # Add '%' symbol to each x-axis tick label
         plt.gca().xaxis.set_major_formatter(FormatStrFormatter('%1.2f%%'))
         plt.xlabel('Percent of Total Cytosine Content' if percentC
                    else 'Percent of Total Genomic Content')
@@ -201,7 +244,6 @@ else:
     openHandler = gzip.open if args.file.endswith('.gz') else open
     fileH = openHandler(args.file, 'rb')
 charCounts = filecharcount(fileH, LINE_EXCLUSION_REGEX, CHAR_EXCLUSION_REGEX)
-
 charFreqs = 0
 # TODO This could be made much more general (i.e. define a base or
 # set of bases that this op occurs WRT and define a complentation
@@ -222,7 +264,8 @@ else:
 if args.text:
     if args.verbose > 0:
         print("Program was invoked with:\n" + str(sys.argv[1:]) + "\n\n")
-    print ('\n'.join(map(str, charFreqs)))
+    # Print the frequencies, making sure to reverse the order for consistency
+    print ('\n'.join(map(str, charFreqs[::-1])))
 
 makeCountPlot(charCounts, args.outputPlotPath, args.regionLabel, args.pie)
 makeSelFreqPlot(charFreqs, args.outputPlotPath + _PERCENTAGE_PLOT_SUFFIX,

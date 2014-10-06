@@ -130,6 +130,23 @@ def getFirstUnivocalBase(a):
         return a
 
 
+def getLastUnivocalModBase(a):
+    """Returns the last univocal modified base for the given base.
+    This is the last value in the definition for an ambiguous
+    modified base, provided that it is a modified nucleobase,
+    or the base itself if it is already unambiguous."""
+    if AMBIG_MOD_BASES.get(a):
+        for b in reversed(AMBIG_MOD_BASES.get(a)):
+            if not FULL_BASE_NAMES.get(b):
+                return b
+    elif AMBIG_MOD_BASES.get(complement(a)):
+        for b in reversed(AMBIG_MOD_BASES.get(complement(a))):
+            if not FULL_BASE_NAMES.get(b):
+                return complement(b)
+    else:
+        return a
+
+
 def makeList(lstOrVal):
     """Returns a list of a single item if the object passed is not
     already a list. This allows one to iterate over objects which
