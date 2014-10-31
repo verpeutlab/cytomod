@@ -479,8 +479,11 @@ parser.add_argument('-V', '--version', action='version',
                     version="%(prog)s " + __version__)
 args = parser.parse_args()
 
-if args.region and args.alterIncludedChromosomes:
-    warn("Exclusion regex ignored, since a specific region was specifed.")
+if (args.region and not os.path.isfile(args.region)
+        and args.alterIncludedChromosomes):
+    # '-A' is ignored iff '-r' is provided and is not a path to a file
+    warn("Chromosome inclusion or exclusion setting was ignored, \
+         since a single specific region was specifed.")
 
 if args.centeredRegion and not args.region:
     warn("""Centered region argument ignored, since no specific regions
