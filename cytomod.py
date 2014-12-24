@@ -165,12 +165,12 @@ def getModifiedGenome(genome, modOrder, chrm, start, end,
             applicable ambiguity codes that are provided in ambigMap.
             """
             m = ambigMap.get(m) or m  # maybe map to an ambiguous base
-            if m not in cUtils.MODIFIES:
+            if m not in cUtils.MOD_MAP:
                 return ambigMap.get(r) or r
             else:
-                if cUtils.MODIFIES[m] == r:
+                if cUtils.MOD_MAP[m] == r:
                     return m
-                elif cUtils.MODIFIES[m] == cUtils.complement(r)[0]:
+                elif cUtils.MOD_MAP[m] == cUtils.complement(r)[0]:
                     return cUtils.complement(m)[0]
                 else:
                     return ambigMap.get(r) or r
@@ -462,6 +462,13 @@ ambigModUsage.add_argument('--fC', action='store_const', const='fC',
                            case if the data originated from a protocol which \
                            only included oxidative bisulfite sequencing.",
                            default='')
+ambigModUsage.add_argument('--fc', action='store_const', const='fc',
+                           help="Specify that input data is not able to \
+                           differentiate between 5fC and 5caC. This would be \
+                           the case if the data originated from a protocol \
+                           which only included M.SssI methylase-assisted \
+                           bisulfite sequencing.",
+                           default='')
 # TODO Implement this?
 # NB: neither TRF nor dustmasker work upon modified genomes
 # parser.add_argument('-M', '--hardMaskRepetitiveRegions',
@@ -506,12 +513,12 @@ if args.alterIncludedChromosomes:
 # NB: Ensure to update this to include all arguments in the ambigModUsage group
 # TODO It would be nice if there was an automated means of accomplishing this
 # Ensure provided ambiguities are unique
-if (''.join(OrderedDict.fromkeys(args.mh + args.fC).keys()) !=
-        args.mh + args.fC):
+if (''.join(OrderedDict.fromkeys(args.mh + args.fC + args.fc).keys()) !=
+        args.mh + args.fC + args.fc):
     die("Provided ambiguity codes must be unique.")
 # Create a map from ambiguity codes to the specified ambiguities
 ambigMap = {}
-for k in [args.fC, args.mh]:
+for k in [args.fC, args.mh, args.fc]:
     ambigMap.update({b: cUtils.INVERTED_AMBIG_MOD_BASES[k]
                      for b in ''.join(k)})
 v_print_timestamp(args.verbose, "Using the following ambiguity map: " +

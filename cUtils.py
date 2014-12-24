@@ -162,7 +162,8 @@ MOD_BASES = OrderedDict([('5mC', 'm'), ('5hmC', 'h'),
 AMBIG_MOD_BASES = OrderedDict([('z', ['m', 'h', 'f',
                                       'c', 'C']),
                                ('y', ['f', 'c', 'C']),
-                               ('x', ['m', 'h'])])
+                               ('x', ['m', 'h']),
+                               ('w', ['f', 'c'])])
 
 # Permits ambiguity code lookup using concatenated modified bases
 # NB: Assumes that values are unique (they should always be)

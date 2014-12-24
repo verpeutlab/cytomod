@@ -324,12 +324,12 @@ npt.assert_allclose([sum(motifAlphBGFreqs.itervalues())], [1])
 
 if args.notNucleobases:
     for base in args.notNucleobases.split(_ARG_DELIM):
-        if base not in cUtils.MODIFIES:
+        if base not in cUtils.MOD_MAP:
             die(""""Only "primary" modified nucleobases can be
             specified for removal.""")
-        motifAlphBGFreqs[cUtils.MODIFIES[base]] += \
+        motifAlphBGFreqs[cUtils.MOD_MAP[base]] += \
             motifAlphBGFreqs[base]
-        motifAlphBGFreqs[cUtils.complement(cUtils.MODIFIES[base])] += \
+        motifAlphBGFreqs[cUtils.complement(cUtils.MOD_MAP[base])] += \
             motifAlphBGFreqs[cUtils.complement(base)]
         del motifAlphBGFreqs[base]
         del motifAlphBGFreqs[cUtils.complement(base)]

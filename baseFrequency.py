@@ -262,13 +262,13 @@ charFreqs = 0
 # operation for that base etc.).
 if args.percentC:
     totalNumCs = sum((f for b, f in charCounts if b is 'C' or
-                      cUtils.MODIFIES.get(b) == 'C'))
+                      cUtils.MOD_MAP.get(b) == 'C'))
     totalNumGs = sum((f for b, f in charCounts if b is 'G' or
-                      cUtils.MODIFIES.get(b) == 'G'))
+                      cUtils.MOD_MAP.get(b) == 'G'))
     charFreqs = [(base, count / totalNumCs) for base, count in charCounts
-                 if base is 'C' or cUtils.MODIFIES.get(base) == 'C']
+                 if base is 'C' or cUtils.MOD_MAP.get(base) == 'C']
     charFreqs += [(base, count / totalNumGs) for base, count in charCounts
-                  if base is 'G' or cUtils.MODIFIES.get(base) == 'G']
+                  if base is 'G' or cUtils.MOD_MAP.get(base) == 'G']
 else:
     totalNumChars = sum(zip(*charCounts)[1])
     charFreqs = [(base, count / totalNumChars) for base, count in charCounts]
