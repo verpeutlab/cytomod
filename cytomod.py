@@ -13,22 +13,23 @@ This program currently handles the following modifications
 to the cytosine nucleobase: {5mC, 5hmC, 5fC, 5caC}.
 """
 
-import warnings
-import sys
-import os
-import glob
-import re
-import random
 import colorbrewer
+import glob
 import gzip
 import math
+import os
+import random
+import re
+import sys
+import warnings
 
 from collections import OrderedDict
 
 import numpy as np
 
 import cUtils
-__version__ = cUtils.VERSION
+
+__version__ = cUtils.__version__
 
 # The colours of the modified bases, for use in the tracks
 # TODO correctly procure ambiguous base colours
@@ -111,7 +112,8 @@ def getTrackHeader(m):
     """Generates and returns a valid UCSC track header,
     with an appropriate name, description, and colour
     for the the given modified nucleobase.
-    The returned header is terminated by a newline."""
+    The returned header is terminated by a newline.
+    """
 
     # Colours are retrieved using the first unequivocal base (fUB)
     fUB = cUtils.getFirstUnivocalBase(m)
@@ -131,7 +133,8 @@ def getTrackHeader(m):
 def getModifiedGenome(genome, modOrder, chrm, start, end,
                       suppressFASTA, suppressBED, tnames, ambigMap):
     """Returns the modified genome sequence, for the given genome,
-    over the given input region."""
+    over the given input region.
+    """
     hasModifiedBases = False
     chromosome = genome[chrm]
     allbasesResult = ""
@@ -159,7 +162,8 @@ def getModifiedGenome(genome, modOrder, chrm, start, end,
             complement of that base, if the complemented reference is
             modifiable to it, otherwise the reference base (r) itself
             is returned. This function also maps modified bases to any
-            applicable ambiguity codes that are provided in ambigMap."""
+            applicable ambiguity codes that are provided in ambigMap.
+            """
             m = ambigMap.get(m) or m  # maybe map to an ambiguous base
             if m not in cUtils.MODIFIES:
                 return ambigMap.get(r) or r
@@ -237,7 +241,8 @@ def generateFASTAFile(file, id, genome, modOrder, chrm, start,
                       end, suppressBED, tnames, ambigMap):
     """Writes an optionally Gzipped FASTA file of the modified genome
     appending to the given file, using the given ID.
-    No FASTA ID (i.e. '> ...') is written if no ID is given."""
+    No FASTA ID (i.e. '> ...') is written if no ID is given.
+    """
     # Write either a Gzipped file or not, by using the appropriate function
     with (gzip.open if file.endswith('.gz') else open)(file, 'ab') \
             as modGenomeFile:
@@ -251,7 +256,8 @@ def generateFASTAFile(file, id, genome, modOrder, chrm, start,
 def selectRandomRegion(genome, length):
     """Selects a random, non-exluded, chromosome of sufficient length.
     This method attempts to ensure that the region selected is
-    wholly within a supercontig."""
+    wholly within a supercontig.
+    """
     selectablechromosomes = {chromosome.name: chromosome.end for
                              chromosome in genome if
                              (chromosome.end >= length and
@@ -302,7 +308,8 @@ def determineTrackPriority(genome):
     which epigenetic modification has precedence. This is done by
     naively considering the resolution, and secondarily, the frequency
     of a given type of modification.
-    NB: This method is not yet fully implemented."""
+    NB: This method is not yet fully implemented.
+    """
     # TODO cannot complete this without being able to
     # access the intervals over which the track data is defined.
     # Genomedata does not appear to support this.

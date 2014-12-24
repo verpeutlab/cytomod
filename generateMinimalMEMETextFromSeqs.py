@@ -9,11 +9,13 @@ or an input PWM, PFM, TRANSFAC matrix, or JASPAR matrix.
 The background frequencies should be manually adjusted
 to use case. Modified output (if applicable) is always
 written to a file, while the MEME output written to STDOUT
-always correpsonds to the unmodified motif."""
+always correpsonds to the unmodified motif.
+"""
 
 import os
-import textwrap
 import re
+import textwrap
+
 
 try:
     from cStringIO import StringIO
@@ -22,10 +24,12 @@ except:
 
 import numpy as np
 import numpy.testing as npt
+
 from scipy.stats import itemfreq
 
 import cUtils
-__version__ = cUtils.VERSION
+
+__version__ = cUtils.__version__
 
 _mESC_BG_NAME = 'mESC'
 _AML_BG_NAME = 'AML'

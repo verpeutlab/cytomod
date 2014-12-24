@@ -3,20 +3,22 @@
 """Computes the counts of each nucleobase and outputs
 a representative horizontal bar plot chart with a logarithmic
 scale, as well as another with the absolute percent frequencies
-of only modified nucleobase. The character counts computation
-code was adapted from: http://rosettacode.org/wiki/Letter_frequency#Python"""
+of only modified nucleobase.
+"""
 
 from __future__ import with_statement, division, print_function
 
-import sys
-import re
 import gzip
+import re
+import sys
+
 from collections import Counter
 
 import numpy as np
 
 import cUtils
-__version__ = cUtils.VERSION
+
+__version__ = cUtils.__version__
 
 _STDIN_SPECIFIER = '-'
 _DEFAULT_PLOT_NAME = 'nucleobaseFrequencies'
@@ -44,16 +46,22 @@ def orderBase(base):
     "primary" modified nucleobases, in their natural order
     (i.e. by their order in the cytosine demethylation cascade).
     Ambiguous bases are placed after their last modified nucleobase.
-    The result returned is the reverse of this ordering, since matplotlib
-    barh plots in the reverse of the given key ordering."""
+    Unmodified non-fundamental (i.e. A/C/G/T) nucleobases are
+    placed after C and before G.
+    The result returned is the reverse of this ordering, since
+    matplotlib barh plots in the reverse of the given key ordering.
+    """
     # Account for ambiguious bases by mapping to the
     # last unequivocal modified base for ordering purposes
     ambigAdj = 0
     if base not in cUtils.getUnivocalModBases():
-        # adjust value by one if ambiguous base, to ensure
-        # that the ambigous bases come after the last
-        # unambiguous modified base
-        ambigAdj = 1
+        # adjust value by a constant if ambiguous base,
+        # to ensure that the ambigous bases come after the
+        # last unambiguous modified base
+        # NB: the value must be less than one if the base
+        # is to be placed directly after the last univocal
+        # base of the given ambiguity code.
+        ambigAdj = 0.5
         base = cUtils.getLastUnivocalModBase(base)
     if base[0] in cUtils.MOD_BASES.values():
         # place modified bases in the reverse of their
@@ -73,17 +81,19 @@ def orderBase(base):
         # but before "primary" mod bases (so flip sign)
         return -ord(base[0])
     else:
-        # if neither a canonical nucleobase (i.e. A/C/G/T),
-        # nor a modified nucleobase, make sure it comes after the
-        # canonical nucleobases (by subtracting the ASCII value of 'Z')
-        return -ord(base[0]) - ord('Z')
+        # if neither a fundamental nucleobase (i.e. A/C/G/T), nor a
+        # modified nucleobase, make sure it goes between C and G.
+        return orderBase('C') + 1.0*ord(base[0])/orderBase('G')
 
 
 def filecharcount(openfile, lineExclusionRegex, charExclusionRegex):
     """Counts characters characters, over the given file handle,
     returning a collection in natural sorted order (see orderBase()).
     Excludes lines or characters matching the given, respective,
-    exclusion regexes."""
+    exclusion regexes.
+    The character counts computation code was adapted from:
+    http://rosettacode.org/wiki/Letter_frequency#Python
+    """
     return sorted(Counter
                   (c for l in openfile if
                    not re.search(lineExclusionRegex, l) for c in l if
@@ -93,7 +103,8 @@ def filecharcount(openfile, lineExclusionRegex, charExclusionRegex):
 
 def makeCountPlot(charCounts, plotPath, subtitle="", pie=False, annPlot=False):
     """Creates a (bar or pie) chart from the provided, sorted,
-    collection of character counts."""
+    collection of character counts.
+    """
     import matplotlib.pyplot as plt
     import prettyplotlib as ppl
 
@@ -147,7 +158,8 @@ def makeSelFreqPlot(charFreqsP, plotPath, selectionInclusionRegex,
     """Creates a (bar or pie) chart from the provided, sorted,
     collection of character frequencies.
     The frequencies (only if plotting a bar chart)
-    are multiplied by 100 to plot them as percentages."""
+    are multiplied by 100 to plot them as percentages.
+    """
     import matplotlib.pyplot as plt
     import prettyplotlib as ppl
 
