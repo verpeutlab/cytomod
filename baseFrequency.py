@@ -121,24 +121,10 @@ def makeCountPlot(charCounts, plotPath, subtitle="", pie=False, annPlot=False):
         plt.pie(zip(*charCounts)[1], explode=explodeBases,
                 labels=zip(*charCounts)[0], autopct='%1.1f%%')
     else:
-        from brewer2mpl import diverging
-        bmapType = diverging.Spectral
-        bmapType.pop("max", None)  # Remove the max pointer,
-        # since if we need that we'll find that key eventually
-        # Allocate a number of colours corresponding to the
-        # the closest number of possible colours for the given class
-        # to the number of distinct characters we have, plus one.
-        # This is a naive, but sufficient, emulation of the
-        # desired behaviour of obtaining the tightest
-        # upper bound on the number of items in our list
-        # TODO change this to read colour scheme directly
-        # from the ExtreMEME mod_spec file or to use the
-        # appropriate "RdYlBu" class with custom colours for A/T
-        numColours = min(bmapType.keys(), key=lambda n:
-                         abs(n - (len(charCounts) + 1)))
         ppl.barh(ax, range(len(charCounts)), np.array(zip(*charCounts)[1]),
                  yticklabels=np.array(zip(*charCounts)[0]),
-                 color=bmapType[numColours].mpl_colors)
+                 color=[cUtils.getRGBBaseCol(base) for base
+                        in zip(*charCounts)[0]])
         plt.xlabel('Count')
         plt.ylabel('Nucleobase')
     # Tight plot boundaries pad for subtitle if it exists
@@ -178,16 +164,11 @@ def makeSelFreqPlot(charFreqsP, plotPath, selectionInclusionRegex,
     else:
         import matplotlib.ticker as ticker
         from matplotlib.ticker import FormatStrFormatter
-        from brewer2mpl import diverging
-
-        bmapType = diverging.Spectral
-        bmapType.pop("max", None)  # remove the max pointer
-        numColours = min(bmapType.keys(), key=lambda n:
-                         abs(n - (len(selectedCharFreqs) + 1)))
         ppl.barh(ax, range(len(selectedCharFreqs)),
                  np.array(zip(*selectedCharFreqs)[1]),
                  yticklabels=np.array(zip(*selectedCharFreqs)[0]),
-                 color=bmapType[numColours].mpl_colors, annotate=annPlot)
+                 color=[cUtils.getRGBBaseCol(base) for base
+                        in zip(*charCounts)[0]], annotate=annPlot)
         ax.xaxis.set_ticks_position('bottom')
         ax.xaxis.set_minor_locator(ticker.AutoMinorLocator())
         # Add '%' symbol to each x-axis tick label

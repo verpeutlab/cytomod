@@ -16,6 +16,8 @@
    COMPLEMENTS               - Map of all complements for all bases.
    FULL_BASE_NAMES           - Full names of unmodmified fundamental bases.
    FULL_MOD_BASE_NAMES       - Full names of modmified bases.
+   BASE_COLOURS              - Map of unequivocal base colours,
+                               per the MEME custom alphabet specification.
 
    Functions:
 
@@ -36,20 +38,24 @@
                                for given ambiguity code.
    getCompMaybeFromMB        - Map primary mod. base to its complement.
    getMBMaybeFromComp        - Map complement mod. base to primary mod base.
+   getRGBBaseCol             - Return the (0-1) RGB colour of the given base.
+   getRGB256BaseCol          - Return the (0-255) RGB colour of the given base.
 """
 
 from __future__ import with_statement, division, print_function
 
 __version__ = "0.06"
 
-
+import chroma
 import datetime
 import functools
+import operator
 import re
 import sys
 import textwrap
 
 from collections import OrderedDict
+from functools import reduce
 from itertools import izip, chain
 
 from bidict import bidict
@@ -57,6 +63,8 @@ from bidict import bidict
 
 _MAX_BASE_NUM = 9
 _PARAM_A_CONST_VAL = 999
+# Operation used for chroma colour mixing (additive or subtractive)
+_COLOUR_MIX_OP = operator.sub
 
 
 # FROM: http://stackoverflow.com/a/4029018
@@ -195,6 +203,18 @@ FULL_MOD_BASE_NAMES = {'m': '5-Methylcytosine',
                        'h': '5-Hydroxymethylcytosine',
                        'f': '5-Formylcytosine',
                        'c': '5-Carboxylcytosine'}
+
+BASE_COLOURS = {'A': '8510A8', 'T': 'A89610', 'C': 'A50026', 'G': '313695',
+                'm': 'D73027', '1': '4575B4', 'h': 'F46D43', '2': '74ADD1',
+                'f': 'FDAE61', '3': 'ABD9E9', 'c': 'FEE090', '4': 'E0F3F8'}
+# We require that all primary bases have a defined colour
+if __debug__:
+    for base in FULL_BASE_NAMES.keys() + FULL_MOD_BASE_NAMES.keys():
+        assert base in BASE_COLOURS, textwrap.fill(textwrap.dedent("""\
+            No colour is defined for nucleobase %r.
+            All primary bases must have a defined colour.
+            """ % base))
+
 FULL_MOD_BASE_NAMES = _consAmbigBaseNames(FULL_MOD_BASE_NAMES,
                                           AMBIG_MOD_BASES)
 
@@ -268,6 +288,47 @@ def getMBMaybeFromComp(modBase):
     """
     # use reverse mapping (i.e. invert the bijection)
     return (~COMPLEMENTS).get(modBase) or modBase
+
+
+def _getBaseCol(base):
+    """Return a chroma colour of the given modified or unmodified
+    nucleobase. If the given base is ambiguous, derive the colour
+    by mixing the constituent bases colours. For unmodified bases,
+    only the canonical ATGCN colours are defined. Colour mixing
+    is not implemented for the other IUPAC base definitions,
+    i.e. ambiguous base colours can only be retrieved for modified
+    nucleobases. Unrecognized bases will be coloured as N.
+    """
+    if base in BASE_COLOURS:
+        colour = chroma.Color('#' + BASE_COLOURS[base])
+    elif getMBMaybeFromComp(base) in AMBIG_MOD_BASES:
+        bases = AMBIG_MOD_BASES.get(getMBMaybeFromComp(base))
+        if base in ~COMPLEMENTS:
+            bases = complement(bases)
+        # mix of constituent ambiguity code nucleobases
+        colour = reduce(_COLOUR_MIX_OP,
+                        [chroma.Color('#' + BASE_COLOURS[primary_base])
+                         for primary_base in bases])
+    else:
+        # mix of all primary unmodified nucleobases
+        colour = reduce(_COLOUR_MIX_OP,
+                        [chroma.Color('#' + BASE_COLOURS[primary_base])
+                         for primary_base in FULL_BASE_NAMES.keys()])
+    return colour
+
+
+def getRGBBaseCol(base):
+    """Return the given nucleobase's RGB (between 0 and 1) colour,
+    via _getBaseCol.
+    """
+    return _getBaseCol(base).rgb
+
+
+def getRGB256BaseCol(base):
+    """Return the given nucleobase's RGB (between 0 and 255) colour,
+    via _getBaseCol.
+    """
+    return _getBaseCol(base).rgb256
 
 
 def makeList(lstOrVal):

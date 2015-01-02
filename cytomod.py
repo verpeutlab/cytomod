@@ -13,7 +13,6 @@ This program currently handles the following modifications
 to the cytosine nucleobase: {5mC, 5hmC, 5fC, 5caC}.
 """
 
-import colorbrewer
 import glob
 import gzip
 import math
@@ -30,10 +29,6 @@ import numpy as np
 import cUtils
 
 __version__ = cUtils.__version__
-
-# The colours of the modified bases, for use in the tracks
-# TODO correctly procure ambiguous base colours
-MOD_BASE_COLOURS = colorbrewer.RdYlBu[2*len(cUtils.MOD_BASES)]
 
 AUTOSOME_ONLY_FLAG = 'u'
 ALLOSOME_ONLY_FLAG = 'l'
@@ -101,31 +96,24 @@ def _ensureRegionValidity(genome, chrm, start, end):
         sys.exit("Invalid region: invalid end position.")
 
 
-def _maybeGetAmbigMapping(b, ambigMap):
+def _maybeGetAmbigMapping(base, ambigMap):
     """Maps the given base to its ambiguous base, if possible."""
-    return (ambigMap.get(b) or
-            (cUtils.complement(ambigMap.get(cUtils.complement(b)))
-            if ambigMap.get(cUtils.complement(b)) else None) or b)
+    return (ambigMap.get(base) or
+            (cUtils.complement(ambigMap.get(cUtils.complement(base)))
+            if ambigMap.get(cUtils.complement(base)) else None) or base)
 
 
-def getTrackHeader(m):
+def getTrackHeader(modBase):
     """Generates and returns a valid UCSC track header,
     with an appropriate name, description, and colour
     for the the given modified nucleobase.
     The returned header is terminated by a newline.
     """
-
-    # Colours are retrieved using the first unequivocal base (fUB)
-    fUB = cUtils.getFirstUnivocalBase(m)
-    colour = str(MOD_BASE_COLOURS[cUtils.MOD_BASES.values().index(fUB)
-                                  if fUB in cUtils.MOD_BASES.values()
-                                  else (len(MOD_BASE_COLOURS) -
-                                        cUtils.MOD_BASES.values().
-                                        index(cUtils.complement(fUB)[0]) - 1)])
+    colour = str(cUtils.getRGB256BaseCol(modBase)).translate(None, '() ')
     browserConfLines = "browser hide all\nbrowser dense " + \
         _DENSE_TRACKS + "\n"
-    return browserConfLines + 'track name="Nucleobase ' + m + \
-        '" description="Track denoting ' + cUtils.FULL_MOD_BASE_NAMES[m] + \
+    return browserConfLines + 'track name="Nucleobase ' + modBase + \
+        '" description="Track denoting ' + cUtils.FULL_MOD_BASE_NAMES[modBase] + \
         ' covalently modified nucleobases.' + '" color=' + \
         re.sub('[() ]', '', colour + "\n")
 
