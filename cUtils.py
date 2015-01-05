@@ -46,7 +46,6 @@ from __future__ import with_statement, division, print_function
 
 __version__ = "0.07"
 
-import chroma
 import datetime
 import functools
 import operator
@@ -59,7 +58,7 @@ from functools import reduce
 from itertools import izip, chain
 
 from bidict import bidict
-
+import chroma
 
 _MAX_BASE_NUM = 9
 _PARAM_A_CONST_VAL = 999
