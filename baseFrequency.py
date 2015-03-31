@@ -166,7 +166,7 @@ def makeSelFreqPlot(charFreqsP, plotPath, selectionInclusionRegex,
                  np.array(zip(*selectedCharFreqs)[1]),
                  yticklabels=np.array(zip(*selectedCharFreqs)[0]),
                  color=[cUtils.getRGBBaseCol(base) for base
-                        in zip(*charCounts)[0]], annotate=annPlot)
+                        in zip(*selectedCharFreqs)[0]], annotate=annPlot)
         ax.xaxis.set_ticks_position('bottom')
         ax.xaxis.set_minor_locator(ticker.AutoMinorLocator())
         # Add '%' symbol to each x-axis tick label
