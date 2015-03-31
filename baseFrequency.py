@@ -71,10 +71,8 @@ def orderBase(base):
                 cUtils.MOD_BASES.values().
                 index(base[0]) - sys.maxsize - ambigAdj)
     elif cUtils.getMBMaybeFromComp(base[0]) in cUtils.MOD_BASES.values():
-        # if complemented modified base, place in reverse
-        # numeric order (so subtract from # of mod bases)
-        return (len(cUtils.MOD_BASES.values()) -
-                cUtils.MOD_BASES.values().
+        # if complemented modified base, place in numeric order
+        return (cUtils.MOD_BASES.values().
                 index(cUtils.getMBMaybeFromComp(base[0])) - ambigAdj)
     elif cUtils.FULL_BASE_NAMES.get(base[0]):
         # if not mod base, place in ASCII order,
