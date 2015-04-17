@@ -435,7 +435,7 @@ ambigModUsage = \
                               modified genomes do not purport to convey \
                               greater information than they truly contain. \
                               The most general applicable ambiguities should \
-                              be speicified. Therefore, each modified \
+                              be specified. Therefore, each modified \
                               nucleobase may reside in at most one specified \
                               set of ambiguities.")
 ambigModUsage.add_argument('--mh', action='store_const', const='mh',
