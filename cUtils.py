@@ -55,10 +55,15 @@ import textwrap
 
 from collections import OrderedDict
 from functools import reduce
+from gzip import open as gzip_open
 from itertools import izip, chain
+from os import extsep
 
 from bidict import bidict
 import chroma
+
+EXT_GZ = "gz"
+SUFFIX_GZ = extsep + EXT_GZ
 
 _MAX_BASE_NUM = 9
 _PARAM_A_CONST_VAL = 999
@@ -336,6 +341,17 @@ def makeList(lstOrVal):
     may or may not already be lists (and therefore iterable).
     """
     return [lstOrVal] if not isinstance(lstOrVal, list) else lstOrVal
+
+
+def maybe_gzip_open(filename, *args, **kwargs):
+    """Open a gzipped file with the gzip open file handler and open
+       a non-gzipped file with the default open file handler.
+       Function from Genomedata by Michael Hoffman.
+    """
+    if filename.endswith(SUFFIX_GZ):
+        return gzip_open(filename, *args, **kwargs)
+    else:
+        return open(filename, *args, **kwargs)
 
 
 def errorMsg(msg, msgType, additionalPrefix):

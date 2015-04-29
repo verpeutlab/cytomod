@@ -13,6 +13,7 @@ This program currently handles the following modifications
 to the cytosine nucleobase: {5mC, 5hmC, 5fC, 5caC}.
 """
 
+import argparse
 import glob
 import gzip
 import math
@@ -232,8 +233,7 @@ def generateFASTAFile(file, id, genome, modOrder, chrm, start,
     No FASTA ID (i.e. '> ...') is written if no ID is given.
     """
     # Write either a Gzipped file or not, by using the appropriate function
-    with (gzip.open if file.endswith('.gz') else open)(file, 'ab') \
-            as modGenomeFile:
+    with cUtils.maybe_gzip_open(file, 'ab') as modGenomeFile:
         if id:
             modGenomeFile.write(">" + id + "\n")
         modGenomeFile.write(getModifiedGenome(genome, modOrder, chrm,
@@ -310,7 +310,6 @@ def determineTrackPriority(genome):
         break
 
 
-import argparse
 parser = argparse.ArgumentParser()
 genomeArchive = parser.add_mutually_exclusive_group(required=True)
 genomeArchive.add_argument('-G', '--genomedataArchive',

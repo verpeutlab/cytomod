@@ -8,7 +8,6 @@ of only modified nucleobase.
 
 from __future__ import with_statement, division, print_function
 
-import gzip
 import re
 import sys
 
@@ -232,8 +231,7 @@ if args.explodeBases and not args.pie:
 if args.file == _STDIN_SPECIFIER:
     fileH = sys.stdin
 else:
-    openHandler = gzip.open if args.file.endswith('.gz') else open
-    fileH = openHandler(args.file, 'rb')
+    fileH = cUtils.maybe_gzip_open(args.file, 'rb')
 charCounts = filecharcount(fileH, LINE_EXCLUSION_REGEX, CHAR_EXCLUSION_REGEX)
 charFreqs = 0
 # TODO This could be made much more general (i.e. define a base or
