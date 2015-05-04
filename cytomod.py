@@ -20,7 +20,6 @@ import math
 import os
 import random
 import re
-import sys
 import warnings
 
 from collections import OrderedDict
@@ -36,7 +35,7 @@ ALLOSOME_ONLY_FLAG = 'l'
 MITOCHONDRIAL_ONLY_FLAG = 'm'
 MITOCHONDRIAL_INCLUSION_FLAG = MITOCHONDRIAL_ONLY_FLAG.upper()
 
-SUPPORTED_FORMATS_REGEX = '\.(bed|wig|bed[gG]raph)$'
+SUPPORTED_FORMATS_REGEX = '\.(bed|wig|bed[gG]raph)(.gz)?$'
 CHROMOSOME_TYPE_REGEXES = {AUTOSOME_ONLY_FLAG: 'chr\d+',
                            ALLOSOME_ONLY_FLAG: 'chr[XY]',
                            MITOCHONDRIAL_ONLY_FLAG: 'chrM',
@@ -52,10 +51,12 @@ _DEFAULT_CENTRED_REGION_LENGTH = 500
 _DEFAULT_BASE_PRIORITY_COMMENT = """the resolution of the biological protocol
 (i.e. single-base > any chemical > any DIP)"""
 _DEFAULT_RAN_LENGTH = 2000
+_DEFAULT_MASK_VALUE = 0
 _MAX_REGION_LEN = 2000000
 _MAX_CONTIG_ATTEMPTS = 3
 # tracks to be displayed densely for output UCSC browser tracks
 _DENSE_TRACKS = 'ruler ensGene pubs cpgIslandExt oreganno rmsk snp128'
+_MASK_TNAME = 'MASK'
 
 
 def die(msg):
@@ -90,11 +91,11 @@ def _ensureRegionValidity(genome, chrm, start, end):
     try:
         chromosome = genome[chrm]
     except:
-        sys.exit("Invalid region: invalid chrmomosme.")
+        die("Invalid region: invalid chrmomosme.")
     if (chromosome.start < 0) or (chromosome.start >= end):
-        sys.exit("Invalid region: invalid start position.")
+        die("Invalid region: invalid start position.")
     if (end <= start) or (end > chromosome.end):
-        sys.exit("Invalid region: invalid end position.")
+        die("Invalid region: invalid end position.")
 
 
 def _maybeGetAmbigMapping(base, ambigMap):
@@ -120,7 +121,8 @@ def getTrackHeader(modBase):
 
 
 def getModifiedGenome(genome, modOrder, chrm, start, end,
-                      suppressFASTA, suppressBED, tnames, ambigMap):
+                      suppressFASTA, suppressBED, tnames, ambigMap,
+                      maskRegionsFileVal, maskRegionTName):
     """Returns the modified genome sequence, for the given genome,
     over the given input region.
     """
@@ -134,6 +136,13 @@ def getModifiedGenome(genome, modOrder, chrm, start, end,
         v_print_timestamp(args.verbose, "Now outputting " + chrm +
                           " for region: (" + str(s) + ", " + str(e) + ")", 2)
         modBaseScores = chromosome[s:e]
+        if _MASK_TNAME in tnames:
+            maskTrack = chromosome[s:e, maskRegionTName]
+            modBaseScores[:, -1] = np.where(np.logical_or(np.isnan(maskTrack),
+                                                          maskTrack >
+                                                          maskRegionsFileVal),
+                                            np.zeros(maskTrack.shape[0]),
+                                            np.ones(maskTrack.shape[0]))
         modBasesA = np.where(np.logical_and(np.isfinite(modBaseScores),
                              modBaseScores != 0), modBases, '0')
         orderedmodBasesA = modBasesA[:, modOrder]
@@ -227,7 +236,8 @@ def getModifiedGenome(genome, modOrder, chrm, start, end,
 
 
 def generateFASTAFile(file, id, genome, modOrder, chrm, start,
-                      end, suppressBED, tnames, ambigMap):
+                      end, suppressBED, tnames, ambigMap, maskRegionsFileVal,
+                      maskRegionTName):
     """Writes an optionally Gzipped FASTA file of the modified genome
     appending to the given file, using the given ID.
     No FASTA ID (i.e. '> ...') is written if no ID is given.
@@ -237,8 +247,8 @@ def generateFASTAFile(file, id, genome, modOrder, chrm, start,
         if id:
             modGenomeFile.write(">" + id + "\n")
         modGenomeFile.write(getModifiedGenome(genome, modOrder, chrm,
-                            start, end, False, suppressBED, tnames, ambigMap)
-                            + "\n")
+                            start, end, False, suppressBED, tnames, ambigMap,
+                            maskRegionsFileVal, maskRegionTName) + "\n")
 
 
 def selectRandomRegion(genome, length):
@@ -252,8 +262,8 @@ def selectRandomRegion(genome, length):
                               not re.search(CHROMOSOME_EXCLUSION_REGEX,
                                             chromosome.name))}
     if not selectablechromosomes:
-        sys.exit(("The region length provided is too long or all "
-                 "chromosomes have been excluded."))
+        die("""The region length provided is too long or all
+               chromosomes have been excluded.""")
     chrm = random.choice(selectablechromosomes.keys())
     contigAttempts = 0
     while True:
@@ -275,7 +285,7 @@ def parseRegion(genome, region):
     region = re.sub('[, ]', '', region)  # remove unwanted characters
     regionMatch = re.search(REGION_REGEX, region)
     if not regionMatch:
-        sys.exit("Invalid region: invalid format.")
+        die("Invalid region: invalid format.")
     chrm = regionMatch.group(1)
     start = 0
     end = 1
@@ -339,6 +349,9 @@ genomeArchive.add_argument("-d", "--archiveCompDirs", nargs=2,
                            The filename of each track must specify what \
                            modified nucleobase it pertains to; \
                            one of: {5mC, 5hmC, 5fC, 5caC}. \
+                           Alternatively, the track name can contain  \"" +
+                           _MASK_TNAME + "\", in which case masking can be \
+                           used via '-M' (refer to that option for details). \
                            Instead of a track directory, a single filename \
                            that meets the aforementioned requirements may \
                            be provided if the archive is to contain only \
@@ -425,7 +438,7 @@ parser.add_argument('-f', '--fastaFile', nargs='?', type=str,
                     The output file will be Gzipped iff the \
                     path provided ends in \".gz\".")
 ambigModUsage = \
-    parser.add_argument_group(title="Use of Ambiguous Modification Data",
+    parser.add_argument_group(title="Ambiguous Modification",
                               description="Specify that some of the data \
                               provided for a given modified base is unable \
                               to differentiate between some number of \
@@ -456,6 +469,24 @@ ambigModUsage.add_argument('--fc', action='store_const', const='fc',
                            which only included M.SssI methylase-assisted \
                            bisulfite sequencing.",
                            default='')
+ambigModUsage.add_argument('-M', '--maskRegions', nargs='?', type=float,
+                           const=_DEFAULT_MASK_VALUE,
+                           help="Hard mask C/G nucleobases to unknown state. \
+                           Assumes that the archive contains or is \
+                           being built with a trackname containing \"" +
+                           _MASK_TNAME + "\". \
+                           The containing loci will be interpreted as \
+                           nucleobases of unknown modification state. \
+                           They will be accordingly set to the appropriate \
+                           (maximally) ambiguous base. This will override any \
+                           other modifications at those loci. \
+                           This parameter can accept an optional argument, \
+                           indicating a value at and below which the locus \
+                           is considered ambiguous. If not provided, \
+                           this defaults to " + str(_DEFAULT_MASK_VALUE) + ". \
+                           An example use case for this option would be to \
+                           use a mask file containing coverage information \
+                           and to mask all bases of insufficient coverage.")
 # TODO Implement this?
 # NB: neither TRF nor dustmasker work upon modified genomes
 # parser.add_argument('-M', '--hardMaskRepetitiveRegions',
@@ -492,7 +523,8 @@ if args.centeredRegion and not args.region:
 
 if args.onlyBED and args.fastaFile:
     warn("""Request to only generate BED files ignored,
-             since an output FASTA path was provided.""")
+            since an output FASTA path was provided.""")
+
 
 if args.alterIncludedChromosomes:
     _modifychrmExclusionRegex(args.alterIncludedChromosomes)
@@ -545,8 +577,7 @@ if args.archiveCompDirs:
                 for track in os.listdir(args.archiveCompDirs[1])
                 if re.search(SUPPORTED_FORMATS_REGEX, track)]),
         # args.archiveCompDirs[0] contains the directory with all FASTAs
-        seqfilenames=FASTA_file_list,
-        verbose=args.verbose)
+        seqfilenames=FASTA_file_list, verbose=args.verbose)
 
 else:
     v_print_timestamp(args.verbose, "Using existing genomedata archive.")
@@ -556,19 +587,35 @@ with Genome(genomeDataArchive) as genome:
     warnings.simplefilter("ignore")  # Ignore supercontig warnings
     v_print_timestamp(args.verbose, "Genomedata archive successfully loaded.")
     modBases = []
+    tnames = {}
     for track in genome.tracknames_continuous:
-        modBases.append(cUtils.MOD_BASES[re.search(MOD_BASE_REGEX, track)
-                        .group(0)])
+        if args.maskRegions is not None and _MASK_TNAME in str(track):
+            modBases.append(cUtils.AMBIG_MOD_BASES.keys()[0])
+            tnames[_MASK_TNAME] = track
+            maskRegionTName = track
+        else:
+            modBases.append(cUtils.MOD_BASES[re.search(MOD_BASE_REGEX, track)
+                            .group(0)])
+    if args.maskRegions is not None and _MASK_TNAME not in tnames:
+        die("""Masking of genome regions requires the generation of a new
+               Genomedata archive""")
     modOrder = [modBases.index(b) for b in list(args.priority)
                 if b in modBases]
+    # masked bases are assigned the highest priority (i.e. masks all others)
+    if args.maskRegions is not None:
+        v_print_timestamp(args.verbose,
+                          """Masking is enabled. All loci implicated by the
+                             mask will be masked irrespective of any
+                             modifications at those loci.""", 2)
+        modOrder = [order + 1 for order in modOrder]
+        modOrder.append(0)
     v_print_timestamp(args.verbose, """The order of preference for base
                       modifications is: """ + ','.join(list(args.priority)) +
                       ".")
 
     # Before computing modified bases in blocks, remove any existing BED files
     # and write the tracks' headers.
-    # Also, store the tracks' names, keyed by modfiied base, for future use.
-    tnames = {}
+    # Also, store the tracks' names, keyed by modified base, for future use.
     if not args.suppressBED:
         trackID = os.path.splitext(os.path.basename(args.fastaFile
                                    or _DEFAULT_FASTA_FILENAME))[0]
@@ -622,11 +669,13 @@ with Genome(genomeDataArchive) as genome:
             if args.fastaFile:
                 generateFASTAFile(args.fastaFile, regionStr, genome, modOrder,
                                   chrm, start, end, args.suppressBED, tnames,
-                                  ambigMap)
+                                  ambigMap, args.maskRegions,
+                                  maskRegionTName)
             else:
                 print(getModifiedGenome(genome, modOrder, chrm, start, end,
                                         args.onlyBED, args.suppressBED,
-                                        tnames, ambigMap))
+                                        tnames, ambigMap, args.maskRegions,
+                                        maskRegionTName))
     else:
         for chromosome in [chromosome for chromosome in genome
                            if not re.search(CHROMOSOME_EXCLUSION_REGEX,
@@ -637,6 +686,6 @@ with Genome(genomeDataArchive) as genome:
                               chromosome.name, genome, modOrder,
                               chromosome.name, int(chromosome.start),
                               int(chromosome.end), args.suppressBED, tnames,
-                              ambigMap)
+                              ambigMap, args.maskRegions)
 
 v_print_timestamp(args.verbose, "Program complete.")

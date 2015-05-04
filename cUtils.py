@@ -46,6 +46,7 @@ from __future__ import with_statement, division, print_function
 
 __version__ = "0.07"
 
+import argparse
 import datetime
 import functools
 import operator
