@@ -597,8 +597,8 @@ with Genome(genomeDataArchive) as genome:
             modBases.append(cUtils.MOD_BASES[re.search(MOD_BASE_REGEX, track)
                             .group(0)])
     if args.maskRegions is not None and _MASK_TNAME not in tnames:
-        die("""Masking of genome regions requires the generation of a new
-               Genomedata archive""")
+        die("""Masking of genome regions requires the generation of a
+               Genomedata archive containing a mask track.""")
     modOrder = [modBases.index(b) for b in list(args.priority)
                 if b in modBases]
     # masked bases are assigned the highest priority (i.e. masks all others)
