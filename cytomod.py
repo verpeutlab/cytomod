@@ -686,6 +686,6 @@ with Genome(genomeDataArchive) as genome:
                               chromosome.name, genome, modOrder,
                               chromosome.name, int(chromosome.start),
                               int(chromosome.end), args.suppressBED, tnames,
-                              ambigMap, args.maskRegions)
+                              ambigMap, args.maskRegions, maskRegionTName)
 
 v_print_timestamp(args.verbose, "Program complete.")
