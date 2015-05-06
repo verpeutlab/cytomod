@@ -586,6 +586,7 @@ else:
 with Genome(genomeDataArchive) as genome:
     warnings.simplefilter("ignore")  # Ignore supercontig warnings
     v_print_timestamp(args.verbose, "Genomedata archive successfully loaded.")
+    maskRegionTName = ''
     modBases = []
     tnames = {}
     for track in genome.tracknames_continuous:
