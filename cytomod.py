@@ -144,6 +144,11 @@ def getModifiedGenome(genome, modOrder, chrm, start, end,
                                                           maskRegionsFileVal),
                                             np.zeros(maskTrack.shape[0]),
                                             np.ones(maskTrack.shape[0]))
+        else:  # may still need to remove mask track
+            for item in genome.tracknames_continuous:
+                if item.find(_MASK_TNAME) >= 0:
+                    maskIndex = genome.tracknames_continuous.index(item)
+                    modBaseScores = np.delete(modBaseScores, maskIndex, axis=1)
         if len(modOrder) != len(set(modOrder)):  # intersect, if duplicates
             for k, g in groupby(modOrder):
                 absIndexS = modOrder.index(k)
@@ -615,8 +620,9 @@ with Genome(genomeDataArchive) as genome:
             tnames[_MASK_TNAME] = track
             maskRegionTName = track
         else:
-            modBases.append(cUtils.MOD_BASES[re.search(MOD_BASE_REGEX, track)
-                            .group(0)])
+            trackToBaseSearch = re.search(MOD_BASE_REGEX, track)
+            if trackToBaseSearch:
+                modBases.append(cUtils.MOD_BASES[trackToBaseSearch.group(0)])
     if args.maskRegions is not None and _MASK_TNAME not in tnames:
         die("""Masking of genome regions requires the generation of a
                Genomedata archive containing a mask track.""")
@@ -624,7 +630,8 @@ with Genome(genomeDataArchive) as genome:
         groupL = list(group)
         modOrder += [args.priority.index(b) if args.intersection else
                      i + args.priority.index(b)**2
-                     for i, b in enumerate(groupL) if b in groupL]
+                     for i, b in enumerate(groupL) if b in groupL
+                     and b in args.priority]
     # get absolute (index-based) ordering from the relative ordering
     modOrder = [sorted(modOrder).index(x) for x in modOrder]
     # masked bases are assigned the highest priority (i.e. masks all others)
