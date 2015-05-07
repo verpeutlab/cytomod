@@ -23,6 +23,7 @@ import re
 import warnings
 
 from collections import OrderedDict
+from itertools import groupby
 
 import numpy as np
 
@@ -143,9 +144,18 @@ def getModifiedGenome(genome, modOrder, chrm, start, end,
                                                           maskRegionsFileVal),
                                             np.zeros(maskTrack.shape[0]),
                                             np.ones(maskTrack.shape[0]))
+        if len(modOrder) != len(set(modOrder)):  # intersect, if duplicates
+            for k, g in groupby(modOrder):
+                absIndexS = modOrder.index(k)
+                absIndexE = absIndexS + len(list(g))
+                # NB: mean is not really needed, could be more efficient w/0|1.
+                modBaseScores[:, absIndexS:absIndexE] = \
+                    np.mean(modBaseScores[:, absIndexS:absIndexE],
+                            axis=1, keepdims=True)
         modBasesA = np.where(np.logical_and(np.isfinite(modBaseScores),
                              modBaseScores != 0), modBases, '0')
-        orderedmodBasesA = modBasesA[:, modOrder]
+        modOrderBasedPermutation = np.array(modOrder).argsort()
+        orderedmodBasesA = modBasesA[:, modOrderBasedPermutation]
         referenceSeq = np.array(list(chromosome.seq[s:e].
                                 tostring().upper()), dtype=np.str)
         # Filter the bases to take the modified bases in priority order.
@@ -349,6 +359,10 @@ genomeArchive.add_argument("-d", "--archiveCompDirs", nargs=2,
                            The filename of each track must specify what \
                            modified nucleobase it pertains to; \
                            one of: {5mC, 5hmC, 5fC, 5caC}. \
+                           If multiple tracks of the same type are provided, \
+                           all such tracks will be added to the archive. \
+                           The output sequence will default to the union of \
+                           all of the same modification type (but see '-I'). \
                            Alternatively, the track name can contain  \"" +
                            _MASK_TNAME + "\", in which case masking can be \
                            used via '-M' (refer to that option for details). \
@@ -437,6 +451,11 @@ parser.add_argument('-f', '--fastaFile', nargs='?', type=str,
                     (i.e. a FASTA file with always be produced). \
                     The output file will be Gzipped iff the \
                     path provided ends in \".gz\".")
+parser.add_argument('-I', '--intersection', action='store_true',
+                    help="If multiple files of the same modification \
+                    type are given, take their intersection. \
+                    This option is used to override the default, \
+                    which is to take their union.")
 ambigModUsage = \
     parser.add_argument_group(title="Ambiguous Modification",
                               description="Specify that some of the data \
@@ -588,6 +607,7 @@ with Genome(genomeDataArchive) as genome:
     v_print_timestamp(args.verbose, "Genomedata archive successfully loaded.")
     maskRegionTName = ''
     modBases = []
+    modOrder = []
     tnames = {}
     for track in genome.tracknames_continuous:
         if args.maskRegions is not None and _MASK_TNAME in str(track):
@@ -600,8 +620,13 @@ with Genome(genomeDataArchive) as genome:
     if args.maskRegions is not None and _MASK_TNAME not in tnames:
         die("""Masking of genome regions requires the generation of a
                Genomedata archive containing a mask track.""")
-    modOrder = [modBases.index(b) for b in list(args.priority)
-                if b in modBases]
+    for key, group in groupby(modBases):  # get relative ordering
+        groupL = list(group)
+        modOrder += [args.priority.index(b) if args.intersection else
+                     i + args.priority.index(b)**2
+                     for i, b in enumerate(groupL) if b in groupL]
+    # get absolute (index-based) ordering from the relative ordering
+    modOrder = [sorted(modOrder).index(x) for x in modOrder]
     # masked bases are assigned the highest priority (i.e. masks all others)
     if args.maskRegions is not None:
         v_print_timestamp(args.verbose,
