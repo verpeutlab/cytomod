@@ -24,6 +24,7 @@ import warnings
 
 from collections import OrderedDict
 from itertools import groupby
+from os.path import splitext
 
 import numpy as np
 
@@ -47,7 +48,8 @@ MOD_BASE_REGEX = '5(m|hm|f|ca)C'
 REGION_REGEX = '(chr(?:\d+|[XYM]))(?::(?P<start>\d+)?-(?P<end>\d+)?)?'
 
 _DEFAULT_FASTA_FILENAME = 'modGenome.fa'
-_DEFAULT_BASE_PRIORITY = 'fhmc'
+# bases ordered by least frequent in our dataset with most ambiguous bases last
+_DEFAULT_BASE_PRIORITY = 'fhmc' + ''.join(cUtils.AMBIG_MOD_BASES.keys()[::-1])
 _DEFAULT_CENTRED_REGION_LENGTH = 500
 _DEFAULT_BASE_PRIORITY_COMMENT = """the resolution of the biological protocol
 (i.e. single-base > any chemical > any DIP)"""
@@ -145,6 +147,7 @@ def getModifiedGenome(genome, modOrder, chrm, start, end,
                                             np.zeros(maskTrack.shape[0]),
                                             np.ones(maskTrack.shape[0]))
         else:  # may still need to remove mask track
+            # TODO this could be made more efficient
             for item in genome.tracknames_continuous:
                 if item.find(_MASK_TNAME) >= 0:
                     maskIndex = genome.tracknames_continuous.index(item)
@@ -364,6 +367,9 @@ genomeArchive.add_argument("-d", "--archiveCompDirs", nargs=2,
                            The filename of each track must specify what \
                            modified nucleobase it pertains to; \
                            one of: {5mC, 5hmC, 5fC, 5caC}. \
+                           Track names can also be of ambiguity codes \
+                           (e.g. \"5xC\") on the positive strand only. \
+                           Such tracks directly specify ambiguous loci. \
                            If multiple tracks of the same type are provided, \
                            all such tracks will be added to the archive. \
                            The output sequence will default to the union of \
@@ -430,7 +436,6 @@ parser.add_argument('-A', '--alterIncludedChromosomes',
                     but will be considered if a file of genomic \
                     regions is provided (also via '-r').")
 parser.add_argument('-p', '--priority', default=_DEFAULT_BASE_PRIORITY,
-                    choices=cUtils.MOD_BASES.values(),
                     help="Specify the priority \
                     of modified bases. The default is:"
                     + _DEFAULT_BASE_PRIORITY + ", which is based upon "
@@ -616,13 +621,20 @@ with Genome(genomeDataArchive) as genome:
     tnames = {}
     for track in genome.tracknames_continuous:
         if args.maskRegions is not None and _MASK_TNAME in str(track):
-            modBases.append(cUtils.AMBIG_MOD_BASES.keys()[0])
+            modBases.append(cUtils.MASK_BASE)
             tnames[_MASK_TNAME] = track
             maskRegionTName = track
         else:
-            trackToBaseSearch = re.search(MOD_BASE_REGEX, track)
-            if trackToBaseSearch:
-                modBases.append(cUtils.MOD_BASES[trackToBaseSearch.group(0)])
+            trackToBase = re.search(MOD_BASE_REGEX, track)
+            if trackToBase:  # add a regular modified base track
+                modBases.append(cUtils.MOD_BASES[trackToBase.group(0)])
+            else:  # directly add an ambigous modified base track
+                trackToAmbigBase = [k for k in cUtils.AMBIG_MOD_BASES.keys()
+                                    if splitext(track)[0] == '5' + k + 'C']
+                if trackToAmbigBase:
+                    modBases.append(trackToAmbigBase[0])
+                elif _MASK_TNAME not in str(track):
+                    warn("Unrecognized track " + track + " has been ignored.")
     if args.maskRegions is not None and _MASK_TNAME not in tnames:
         die("""Masking of genome regions requires the generation of a
                Genomedata archive containing a mask track.""")
@@ -641,7 +653,7 @@ with Genome(genomeDataArchive) as genome:
                              mask will be masked irrespective of any
                              modifications at those loci.""", 2)
         modOrder = [order + 1 for order in modOrder]
-        modOrder.append(0)
+        modOrder[modBases.index(cUtils.MASK_BASE)] = 0
     v_print_timestamp(args.verbose, """The order of preference for base
                       modifications is: """ + ','.join(list(args.priority)) +
                       ".")

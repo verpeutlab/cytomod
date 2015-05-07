@@ -16,6 +16,7 @@
    COMPLEMENTS               - Map of all complements for all bases.
    FULL_BASE_NAMES           - Full names of unmodmified fundamental bases.
    FULL_MOD_BASE_NAMES       - Full names of modmified bases.
+   MASK_BASE                 - The base to be used to mask other bases.
    BASE_COLOURS              - Map of unequivocal base colours,
                                per the MEME custom alphabet specification.
 
@@ -221,6 +222,8 @@ if __debug__:
 
 FULL_MOD_BASE_NAMES = _consAmbigBaseNames(FULL_MOD_BASE_NAMES,
                                           AMBIG_MOD_BASES)
+
+MASK_BASE = AMBIG_MOD_BASES.keys()[0]
 
 
 @_unpacked
