@@ -620,10 +620,14 @@ with Genome(genomeDataArchive) as genome:
     modOrder = []
     tnames = {}
     for track in genome.tracknames_continuous:
-        if args.maskRegions is not None and _MASK_TNAME in str(track):
-            modBases.append(cUtils.MASK_BASE)
-            tnames[_MASK_TNAME] = track
-            maskRegionTName = track
+        if _MASK_TNAME in str(track):
+            if args.maskRegions is not None:
+                modBases.append(cUtils.MASK_BASE)
+                tnames[_MASK_TNAME] = track
+                maskRegionTName = track
+            else:
+                warn("""Genomedata archive contains a mask track, but '-M' was not
+                        given. Masking will not be performed.""")
         else:
             trackToBase = re.search(MOD_BASE_REGEX, track)
             if trackToBase:  # add a regular modified base track
