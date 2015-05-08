@@ -638,15 +638,16 @@ with Genome(genomeDataArchive) as genome:
     if args.maskRegions is not None and _MASK_TNAME not in tnames:
         die("""Masking of genome regions requires the generation of a
                Genomedata archive containing a mask track.""")
+    # For modOrder, lowest numbers have higher priority (i.e. 0 is highest).
     for key, group in groupby(modBases):  # get relative ordering
         groupL = list(group)
         modOrder += [args.priority.index(b) if args.intersection else
                      i + args.priority.index(b)**2
                      for i, b in enumerate(groupL) if b in groupL
                      and b in args.priority]
-    # get absolute (index-based) ordering from the relative ordering
+    # Get absolute (index-based) ordering from the relative ordering.
     modOrder = [sorted(modOrder).index(x) for x in modOrder]
-    # masked bases are assigned the highest priority (i.e. masks all others)
+    # Masked bases are assigned the highest priority (i.e. masks all others).
     if args.maskRegions is not None:
         v_print_timestamp(args.verbose,
                           """Masking is enabled. All loci implicated by the
@@ -655,8 +656,8 @@ with Genome(genomeDataArchive) as genome:
         modOrder = [order + 1 for order in modOrder]
         modOrder[modBases.index(cUtils.MASK_BASE)] = 0
     v_print_timestamp(args.verbose, """The order of preference for base
-                      modifications is: """ + ','.join(list(args.priority)) +
-                      ".")
+                      modifications (from highest to lowest) is: """ +
+                      ','.join(list(args.priority)) + ".")
 
     # Before computing modified bases in blocks, remove any existing BED files
     # and write the tracks' headers.
