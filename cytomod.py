@@ -24,7 +24,6 @@ import warnings
 
 from collections import OrderedDict
 from itertools import groupby
-from os.path import splitext
 
 import numpy as np
 
@@ -629,16 +628,14 @@ with Genome(genomeDataArchive) as genome:
                 warn("""Genomedata archive contains a mask track, but '-M' was not
                         given. Masking will not be performed.""")
         else:
-            trackToBase = re.search(MOD_BASE_REGEX, track)
-            if trackToBase:  # add a regular modified base track
-                modBases.append(cUtils.MOD_BASES[trackToBase.group(0)])
-            else:  # directly add an ambigous modified base track
-                trackToAmbigBase = [k for k in cUtils.AMBIG_MOD_BASES.keys()
-                                    if splitext(track)[0] == '5' + k + 'C']
-                if trackToAmbigBase:
-                    modBases.append(trackToAmbigBase[0])
-                elif _MASK_TNAME not in str(track):
-                    warn("Unrecognized track " + track + " has been ignored.")
+            trackToBase = {covalent_mod_base for
+                           covalent_mod, covalent_mod_base in
+                           cUtils.ALL_POS_STRAND_COVALENT_DNA_MODS.iteritems()
+                           if covalent_mod in track}.pop()
+            if trackToBase:  # add a regular or ambigous modified base track
+                modBases.append(trackToBase)
+            else:
+                warn("Unrecognized track " + track + " has been ignored.")
     if args.maskRegions is not None and _MASK_TNAME not in tnames:
         die("""Masking of genome regions requires the generation of a
                Genomedata archive containing a mask track.""")
