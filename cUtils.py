@@ -163,36 +163,61 @@ def _consCompModBaseFullNames(fullbaseNames, fullMbaseNames, mod_map,
     return fullMbaseNames
 
 
+def _consModBasesModMap(nucPositionsMod, posStrandBasesMod,
+                        baseToCovalentModMap, modBasesComplementOrder):
+    """Return the "primary" modified bases and their corresponding
+       one base codes, listed in their order of oxidation. Generalize for the
+       base being modified and its position. Also return a dictionary mapping
+       each "primary" modified base to the base it modifies.
+    """
+    MOD_BASES = {}
+    MOD_MAP = {}
+    for pos_modified in nucPositionsMod:
+        for base_mod in posStrandBasesMod:
+            for covalent_mod in baseToCovalentModMap.values():
+                covalently_mod_base = (pos_modified + covalent_mod + base_mod)
+                MOD_BASES[covalently_mod_base] = covalent_mod[:1]
+                MOD_MAP.update(dict.fromkeys(MOD_BASES.values(), base_mod))
+    # order the modified bases to facilitate assignment of complement numerals
+    MOD_BASES = OrderedDict(sorted(MOD_BASES.items(), key=lambda t:
+                                   modBasesComplementOrder.index(t[1])))
+    return (MOD_BASES, MOD_MAP)
+
+
+def _consCovalentMods(nucPositionsMod, posStrandBasesMod, baseToCovalentModMap,
+                      modBases, ambigModBases):
+    """Returns all names for covalently modified bases and ambiguously modified
+       bases. This is the Cartesian product of the positions modified, the
+       covalent modificationsm and the base being modified.
+    """
+    return [''.join(tuple) for tuple in CartesianProd(nucPositionsMod,
+            [baseToCovalentModMap[mod_b] for mod_b in modBases.values()]
+            + ambigModBases.keys(), posStrandBasesMod)]
+
+
+def _consAllPosStrandModsToBase(covalentModToBaseMap, covalentModBases):
+    """Returns a map of each covalent modification name (including ambiguous
+       modifications) to its respective expanded alphabet base.
+    """
+    return {cov_mod_bases:
+            (covalentModToBaseMap.get(cov_mod_bases[1:len(cov_mod_bases)-1]) or
+             cov_mod_bases[1:len(cov_mod_bases) - 1])
+            for cov_mod_bases in covalentModBases}
+
+
+# defines the order for the assignment of complmentary numerals
+MOD_BASE_COMPLEMENT_NUM_ORDER = ['m', 'h', 'f', 'c']
+
 BASE_TO_COVALENT_MODIFICATION_MAP = bidict({'m': 'm', 'h': 'hm', 'f': 'f',
                                             'c': 'ca'})
 
 NUCLEOTIDE_POSITIONS_MODIFIED = ['5']
 POS_STRAND_BASES_MODIFIED = ['C']
 
-# Define the "primary" modified bases and their corresponding
-# one base codes, listed in their order of oxidation
-# Generalize for the base being modified and its position
-# Also create a dictionary mapping each "primary" modified base to
-# the base it modifies
-
-# XXX NEEDS MASSIVE REFACTORING and put into functions....
-# XXX RUN Flake8 and FIX ALL
-
-# defines the order for the assignment of complmentary numerals
-MOD_BASE_COMPLEMENT_NUM_ORDER = ['m', 'h', 'f', 'c']
-
-MOD_BASES = {}
-MOD_MAP = {}
-for pos_modified in NUCLEOTIDE_POSITIONS_MODIFIED:
-    for base_modified in POS_STRAND_BASES_MODIFIED:
-        for covalent_mod in BASE_TO_COVALENT_MODIFICATION_MAP.values():
-            covalently_mod_base = pos_modified + covalent_mod + base_modified
-            MOD_BASES[pos_modified + covalent_mod + base_modified] = \
-                covalent_mod[:1]
-            MOD_MAP.update(dict.fromkeys(MOD_BASES.values(), base_modified))
-# order the modified bases to facilitate assignment of complement numerals
-MOD_BASES = OrderedDict(sorted(MOD_BASES.items(), key=lambda t:
-                               MOD_BASE_COMPLEMENT_NUM_ORDER.index(t[1])))
+(MOD_BASES, MOD_MAP) = _consModBasesModMap(NUCLEOTIDE_POSITIONS_MODIFIED,
+                                           POS_STRAND_BASES_MODIFIED,
+                                           BASE_TO_COVALENT_MODIFICATION_MAP,
+                                           MOD_BASE_COMPLEMENT_NUM_ORDER)
 
 # Define the modified base ambiguity codes, listed in
 # their order of decreasing generality and then by the
@@ -205,21 +230,16 @@ AMBIG_MOD_BASES = OrderedDict([('z', ['m', 'h', 'f',
                                ('x', ['m', 'h']),
                                ('w', ['f', 'c'])])
 
-# XXX NEEDS MASSIVE REFACTORING and put into functions....
-
 # all modified and ambiguously modified bases
 ALL_NON_UNMOD_BASES = MOD_BASES.values() + AMBIG_MOD_BASES.keys()
-COVALENT_MOD_BASES = [''.join(tuple) for tuple in
-                      CartesianProd(NUCLEOTIDE_POSITIONS_MODIFIED,
-                                    [BASE_TO_COVALENT_MODIFICATION_MAP[mod_b]
-                                     for mod_b in MOD_BASES.values()] +
-                      AMBIG_MOD_BASES.keys(), POS_STRAND_BASES_MODIFIED)]
-ALL_POS_STRAND_COVALENT_DNA_MODS = \
-    {covalent_mod_bases:
-     ((~BASE_TO_COVALENT_MODIFICATION_MAP)
-      .get(covalent_mod_bases[1:len(covalent_mod_bases)-1]) or
-      covalent_mod_bases[1:len(covalent_mod_bases) - 1]) for covalent_mod_bases
-     in COVALENT_MOD_BASES}
+COVALENT_MOD_BASES = _consCovalentMods(NUCLEOTIDE_POSITIONS_MODIFIED,
+                                       POS_STRAND_BASES_MODIFIED,
+                                       BASE_TO_COVALENT_MODIFICATION_MAP,
+                                       MOD_BASES, AMBIG_MOD_BASES)
+
+COVALENT_MOD_BASES_TO_BASE_MAP = \
+    _consAllPosStrandModsToBase(~BASE_TO_COVALENT_MODIFICATION_MAP,
+                                COVALENT_MOD_BASES)
 
 # Permits ambiguity code lookup using concatenated modified bases
 # NB: Assumes that values are unique (they should always be)

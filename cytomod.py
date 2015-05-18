@@ -630,7 +630,7 @@ with Genome(genomeDataArchive) as genome:
         else:
             trackToBase = {covalent_mod_base for
                            covalent_mod, covalent_mod_base in
-                           cUtils.ALL_POS_STRAND_COVALENT_DNA_MODS.iteritems()
+                           cUtils.COVALENT_MOD_BASES_TO_BASE_MAP.iteritems()
                            if covalent_mod in track}.pop()
             if trackToBase:  # add a regular or ambigous modified base track
                 modBases.append(trackToBase)
