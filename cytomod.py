@@ -209,17 +209,15 @@ def getModifiedGenome(genome, modOrder, chrm, start, end,
             if ambigMap:  # Replace with ambiguous bases in unmodified sequence
                 unmodBaseIndices = np.delete(np.indices(np.shape(allModBases)),
                                              x[idx][:, 0])
-                np.put(allModBases, unmodBaseIndices, np.vectorize(lambda b:
-                       _maybeGetAmbigMapping(b, ambigMap))
+                np.put(allModBases, unmodBaseIndices, np.vectorize(lambda base:
+                       _maybeGetAmbigMapping(base, ambigMap))
                        (np.delete(allModBases, x[idx][:, 0])))
             if not suppressBED:
-                # Create a BED track for each unequivocal modified base,
-                # ensuring not to re-create tracks in the case of ambiguity
-                for m in [_maybeGetAmbigMapping(b, ambigMap)
-                          for b in cUtils.getUnivocalModBases()]:
+                # Create a BED track for each modified base with track data
+                for base in modBases + cUtils.complement(modBases):
                     # NB: This could be done in a more efficient manner.
                     baseModIdxs = np.flatnonzero(allModBases[x[idx][:, 0]]
-                                                 == m)
+                                                 == base)
                     if baseModIdxs.size > 0:
                         # Get the position of the modified bases in the
                         # sequence, adding the genome start coordinate of
@@ -231,10 +229,10 @@ def getModifiedGenome(genome, modOrder, chrm, start, end,
                         # TODO save as string buffer (using list joins)
                         # and gzip after (with cStringIO).
                         # That will allow actual compression to occur.
-                        with gzip.open(tnames[m],
+                        with gzip.open(tnames[base],
                                        'ab') as BEDTrack:
                             np.savetxt(BEDTrack, modBaseStartEnd,
-                                       str(chrm) + "\t%d\t%d\t" + m)
+                                       str(chrm) + "\t%d\t%d\t" + base)
         if not suppressFASTA:
             # Output the unmodified sequence at a verbosity level
             # of at least 2, if not too long, otherwise only output
@@ -668,18 +666,16 @@ with Genome(genomeDataArchive) as genome:
                                    or _DEFAULT_FASTA_FILENAME))[0]
         trackID += '-' if trackID else ''
         procModBases = []
-        # Don't re-create tracks if an ambiguous one for the base exists
-        for m in [_maybeGetAmbigMapping(b, ambigMap)
-                  for b in cUtils.getUnivocalModBases()]:
-            trackFileName = "track-" + trackID + m + ".bed.gz"
-            tnames[m] = trackFileName
+        for base in modBases + cUtils.complement(modBases):
+            trackFileName = "track-" + trackID + base + ".bed.gz"
+            tnames[base] = trackFileName
             # 'EAFP' way of removing any existing old tracks
             try:
                 os.remove(trackFileName)
             except OSError:
                 pass
             with gzip.open(trackFileName, 'ab') as BEDTrack:
-                BEDTrack.write(getTrackHeader(m))
+                BEDTrack.write(getTrackHeader(base))
 
     if args.region or args.randomRegion:
         if args.randomRegion:  # Random region
