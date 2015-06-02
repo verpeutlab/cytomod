@@ -9,4 +9,4 @@ install:
     - cat tests/requirements.txt | sudo -H xargs -n 1 pip install
 # command to run tests
 script:
-    - export TMPDIR="$HOME"; cd tests && ./testCytomod.sh
+    - cd tests && ./testCytomod.sh
