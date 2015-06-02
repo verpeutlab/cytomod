@@ -6,7 +6,7 @@ cache:
     - pip
 install:
     - sudo apt-get install bedtools libhdf5-serial-dev
-    - sudo pip install -r tests/requirements.txt
+    - pip install -r tests/requirements.txt
 # command to run tests
 script:
     - bash tests/testCytomod.sh
