@@ -1,9 +1,7 @@
 language: bash
 # command to install dependencies
-before_install:
-    - sudo apt-get update -qq
-    - sudo apt-get install bedtools
 install:
+    - apt-get install bedtools
     - pip install -r requirements.txt
 # command to run tests
 script:
