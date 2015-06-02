@@ -1,4 +1,5 @@
 numpy
 bidict
 chroma
+h5py
 genomedata
