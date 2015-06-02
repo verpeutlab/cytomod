@@ -53,7 +53,7 @@ case $test_to_run in
           $(awk 'END{print NR;}' ../expected_track_patterns.txt) ]]; then
         failMsgAndExit '1B'
     fi
-    ;;
+    ;&
 0|2)
     # -------------------------------- Test 2 --------------------------------
     FASTA_file='test2.fa'
@@ -76,7 +76,7 @@ case $test_to_run in
             failMsgAndExit "2: $key\t${BED_to_symbols[$key]}"
         fi
     done
-    ;;
+    ;&
 0|3)
     # -------------------------------- Test 3 --------------------------------
     cytomod_base_cmd="../../src/cytomod.py $VERBOSITY_ARG -G $ARCHIVE_PATH -b"
@@ -116,7 +116,7 @@ case $test_to_run in
           "$TEST_REGION_CORRECT_MASKED_RES" ]]; then
         failMsgAndExit '3D: masked'
     fi
-    ;;
+    ;&
 esac
 
 exit $EXIT_SUCCESS
