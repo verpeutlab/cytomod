@@ -25,8 +25,6 @@ except:
 import numpy as np
 import numpy.testing as npt
 
-from scipy.stats import itemfreq
-
 import cUtils
 
 __version__ = cUtils.__version__
@@ -364,11 +362,7 @@ if args.inSeqFile:
 
     freqMatrix = np.zeros((motifChars.shape[1], len(motifAlphBGFreqs)))
     for i in range(0, motifChars.shape[1]):
-        motifCharsInts = motifChars[:, i].view(np.uint8)
-        # NB: itemfreq internally uses bincount; we must map to and from ints
-        f = itemfreq(motifCharsInts)
-        bases = f[:, 0].view('U1')
-        baseFreqs = f[:, 1]
+        bases, baseFreqs = np.unique(motifChars[:, i], return_counts=True)
         # Append to the letter frequency matrix
         matIn = StringIO(_DELIM.join(str(x) for x in
                                      (baseFreqs[idx][0]/totalNumBases if
