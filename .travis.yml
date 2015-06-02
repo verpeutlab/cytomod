@@ -3,7 +3,7 @@ language: bash
 sudo: true
 install:
     - sudo apt-get install bedtools
-    - pip install -r requirements.txt
+    - sudo pip install -r tests/requirements.txt
 # command to run tests
 script:
     - bash tests/testCytomod.sh
