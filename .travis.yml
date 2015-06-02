@@ -5,7 +5,7 @@ cache:
     - apt
     - pip
 install:
-    - sudo apt-get install bedtools libhdf5-dev
+    - sudo apt-get install bedtools libhdf5-serial-dev
     - sudo pip install -r tests/requirements.txt
 # command to run tests
 script:
