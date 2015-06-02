@@ -1,0 +1,7 @@
+language: bash
+# command to install dependencies
+install: "pip install -r requirements.txt"
+install: "apt-get install bedtools"
+# command to run tests
+script:
+    - bash tests/testCytomod.sh
