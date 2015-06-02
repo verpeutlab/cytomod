@@ -1,8 +1,11 @@
 language: bash
 # command to install dependencies
 sudo: true
+cache:
+    - apt
+    - pip
 install:
-    - sudo apt-get install bedtools h5py
+    - sudo apt-get install hdf5 bedtools
     - sudo pip install -r tests/requirements.txt
 # command to run tests
 script:
