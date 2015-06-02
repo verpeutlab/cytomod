@@ -43,7 +43,7 @@ case $test_to_run in
     # 1A) check that no masking was performed
     ../../src/cytomod.py $VERBOSITY_ARG -d ../data/ ../data/ -f $FASTA_file \
         -r "$TEST_REGION"
-    if [[ ! -z $(grep '[z9]' $FASTA_file) ]]; then
+    if [[ ! -z $(fgrep -v '>' $FASTA_file | grep '[z9]') ]]; then
         failMsgAndExit '1A'
     fi
 
