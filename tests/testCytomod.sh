@@ -102,6 +102,9 @@ case $test_to_run in
         if [[ ! -z $(maybeFilter "$key" | bedtools getfasta \
                      -fi $FASTA_file -bed stdin -fo stdout | fgrep -v '>' | \
                      grep -v "[${BED_to_symbols[$key]}]") ]]; then
+            echo $(maybeFilter "$key" | bedtools getfasta \
+                     -fi $FASTA_file -bed stdin -fo stdout | fgrep -v '>' | 
+                     grep -v "[${BED_to_symbols[$key]}]") # XXX remove
             failMsgAndExit "2: $key\t${BED_to_symbols[$key]}"
         fi
     done
