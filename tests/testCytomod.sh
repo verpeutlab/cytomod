@@ -85,11 +85,14 @@ case $test_to_run in
     # check that the FASTA file generated contains
     # the expected modifications at the correct loci
     for key in "${!BED_to_symbols[@]}"; do
-        additionalFilterCmd=''
-        if [[ $key =~ 'MASK' ]]; then
-            additionalFilterCmd=' | awk "$4 <= $DEFAULT_MASK_VALUE {print;}"'
-        fi
-        if [[ ! -z $(zcat "$key" $additionalFilterCmd | bedtools getfasta \
+        function maybeFilter {
+            if [[ $1 =~ 'MASK' ]]; then
+                zcat $1 | awk "\$4 <= $DEFAULT_MASK_VALUE {print;}"
+            else
+                zcat $1
+            fi
+        }
+        if [[ ! -z $(maybeFilter "$key" | bedtools getfasta \
                      -fi $FASTA_file -bed stdin -fo stdout | fgrep -v '>' | \
                      grep -v "[${BED_to_symbols[$key]}]") ]]; then
             failMsgAndExit "2: $key\t${BED_to_symbols[$key]}"
