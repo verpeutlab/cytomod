@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -o nounset -o pipefail -o errexit
-
+set -x # XXX remove
 EXIT_SUCCESS=0
 EXIT_FAILURE=64
 
