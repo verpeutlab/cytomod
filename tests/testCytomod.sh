@@ -126,11 +126,12 @@ case $test_to_run in
     if [[ ! -f "$FASTA_file" ]]; then
         echo "Unable to find $FASTA_file. Test 3C skipped."
     else
-        if [[ "$region_test_masked_res" != $(echo "$TEST_REGION" | \
+        if [[ "$region_test_masked_res" != "$(echo "$TEST_REGION" | \
                                             tr ':-' '\t' | \
                                             bedtools getfasta \
                                            -fi $FASTA_file \
-                                           -bed stdin -fo stdout) ]]; then
+                                           -bed stdin -fo stdout | \
+                                           fgrep -v '>')" ]]; then
             failMsgAndExit '3C'
         else
             passMsg '3C'
