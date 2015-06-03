@@ -4,6 +4,9 @@ set -o nounset -o pipefail -o errexit
 EXIT_SUCCESS=0
 EXIT_FAILURE=64
 
+RED_COLOUR_CODE='\e[31m'
+GREEN_COLOUR_CODE='\e[32m'
+
 ARCHIVE_PATH='../data/archive/'
 TRACK_PREF='../data/mm9_chrY-only_'
 VERBOSITY_ARG='-vvvv'
@@ -16,10 +19,17 @@ TEST_REGION="chr$TEST_REGION_CHR:$TEST_REGION_START-$TEST_REGION_END"
 TEST_REGION_CORRECT_UNMASKED_RES='Tmm12TTf1AAxAxx'
 TEST_REGION_CORRECT_MASKED_RES='Tmm12TTz9AAzAzz'
 
+# "a value at and below which the locus is considered ambiguous"
+DEFAULT_MASK_VALUE=$(grep -oP '_DEFAULT_MASK_VALUE = \K\d+' ../src/cytomod.py)
 
 function failMsgAndExit {
-    echo -e "Failed at test $1." >&2
+    echo -e "${RED_COLOUR_CODE}FAILED test $1." >&2
     exit $EXIT_FAILURE
+}
+
+
+function passMsg {
+    echo -e "${GREEN_COLOUR_CODE}PASSED test $1." >&2
 }
 
 
@@ -45,6 +55,8 @@ case $test_to_run in
         -r "$TEST_REGION"
     if [[ ! -z $(fgrep -v '>' $FASTA_file | grep '[z9]') ]]; then
         failMsgAndExit '1A'
+    else
+        passMsg '1A'
     fi
 
     # 1B) check that all expected BED files were generated
@@ -52,6 +64,8 @@ case $test_to_run in
             ../expected_track_patterns.txt | awk 'END{print NR;}') -ne \
           $(awk 'END{print NR;}' ../expected_track_patterns.txt) ]]; then
         failMsgAndExit '1B'
+    else
+        passMsg '1B'
     fi
     ;&
 0|2)
@@ -70,11 +84,13 @@ case $test_to_run in
     # check that the FASTA file generated contains
     # the expected modifications at the correct loci
     for key in "${!BED_to_symbols[@]}"; do
-        if [[ ! -z $(zcat "$key" | awk '$4 > 0 {print;}' | bedtools getfasta \
+        if [[ ! -z $(zcat "$key" | awk '$4 <= $DEFAULT_MASK_VALUE {print;}' | bedtools getfasta \
                      -fi $FASTA_file -bed stdin -fo stdout | fgrep -v '>' | \
                      grep -v "[${BED_to_symbols[$key]}]") ]]; then
             failMsgAndExit "2: $key\t${BED_to_symbols[$key]}"
-        fi
+    else
+        passMsg '2'
+    fi
     done
     ;&
 0|3)
@@ -85,6 +101,8 @@ case $test_to_run in
     if [[ $($cytomod_base_cmd -R $test_len | awk '{print length($0);}') \
           -ne $test_len ]]; then
         failMsgAndExit '3A'
+    else
+        passMsg '3A'
     fi
     
     region_test_unmasked_res=$($cytomod_base_cmd -r $TEST_REGION)
@@ -93,6 +111,8 @@ case $test_to_run in
     if [[ $(echo "$region_test_unmasked_res" | awk '{print length($0);}') \
           -ne TEST_REGION_LEN ]]; then
         failMsgAndExit '3B'
+    else
+        passMsg '3B'
     fi
     
     # test that the region queried is actually the intended target region
@@ -105,6 +125,8 @@ case $test_to_run in
                                            -fi $FASTA_file \
                                            -bed stdin -fo stdout) ]]; then
             failMsgAndExit '3C'
+        else
+            passMsg '3C'
         fi
     fi
     
@@ -115,6 +137,8 @@ case $test_to_run in
     elif [[ "$region_test_masked_res" != \
           "$TEST_REGION_CORRECT_MASKED_RES" ]]; then
         failMsgAndExit '3D: masked'
+    else
+        passMsg '3D'
     fi
     ;&
 esac
