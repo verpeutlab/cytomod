@@ -6,8 +6,8 @@ cache:
     - pip
 install:
     - sudo apt-get install bash zlib1g-dev libhdf5-serial-dev hdf5-tools bc
-    - wget https://github.com/arq5x/bedtools2/releases/download/v2.24.0/bedtools-2.24.0.tar.gz
-    - tar xf bedtools-2.24.0.tar.gz
+    - wget https://github.com/arq5x/bedtools2/releases/download/v2.23.0/bedtools-2.23.0.tar.gz
+    - tar xf bedtools-2.23.0.tar.gz
     - (cd bedtools2 && make && sudo make install)
     - sudo -H pip install --upgrade pip
     - cat tests/requirements.txt | sudo -H xargs -n 1 pip install
