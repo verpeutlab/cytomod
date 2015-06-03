@@ -20,7 +20,11 @@ TEST_REGION_CORRECT_UNMASKED_RES='Tmm12TTf1AAxAxx'
 TEST_REGION_CORRECT_MASKED_RES='Tmm12TTz9AAzAzz'
 
 # "a value at and below which the locus is considered ambiguous"
-DEFAULT_MASK_VALUE=$(grep -oP '_DEFAULT_MASK_VALUE = \K\d+' ../src/cytomod.py)
+DEFAULT_MASK_VALUE=$(grep -oP '_DEFAULT_MASK_VALUE = \K\d+' \
+                     $(dirname "${BASH_SOURCE[0]}")/../src/cytomod.py)
+if [[ ! $DEFAULT_MASK_VALUE =~ [[:digit:]]+ ]]; then
+    failMsgAndExit 'SETUP'
+fi
 
 
 function failMsgAndExit {
