@@ -11,7 +11,7 @@ install:
     - wget https://github.com/arq5x/bedtools2/releases/download/v2.23.0/bedtools-2.23.0.tar.gz
     - tar xf bedtools-2.23.0.tar.gz
     - (cd bedtools2 && make && sudo make install)
-    - git clone git://github.com/yyuu/pyenv.git .pyenv
+    - (cd $HOME && git clone git://github.com/yyuu/pyenv.git .pyenv)
     - export PATH="$HOME/.pyenv/bin:${PATH}"
     - eval $(pyenv init -)
     - pyenv install 2.7.10
