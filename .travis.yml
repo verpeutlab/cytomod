@@ -4,19 +4,11 @@ sudo: true
 cache:
     - apt
     - pip
-before_install:
-    - python -V
 install:
     - sudo apt-get install libhdf5-serial-dev hdf5-tools bc
     - wget https://github.com/arq5x/bedtools2/releases/download/v2.23.0/bedtools-2.23.0.tar.gz
     - tar xf bedtools-2.23.0.tar.gz
     - (cd bedtools2 && make && sudo make install)
-    - (cd $HOME && git clone git://github.com/yyuu/pyenv.git .pyenv)
-    - export PATH="$HOME/.pyenv/bin:${PATH}"
-    - eval "$(pyenv init -)"
-    - pyenv install 2.7.10
-    - pyenv rehash
-    - pyenv global 2.7.10
     - pip install --user --upgrade pip
     - cat tests/requirements.txt | xargs -n 1 pip install --user --upgrade
 before_script:
