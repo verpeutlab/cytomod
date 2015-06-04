@@ -4,13 +4,21 @@ sudo: true
 cache:
     - apt
     - pip
+before_install:
+    - python -V
 install:
     - sudo apt-get install libhdf5-serial-dev hdf5-tools bc
     - wget https://github.com/arq5x/bedtools2/releases/download/v2.23.0/bedtools-2.23.0.tar.gz
     - tar xf bedtools-2.23.0.tar.gz
     - (cd bedtools2 && make && sudo make install)
+    - wget https://www.python.org/ftp/python/2.7.10/Python-2.7.10.tar.xz
+    - tar xf Python-2.7.10.tar.xz
+    - (cd Python-2.7.10 && ./configure && make && sudo make install)
     - sudo -H pip install --upgrade pip
     - cat tests/requirements.txt | sudo -H xargs -n 1 pip install
+before_script:
+    - python -V
+    - pip freeze
 # command to run tests
 script:
     - cd tests && ./testCytomod.sh
