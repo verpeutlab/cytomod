@@ -49,11 +49,14 @@ trap cleanup EXIT
 
 
 function maybeFilter {
+    # NB: masking only occurs for entires with a value of 0
+    #     whereas for all non-masked bases, a strictly positive value
+    #     is needed for a modification at that position to occur.
+    relation_op='>'
     if [[ $1 =~ 'MASK' ]]; then
-        zcat $1 | awk "\$4 <= $DEFAULT_MASK_VALUE {print;}"
-    else
-        zcat $1
+        relation_op='<=' 
     fi
+    zcat $1 | awk "\$4 $relation_op $DEFAULT_MASK_VALUE {print;}"
 }
 
 
@@ -89,11 +92,11 @@ case $test_to_run in
     ../../src/cytomod.py $VERBOSITY_ARG -d ../data/ ../data/ -f $FASTA_file -b -M
 
     declare -A BED_to_symbols
-    BED_to_symbols=(["$TRACK_PREF"'5mC-fakeData.bedGraph.gz']='ATm1h2f3z9' \
-                    ["$TRACK_PREF"'5hmC-fakeData.bedGraph.gz']='ATh2f3z9' \
-                    ["$TRACK_PREF"'5fC-fakeData.bedGraph.gz']='ATf3z9' \
-                    ["$TRACK_PREF"'5xC-fakeData.bedGraph.gz']='ATx7m1h2f3z9' \
-                    ["$TRACK_PREF"'MASK-cov.bedGraph.gz']='ATz9')
+    BED_to_symbols=(["$TRACK_PREF"'5mC-fakeData.bedGraph.gz']='m1h2f3z9NAT' \
+                    ["$TRACK_PREF"'5hmC-fakeData.bedGraph.gz']='h2f3z9NAT' \
+                    ["$TRACK_PREF"'5fC-fakeData.bedGraph.gz']='f3z9NAT' \
+                    ["$TRACK_PREF"'5xC-fakeData.bedGraph.gz']='x7m1h2f3z9NAT' \
+                    ["$TRACK_PREF"'MASK-cov.bedGraph.gz']='z9NAT')
 
     # check that the FASTA file generated contains
     # the expected modifications at the correct loci
@@ -102,6 +105,7 @@ case $test_to_run in
         if [[ ! -z $(maybeFilter "$key" | bedtools getfasta \
                      -fi $FASTA_file -bed stdin -fo stdout | fgrep -v '>' | \
                      grep -v "[${BED_to_symbols[$key]}]") ]]; then
+            maybeFilter "$key" | bedtools getfasta -fi $FASTA_file -bed stdin -fo stdout # XXX remove
             failMsgAndExit "2: $key\t${BED_to_symbols[$key]}"
         fi
     done

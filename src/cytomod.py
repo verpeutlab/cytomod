@@ -357,10 +357,11 @@ genomeArchive.add_argument("-d", "--archiveCompDirs", nargs=2,
                            (optionally Gzipped) genome tracks. \
                            They must have an extension describing \
                            their format. We currently support: \
-                           \".wig\", \".bed\", \
-                           and \".bedGraph\". \
+                           \".wig\", \".bed\", and \".bedGraph\". \
                            Provided BED files must have exactly \
                            four columns. The fourth column must be numeric. \
+                           Any rows with a data value of zero will be ignored \
+                           (this does not apply for masking; see '-M'). \
                            The filename of each track must specify what \
                            modified nucleobase it pertains to; \
                            one of: {5mC, 5hmC, 5fC, 5caC}. \
@@ -383,7 +384,7 @@ genomeArchive.add_argument("-d", "--archiveCompDirs", nargs=2,
                            genome provided. This will \
                            create a genome data archive in an \"archive\" \
                            sub-directory of the provided track directory. \
-                           Use \"-G\" instead to use an existing archive.")
+                           Use '-G' instead to use an existing archive.")
 region = parser.add_mutually_exclusive_group()
 region.add_argument('-r', '--region', help="Only output the modified genome \
                     for the given region. This can either be via a file \
@@ -554,7 +555,6 @@ if args.onlyBED and args.fastaFile:
 
 if args.alterIncludedChromosomes:
     _modifychrmExclusionRegex(args.alterIncludedChromosomes)
-
 # NB: Ensure to update this to include all arguments in the ambigModUsage group
 # TODO It would be nice if there was an automated means of accomplishing this
 # Ensure provided ambiguities are unique
