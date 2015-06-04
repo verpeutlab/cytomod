@@ -17,3 +17,4 @@ before_script:
 # command to run tests
 script:
     - cd tests && ./testCytomod.sh
+
