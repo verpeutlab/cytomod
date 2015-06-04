@@ -13,9 +13,10 @@ install:
     - (cd bedtools2 && make && sudo make install)
     - git clone git://github.com/yyuu/pyenv.git .pyenv
     - export PATH="$HOME/.pyenv/bin:${PATH}"
-    - pyenv init -
+    - eval $(pyenv init -)
     - sudo -H pyenv install 2.7.10
     - pyenv rehash
+    - pyenv global 2.7.10
     - sudo -H pip install --upgrade pip
     - cat tests/requirements.txt | sudo -H xargs -n 1 pip install
 before_script:
