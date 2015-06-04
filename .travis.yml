@@ -13,7 +13,7 @@ install:
     - (cd bedtools2 && make && sudo make install)
     - (cd $HOME && git clone git://github.com/yyuu/pyenv.git .pyenv)
     - export PATH="$HOME/.pyenv/bin:${PATH}"
-    - eval $(pyenv init -)
+    - eval "$(pyenv init -)"
     - pyenv install 2.7.10
     - pyenv rehash
     - pyenv global 2.7.10
