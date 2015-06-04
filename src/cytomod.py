@@ -140,11 +140,12 @@ def getModifiedGenome(genome, modOrder, chrm, start, end,
         modBaseScores = chromosome[s:e]
         if _MASK_TNAME in tnames:
             maskTrack = chromosome[s:e, maskRegionTName]
-            modBaseScores[:, -1] = np.where(np.logical_or(np.isnan(maskTrack),
-                                                          maskTrack >
-                                                          maskRegionsFileVal),
-                                            np.zeros(maskTrack.shape[0]),
-                                            np.ones(maskTrack.shape[0]))
+            maskIndex = genome.tracknames_continuous.index(maskRegionTName)
+            modBaseScores[:, maskIndex] = \
+                np.where(np.logical_or(np.isnan(maskTrack),
+                         maskTrack > maskRegionsFileVal),
+                         np.zeros(maskTrack.shape[0]),
+                         np.ones(maskTrack.shape[0]))
         else:  # may still need to remove mask track
             # TODO this could be made more efficient
             for item in genome.tracknames_continuous:
