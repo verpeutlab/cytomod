@@ -17,8 +17,8 @@ install:
     - pyenv install 2.7.10
     - pyenv rehash
     - pyenv global 2.7.10
-    - sudo -H pip install --upgrade pip
-    - cat tests/requirements.txt | sudo -H xargs -n 1 pip install
+    - pip install --user --upgrade pip
+    - cat tests/requirements.txt | xargs -n 1 pip install --user --upgrade
 before_script:
     - python -V
     - pip freeze
