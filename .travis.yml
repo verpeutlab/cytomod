@@ -9,8 +9,8 @@ install:
     - wget https://github.com/arq5x/bedtools2/releases/download/v2.23.0/bedtools-2.23.0.tar.gz
     - tar xf bedtools-2.23.0.tar.gz
     - (cd bedtools2 && make && sudo make install)
-    - pip install --user --upgrade pip
-    - cat tests/requirements.txt | xargs -n 1 pip install --user --upgrade
+    - sudo -H pip install --upgrade pip
+    - cat tests/requirements.txt | sudo -H xargs -n 1 pip install --upgrade
 before_script:
     - python -V
     - pip freeze
