@@ -4,13 +4,13 @@ sudo: true
 install:
     - sudo apt-get install libhdf5-serial-dev hdf5-tools bc
     - if [[ ! -d bedtools2 ]]; then wget https://github.com/arq5x/bedtools2/releases/download/v2.23.0/bedtools-2.23.0.tar.gz && tar xf bedtools-2.23.0.tar.gz && (cd bedtools2 && make && sudo make install); else (cd bedtools2 && sudo make install); fi
-    - sudo -H pip install --upgrade pip
-    - cat tests/requirements.txt | sudo -H xargs -n 1 pip install --upgrade
+    - pip install --user --upgrade pip
+    - cat tests/requirements.txt | xargs -n 1 pip install --user --upgrade
 cache:
     apt: true
     directories:
         - $HOME/cytomod/bedtools2
-        - /usr/local/lib/python2.7/dist-packages
+        - $HOME/.cache/pip
 before_script:
     - python -V
     - pip freeze
