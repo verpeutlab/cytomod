@@ -50,8 +50,8 @@ f "5-Formylcytosine" FDAE61 ~ 3 "Guanine:5-Formylcytosine" ABD9E9
 c "5-Carboxylcytosine" FEE090 ~ 4 "Guanine:5-Carboxylcytosine" E0F3F8
 z = Cmhfc
 9 = G1234
-y = Cf
-8 = G3
+y = Cfc
+8 = G34
 x = mh
 7 = 12
 R = AG
