@@ -116,6 +116,8 @@ inputFile.add_argument('-f', '--inTRANSFACFreqFile', type=str, help="File contai
 inputFile.add_argument('-j', '--inJASPARFile', type=str, help="File containing \
                        an input JASPAR matrix. The file must exactly \
                        conform to the JASPAR matrix format.")
+inputFile.add_argument('-m', '--inMEMEFile', type=str, help="File containing \
+                       an input set of motifs in minimal MEME format.")
 modBaseSpecifiers = parser.add_mutually_exclusive_group()
 modBasePositions = parser.add_mutually_exclusive_group()
 modBaseSpecifiers.add_argument('-M', '--baseModification', type=str,
