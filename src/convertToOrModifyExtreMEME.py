@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# TODO Refactor.
+# TODO make variable names consistent (i.e. x_y, not xY).
+
 from __future__ import with_statement, division, print_function
 
 """Prints (to STDOUT) a minimal MEME text file, suitable for FIMO,
@@ -38,8 +41,40 @@ _ARG_DELIM = ','
 BOTH_STRANDS = 0
 STRANDS = '+ -' if BOTH_STRANDS else '+'
 FROM_STR = 'custom'
+MEME_MINIMAL_BG_REGEX_G_BG = 'background'
+MEME_MINIMAL_BG_REGEX = """Background\s+letter\s+frequencies\s+\(from.+\):\s+
+                           (?P<{}>(?:\w\s+\d+\.\d+\s*)+)"""\
+                           .format(MEME_MINIMAL_BG_REGEX_G_BG)
+MEME_MINIMAL_BG_BASE_REGEX_G_BASE = 'base'
+MEME_MINIMAL_BG_BASE_REGEX = """(?P<{}>\w)\s+\d+\.\d+\s*"""\
+                           .format(MEME_MINIMAL_BG_BASE_REGEX_G_BASE)
+MEME_MIN_REGEX_G_ID = 'motif_ID'
+MEME_MIN_REGEX_G_NAME = 'motif_name'
+MEME_MIN_REGEX_G_ALPH_LEN = 'alph_len'
+MEME_MIN_REGEX_G_WIDTH = 'width'
+MEME_MIN_REGEX_G_NUM_SITES = 'num_sites'
+MEME_MIN_REGEX_G_E_VALUE = 'E_value'
+MEME_MIN_REGEX_G_PWM = 'PWM'
+MEME_MINIMAL_MOTIF_REGEX = """MOTIF\s+(?P<{}>[a-zA-Z0-9_.]+\s+)?
+                              (?P<{}>\w+\s+)  # motif ID line
+                            
+                              letter-probability\s+matrix:  # start properties
+                              \s+alength=\s*(?P<{}>\d+)\s+
+                              w=\s*(?P<{}>\d+)\s+
+                              nsites=\s*(?P<{}>\d+)\s+
+                              E=\s*(?P<{}>\d+(?:\.\d+(?:e(?:\+|-)\d+)?)?)
+                              
+                              (?P<{}>\s*(?:(?:[01]\.\d+)\s*)+)"""\
+                               .format(MEME_MIN_REGEX_G_ID,
+                                       MEME_MIN_REGEX_G_NAME,
+                                       MEME_MIN_REGEX_G_ALPH_LEN,
+                                       MEME_MIN_REGEX_G_WIDTH,
+                                       MEME_MIN_REGEX_G_NUM_SITES,
+                                       MEME_MIN_REGEX_G_E_VALUE,
+                                       MEME_MIN_REGEX_G_PWM)
+MEME_MINIMAL_REGEX_FLAGS = re.M | re.X
 
-MEME_HEADER = """MEME version 4
+MEME_header = """MEME version 4
 
 ALPHABET "DNA with covalent modifications"
 A "Adenine" 8510A8 ~ T "Thymine" A89610
@@ -81,17 +116,141 @@ def die(msg):
 def warn(msg):
     cUtils.warn(msg, os.path.basename(__file__))
 
+
+def output_motif(freqMatrix, output_descriptor, motif_name, motif_alphabet, numSites, EValue):
+    if args.revcomp:
+        output_descriptor += '-revcomp'
+        motif_name += '-revcomp'
+        freqMatrix = np.flipud(freqMatrix)  # reverse
+        for base_idx, base in enumerate(motif_alphabet):  # complement
+            if base_idx >= len(motif_alphabet) / 2:
+                break
+            complement_idx = motif_alphabet.index(cUtils.complement(base))
+            freqMatrix[:, [base_idx, complement_idx]] = \
+                freqMatrix[:, [complement_idx, base_idx]]
+
+    if args.skipMotifPortions:
+        output_descriptor += '-skip' + args.skipMotifPortions[0][0]
+        skipRows = list()
+        for skipMotifPortion in args.skipMotifPortions[0][0].split(','):
+            match = re.search('(\d*):(\d*)', str(skipMotifPortion).strip('[]'))
+            if match:
+                start = int(match.group(1)) if match.group(1) else 0
+                end = int(match.group(2)) if match.group(2) \
+                    else freqMatrix.shape[0]
+                if (start > end):
+                    die("""The start index of the motif rows to skip cannot
+                    be greater than the end.""")
+                if (end > freqMatrix.shape[0]):
+                    die("""The provided end index of the motif rows to skip
+                    exceeds the motif length.""")
+                if ((end - start) <= 1):
+                    warn("""The provided skip interval will only cause one
+                    motif row to be excluded. Recall that intervals provided
+                    in colon notation are half-open and that a single row
+                    to skip can be specified by only providing that row number
+                    alone.""")
+                skipRows.extend(range(start, end))
+        freqMatrix = np.delete(freqMatrix, skipRows, 0)
+
+    totalNumBases = freqMatrix.shape[0]
+
+    MEMEBody = textwrap.dedent("""\
+               MOTIF %s\n
+               letter-probability matrix: alength= %d w= %d nsites= %d E= %s\n
+               """) \
+               % (motif_name, freqMatrix.shape[1], totalNumBases,
+                  numSites, EValue)
+
+    modCFracs = (args.baseModificationAtAllModifiablePosFractions or
+                 args.modAllFractions or args.modCFractions)
+    modGFracs = (args.baseModificationAtAllModifiablePosFractions or
+                 args.modAllFractions or args.modGFractions)
+
+    if ((args.baseModification and args.baseModPosition)
+            or args.tryAllCModsAtPos or
+            args.baseModificationAtAllModifiablePosFractions):
+        baseModPos = args.tryAllCModsAtPos or args.baseModPosition
+        if args.baseModificationAtAllModifiablePosFractions:
+            output_descriptor += '-allPos'
+        elif baseModPos:
+            output_descriptor += '-P' + str(baseModPos)
+        # index is either positional or comprises all nucleobases
+        modBaseIndex = (baseModPos - 1) if (baseModPos and baseModPos !=
+                                            cUtils._PARAM_A_CONST_VAL) \
+            else slice(None)
+        for b in (motifAlphBGFreqs.keys() if args.tryAllCModsAtPos
+                  else (args.baseModification or
+                        args.baseModificationAtAllModifiablePosFractions)):
+            modFreqMatrix = np.copy(freqMatrix)
+            # only proceed for "primary" modified nucleobases
+            if (b not in cUtils.MOD_BASE_NAMES.keys()):
+                if ((b not in cUtils.COMPLEMENTS.keys()) and
+                        (b not in cUtils.COMPLEMENTS.values())):
+                    warn("Base " + b + " provided in the background is not " +
+                         "a currently supported modified nucleobase." +
+                         "It has, accordingly, been skipped.")
+                continue
+            if modCFracs:
+                # modify cytosine fractions
+                modFreqMatrix[modBaseIndex, motif_alphabet.index(cUtils.getMBMaybeFromComp(b))] = \
+                    modFreqMatrix[modBaseIndex, motif_alphabet.index('C')]
+                modFreqMatrix[modBaseIndex, motif_alphabet.index('C')] = \
+                    (0 if baseModPos else np.zeros(modFreqMatrix.shape[0]))
+            if modGFracs:
+                # modify guanine fractions
+                modFreqMatrix[modBaseIndex, motif_alphabet.index(cUtils.getCompMaybeFromMB(b))] = \
+                    modFreqMatrix[modBaseIndex, motif_alphabet.index('G')]
+                modFreqMatrix[modBaseIndex, motif_alphabet.index('G')] = \
+                    (0 if baseModPos else np.zeros(modFreqMatrix.shape[0]))
+            else:
+                # zero all entries along the frequency matrix,
+                # for the given (row) position, except that corresponding
+                # to the (column) index of the modified base,
+                # which is set to unity.
+                modFreqMatrix[(baseModPos - 1), ] = \
+                    np.zeros((1, freqMatrix.shape[1]))
+                modFreqMatrix[(baseModPos - 1),
+                              motif_alphabet.index(b)] = 1
+            with open((os.path.basename(os.path.splitext(filename)[0]) + '-' +
+                       cUtils.MOD_BASE_NAMES[b] + output_descriptor +
+                       ('-mCFracs' if modCFracs else '') +
+                       ('-mGFracs' if modGFracs else '') +
+                       '.meme'), "a") as outFile:
+                outFile.write(MEME_header)
+                outFile.write(MEMEBody)
+                np.savetxt(outFile, modFreqMatrix, '%f', _DELIM)
+
+    output = StringIO()
+    np.savetxt(output, freqMatrix, '%f', _DELIM)
+    MEMEBody += output.getvalue()
+    output.close()
+    return MEMEBody
+
+
 import argparse
 parser = argparse.ArgumentParser()
 inputFileGroupTitle = \
-    parser.add_argument_group(title="Input File", description="The input set \
-                              of sequences or matrix from which to create a \
+    parser.add_argument_group(title="Input File", description="Input set(s) \
+                              of sequences or matrices from which to create a \
                               MEME minimal text output file. \
                               Ensure to also use arguments '-a' and '-S' \
-                              as needed for the input file used.")
-inputFile = inputFileGroupTitle.add_mutually_exclusive_group(required=True)
-inputFile.add_argument('-s', '--inSeqFile', type=str, help="File containing \
-                       an input set of raw sequences.")
+                              as needed for the input file used.\
+                              Assumes that only a single matrix \
+                              is input per input argument, except if the input \
+                              is itself already in minimal MEME format \
+                              or if sequences are provided, \
+                              in which case multiple input motifs \
+                              are supported. Only a single matrix format \
+                              can be provided (but a matrix format \
+                              .")
+inputFile = inputFileGroupTitle.add_mutually_exclusive_group(required=False)
+inputFileGroupTitle.add_argument('-s', '--inSeq', type=str,
+                       help="File containing \
+                       an input set of raw sequences or a single seqeunce \
+                       provided as the argument.\
+                       Multiple files or sequences can be provided \
+                       delimited by \"{}\".".format(_ARG_DELIM))
 inputFile.add_argument('-p', '--inPWMFile', type=str, help="File containing \
                        an input whitespace-delimited PWM (i.e. frequency \
                        matrix). The file must only contain floats \
@@ -100,7 +259,7 @@ inputFile.add_argument('-p', '--inPWMFile', type=str, help="File containing \
 inputFile.add_argument('-c', '--inPFMFile', type=str, help="File containing \
                        an input whitespace-delimited PFM (i.e. a count \
                        matrix; e.g. a hPDI matrix). The file must only \
-                       contain floats (but see '-A'), lexicographically \
+                       contain floats (but see '-a'), lexicographically \
                        ordered (i.e. A, C, G, T).")
 inputFile.add_argument('-t', '--inTRANSFACFile', type=str, help="File containing \
                        an input TRANSFAC count matrix. The file must exactly \
@@ -232,7 +391,7 @@ parser.add_argument('--modGFractions', action='store_true',
                     options already specifying this behaviour (e.g. '-A').\
                     This option is silently ignored if no modifications \
                     are requested.")
-parser.add_argument('-m', '--modAllFractions', action='store_true',
+parser.add_argument('-F', '--modAllFractions', action='store_true',
                     help="Convinience option to set both \
                     '--modCFractions' and '--modGFractions'. \
                     This will modify fractions of both cytosine and guanine \
@@ -265,7 +424,7 @@ parser.add_argument('-V', '--version', action='version',
                     version="%(prog)s " + __version__)
 args = parser.parse_args()
 
-addName = ''
+output_descriptor = ''
 if bool(args.baseModification) ^ bool(args.baseModPosition):
     warn("""Any base modification specification must specify both the
          particular base to be modified (via '-M') and the position
@@ -334,52 +493,70 @@ if args.notNucleobases:
         del motifAlphBGFreqs[base]
         del motifAlphBGFreqs[cUtils.complement(base)]
         # remove excluded nucleobase from alphabet
-        MEME_HEADER = re.sub('.*' + cUtils.FULL_MOD_BASE_NAMES[base]
-                             + '.*\n', '', MEME_HEADER)
+        MEME_header = re.sub('.*' + cUtils.FULL_MOD_BASE_NAMES[base]
+                             + '.*\n', '', MEME_header)
         # remove excluded nucleobase from any containing ambiguity codes
-        MEME_HEADER = re.sub('^(. = .*)(?:' + base + '|'
+        MEME_header = re.sub('^(. = .*)(?:' + base + '|'
                              + cUtils.complement(base) + ')(.*\n)',
-                             '\g<1>\g<2>', MEME_HEADER, flags=re.MULTILINE)
+                             '\g<1>\g<2>', MEME_header, flags=re.MULTILINE)
     # remove any ambiguity codes that are now empty
-    MEME_HEADER = re.sub('(. = \n)', '', MEME_HEADER, flags=re.MULTILINE)
+    MEME_header = re.sub('(. = \n)', '', MEME_header, flags=re.MULTILINE)
 
 # The MEME Suite uses ASCII ordering for custom alphabets
 # This is the natural lexicographic sorting order, so no "key" is needed
-MOTIF_ALPHABET = sorted(list(motifAlphBGFreqs.keys()))
+motif_alphabet = sorted(list(motifAlphBGFreqs.keys()))
 
-MOTIF_ALPHABET_BG_FREQUENCIES_OUTPUT = \
-    ' '.join([str(k) + ' ' + str(v) for k, v
-             in iter(sorted(motifAlphBGFreqs.iteritems()))])
-MEME_HEADER += MOTIF_ALPHABET_BG_FREQUENCIES_OUTPUT + "\n\n"
+motifs_to_output = ''
 
-filename = (args.inSeqFile or args.inPWMFile or
-            args.inPFMFile or args.inTRANSFACFile or
-            args.inTRANSFACFreqFile or args.inJASPARFile)
+if args.inSeq:
+    for seqFileOrStr in args.inSeq.split(_ARG_DELIM):
+        if (os.path.isfile(args.inSeq)):
+            # NB: min dimensionality of 1 is needed for the character view
+            motifs = np.loadtxt(filename, dtype=str, ndmin=1)
+            motifChars = motifs.view('S1').reshape((motifs.size, -1))
+        else:
+            motifChars = np.expand_dims(np.array(list(args.inSeq)), axis=0)
+        totalNumBases = len(motifChars)
 
-if args.inSeqFile:
-    # NB: min dimensionality of 1 is needed for the character view
-    motifs = np.loadtxt(filename, dtype=str, ndmin=1)
-    motifChars = motifs.view('S1').reshape((motifs.size, -1))
-    totalNumBases = len(motifChars)
+        freqMatrix = np.zeros((motifChars.shape[1], len(motifAlphBGFreqs)))
+        for i in range(0, motifChars.shape[1]):
+            bases, baseFreqs = np.unique(motifChars[:, i], return_counts=True)
+            # Append to the letter frequency matrix
+            matIn = StringIO(_DELIM.join(str(x) for x in
+                                         (baseFreqs[idx][0]/totalNumBases if
+                                         len(idx[0]) else 0 for idx in
+                                         (np.nonzero(bases == base) for
+                                          base in motif_alphabet))))
+            freqMatrix[i] = np.loadtxt(matIn)
+        motifs_to_output += (output_motif(freqMatrix, output_descriptor,
+                                          seqFileOrStr, motif_alphabet, 0, '')
+                             + "\n")
 
-    freqMatrix = np.zeros((motifChars.shape[1], len(motifAlphBGFreqs)))
-    for i in range(0, motifChars.shape[1]):
-        bases, baseFreqs = np.unique(motifChars[:, i], return_counts=True)
-        # Append to the letter frequency matrix
-        matIn = StringIO(_DELIM.join(str(x) for x in
-                                     (baseFreqs[idx][0]/totalNumBases if
-                                     len(idx[0]) else 0 for idx in
-                                     (np.nonzero(bases == base) for
-                                      base in MOTIF_ALPHABET))))
-        freqMatrix[i] = np.loadtxt(matIn)
-    MEMEBody = textwrap.dedent("""MOTIF %s\nletter-probability matrix: nsites= %d\n""") \
-        % (filename, totalNumBases)
-else:  # PWM or PFM
+filename = (args.inPWMFile or args.inPFMFile or args.inTRANSFACFile or
+            args.inTRANSFACFreqFile or args.inJASPARFile or args.inMEMEFile)
+if filename:  # PWM or PFM
     # process the matrix for MEME format compatibility
     # If needed, skip columns or rows accordingly and/or
     # use unpack to transpose the matrix.
     ncols = 0
     with open(filename, 'rb') as inFile:
+        if args.inMEMEFile:
+            input_file = inFile.read()
+            bgIter = re.findall(MEME_MINIMAL_BG_BASE_REGEX, 
+                                 re.search(MEME_MINIMAL_BG_REGEX, input_file,
+                                         flags=MEME_MINIMAL_REGEX_FLAGS)
+                                 .group(MEME_MINIMAL_BG_REGEX_G_BG),
+                                 flags=MEME_MINIMAL_REGEX_FLAGS)
+            motifIter = re.finditer(MEME_MINIMAL_MOTIF_REGEX, input_file,
+                                    flags=MEME_MINIMAL_REGEX_FLAGS)
+        if args.inMEMEFile:
+            motif_alphabet = list(bgIter)
+
+        motif_alphabet_bg_freq_output = \
+            ' '.join([str(k) + ' ' + str(v) for k, v
+                     in iter(sorted(motifAlphBGFreqs.iteritems()))])
+        MEME_header += motif_alphabet_bg_freq_output + "\n\n"
+
         if args.annotated:
                 ncols = len(inFile.readline().split())
                 inFile.seek(0)
@@ -414,108 +591,29 @@ else:  # PWM or PFM
                     count[...] = count / sum
                 return countsForBase  # needed to use numpy.apply_along_axis
             np.apply_along_axis(_computeFreqFromCountSlice, 1, csvData)
-
-        if args.revcomp:
-            addName += '-revcomp'
-            csvData = np.flipud(csvData)  # reverse
-            csvData[:, [0, 3]] = csvData[:, [3, 0]]  # complement A/T
-            csvData[:, [1, 2]] = csvData[:, [2, 1]]  # complement C/G
-
-        freqMatrix = np.hstack((np.zeros((csvData.shape[0],
-                               MOTIF_ALPHABET.index('A'))), csvData,
-                               np.zeros((csvData.shape[0],
-                                        (len(MOTIF_ALPHABET) - 1) -
-                                        MOTIF_ALPHABET.index('T')))))
-
-if args.skipMotifPortions:
-    addName += '-skip' + args.skipMotifPortions[0][0]
-    skipRows = list()
-    for skipMotifPortion in args.skipMotifPortions[0][0].split(','):
-        match = re.search('(\d*):(\d*)', str(skipMotifPortion).strip('[]'))
-        if match:
-            start = int(match.group(1)) if match.group(1) else 0
-            end = int(match.group(2)) if match.group(2) \
-                else freqMatrix.shape[0]
-            if (start > end):
-                die("""The start index of the motif rows to skip cannot be greater \
-                than the end.""")
-            if (end > freqMatrix.shape[0]):
-                die("""The provided end index of the motif rows to skip exceeds \
-                the motif length.""")
-            if ((end - start) <= 1):
-                warn("""The provided skip interval will only cause one motif row \
-                to be excluded. Recall that intervals provided in colon \
-                notation are half-open and that a single row to skip can \
-                be specified by only providing that row number alone.""")
-            skipRows.extend(range(start, end))
-    freqMatrix = np.delete(freqMatrix, skipRows, 0)
-
-totalNumBases = freqMatrix.shape[0]
-
-MEMEBody = textwrap.dedent("""MOTIF %s\nletter-probability matrix: nsites= %d\n""") \
-    % (filename, totalNumBases)
-
-modCFracs = (args.baseModificationAtAllModifiablePosFractions or
-             args.modAllFractions or args.modCFractions)
-modGFracs = (args.baseModificationAtAllModifiablePosFractions or
-             args.modAllFractions or args.modGFractions)
-
-if ((args.baseModification and args.baseModPosition)
-        or args.tryAllCModsAtPos or
-        args.baseModificationAtAllModifiablePosFractions):
-    baseModPos = args.tryAllCModsAtPos or args.baseModPosition
-    if args.baseModificationAtAllModifiablePosFractions:
-        addName += '-allPos'
-    elif baseModPos:
-        addName += '-P' + str(baseModPos)
-    # index is either positional or comprises all nucleobases
-    modBaseIndex = (baseModPos - 1) if (baseModPos and baseModPos !=
-                                        cUtils._PARAM_A_CONST_VAL) \
-        else slice(None)
-    for b in (motifAlphBGFreqs.keys() if args.tryAllCModsAtPos
-              else (args.baseModification or
-                    args.baseModificationAtAllModifiablePosFractions)):
-        modFreqMatrix = np.copy(freqMatrix)
-        # only proceed for "primary" modified nucleobases
-        if (b not in cUtils.MOD_BASE_NAMES.keys()):
-            if ((b not in cUtils.COMPLEMENTS.keys()) and
-                    (b not in cUtils.COMPLEMENTS.values())):
-                warn("Base " + b + " provided in the background is not " +
-                     "a currently supported modified nucleobase." +
-                     "It has, accordingly, been skipped.")
-            continue
-        if modCFracs:
-            # modify cytosine fractions
-            modFreqMatrix[modBaseIndex, MOTIF_ALPHABET.index(cUtils.getMBMaybeFromComp(b))] = \
-                modFreqMatrix[modBaseIndex, MOTIF_ALPHABET.index('C')]
-            modFreqMatrix[modBaseIndex, MOTIF_ALPHABET.index('C')] = \
-                (0 if baseModPos else np.zeros(modFreqMatrix.shape[0]))
-        if modGFracs:
-            # modify guanine fractions
-            modFreqMatrix[modBaseIndex, MOTIF_ALPHABET.index(cUtils.getCompMaybeFromMB(b))] = \
-                modFreqMatrix[modBaseIndex, MOTIF_ALPHABET.index('G')]
-            modFreqMatrix[modBaseIndex, MOTIF_ALPHABET.index('G')] = \
-                (0 if baseModPos else np.zeros(modFreqMatrix.shape[0]))
+        
+        if args.inMEMEFile:
+            for match in motifIter:
+                # behave as if read from CSV to minimize changes to other code
+                freqMatrix = np.fromstring(match.group(MEME_MIN_REGEX_G_PWM),
+                                           dtype=float, sep=' ')\
+                .reshape((int(match.group(MEME_MIN_REGEX_G_WIDTH)),
+                          int(match.group(MEME_MIN_REGEX_G_ALPH_LEN))))
+                motif_name = (match.group(MEME_MIN_REGEX_G_ID).strip() + ' ' +
+                              match.group(MEME_MIN_REGEX_G_NAME).strip())
+                numSites = int(match.group(MEME_MIN_REGEX_G_NUM_SITES))
+                EValue = match.group(MEME_MIN_REGEX_G_E_VALUE)
+                motifs_to_output += output_motif(freqMatrix, output_descriptor,
+                                                 motif_name, motif_alphabet,
+                                                 numSites, EValue) + "\n"
         else:
-            # zero all entries along the frequency matrix,
-            # for the given (row) position, except that corresponding
-            # to the (column) index of the modified base,
-            # which is set to unity.
-            modFreqMatrix[(baseModPos - 1), ] = \
-                np.zeros((1, freqMatrix.shape[1]))
-            modFreqMatrix[(baseModPos - 1),
-                          MOTIF_ALPHABET.index(b)] = 1
-        with open((os.path.basename(os.path.splitext(filename)[0]) + '-' +
-                   cUtils.MOD_BASE_NAMES[b] + addName +
-                   ('-mCFracs' if modCFracs else '') +
-                   ('-mGFracs' if modGFracs else '') +
-                   '.meme'), "a") as outFile:
-            outFile.write(MEME_HEADER)
-            outFile.write(MEMEBody)
-            np.savetxt(outFile, modFreqMatrix, '%f', _DELIM)
+            freqMatrix = np.hstack((np.zeros((csvData.shape[0],
+                                   motif_alphabet.index('A'))), csvData,
+                                   np.zeros((csvData.shape[0],
+                                            (len(motif_alphabet) - 1) -
+                                            motif_alphabet.index('T')))))
+            motifs_to_output += output_motif(freqMatrix, output_descriptor,
+                                             filename, motif_alphabet,
+                                             0, '')
 
-output = StringIO()
-np.savetxt(output, freqMatrix, '%f', _DELIM)
-MEMEBody += output.getvalue()
-output.close()
-print(MEME_HEADER + MEMEBody)
+print(MEME_header + motifs_to_output.strip())
