@@ -376,7 +376,7 @@ parser.add_argument('-N', '--notNucleobases', help="Do not use the \
                     These may be specified by either their abbreviation \
                     or base. However, the base specified must be a \
                     \"primary\" and not a complemented nucleobase \
-                    (i.e. 'm' and not '1'). For example, \"c, 5hmC\", \
+                    (i.e. 'm' and not '1'). For example, \"c,5hmC\", \
                     would use neither 5-carboxylcytosine nor \
                     5-hydroxymethylcytosine.")
 parser.add_argument('--modCFractions', action='store_true',
@@ -483,12 +483,14 @@ npt.assert_allclose([sum(motifAlphBGFreqs.itervalues())], [1])
 
 if args.notNucleobases:
     for base in args.notNucleobases.split(_ARG_DELIM):
-        if base not in cUtils.MOD_MAP:
+        if base in cUtils.MOD_BASES:
+            base = cUtils.MOD_BASES[base]
+        elif base not in cUtils.MOD_BASE_NAMES:
             die(""""Only "primary" modified nucleobases can be
             specified for removal.""")
-        motifAlphBGFreqs[cUtils.MOD_MAP[base]] += \
+        motifAlphBGFreqs[base] += \
             motifAlphBGFreqs[base]
-        motifAlphBGFreqs[cUtils.complement(cUtils.MOD_MAP[base])] += \
+        motifAlphBGFreqs[cUtils.complement(base)] += \
             motifAlphBGFreqs[cUtils.complement(base)]
         del motifAlphBGFreqs[base]
         del motifAlphBGFreqs[cUtils.complement(base)]
