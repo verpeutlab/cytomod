@@ -17,4 +17,6 @@ before_script:
     - pip freeze
 # command to run tests
 script:
-    - cd tests && ./testCytomod.sh
+    - cd tests
+    - ./testCytomod.sh
+    - ./testConvertToOrModifyExtreMEME.sh

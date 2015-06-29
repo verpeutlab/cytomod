@@ -1,14 +1,11 @@
 #!/usr/bin/env bash
 set -o nounset -o pipefail -o errexit
 
-EXIT_SUCCESS=0
-EXIT_FAILURE=64
+source $(dirname $0)/commonTestUtils.sh
 
-RED_COLOUR_CODE='\e[31m'
-GREEN_COLOUR_CODE='\e[32m'
-
-ARCHIVE_PATH='../data/archive/'
-TRACK_PREF='../data/mm9_chrY-only_'
+PROGRAM_PATH="$BASE_PROG_PATH/cytomod.py"
+ARCHIVE_PATH='$DATA_DIR/archive/'
+TRACK_PREF='$DATA_DIR/mm9_chrY-only_'
 VERBOSITY_ARG='-vvvv'
 
 TEST_REGION_CHR='Y'
@@ -21,32 +18,14 @@ TEST_REGION_CORRECT_MASKED_RES='Tmm12TTz9AAzAzz'
 
 # "a value at and below which the locus is considered ambiguous"
 DEFAULT_MASK_VALUE=$(grep -oP '_DEFAULT_MASK_VALUE = \K\d+' \
-                     $(dirname "${BASH_SOURCE[0]}")/../src/cytomod.py)
+                     $PROGRAM_PATH)
 if [[ ! $DEFAULT_MASK_VALUE =~ [[:digit:]]+ ]]; then
     failMsgAndExit 'SETUP'
 fi
 
-
-function failMsgAndExit {
-    echo -e "${RED_COLOUR_CODE}FAILED test $1." >&2
-    exit $EXIT_FAILURE
-}
-
-
-function passMsg {
-    echo -e "${GREEN_COLOUR_CODE}PASSED test $1." >&2
-}
-
-
-work_dir=$(mktemp -d --tmpdir=.)
-cd "$work_dir"
-
-
 function cleanup {
     rm  -Rf "../$work_dir" "$ARCHIVE_PATH"
 }
-trap cleanup EXIT
-
 
 function maybeFilter {
     # NB: masking only occurs for entires with a value of 0
@@ -62,13 +41,15 @@ function maybeFilter {
 
 test_to_run=${1:-0}
 
+echo -e "------------------------\nCytomod.py\n------------------------" >&2
+
 case $test_to_run in
 0|1)
     # -------------------------------- Test 1 --------------------------------
     FASTA_file='test1A.fa'
 
     # 1A) check that no masking was performed
-    ../../src/cytomod.py $VERBOSITY_ARG -d ../data/ ../data/ -f $FASTA_file \
+    $PROGRAM_PATH $VERBOSITY_ARG -d $DATA_DIR $DATA_DIR -f $FASTA_file \
         -r "$TEST_REGION"
     if [[ ! -z $(fgrep -v '>' $FASTA_file | grep '[z9]') ]]; then
         failMsgAndExit '1A'
@@ -89,7 +70,7 @@ case $test_to_run in
     # -------------------------------- Test 2 --------------------------------
     FASTA_file='test2.fa'
 
-    ../../src/cytomod.py $VERBOSITY_ARG -d ../data/ ../data/ -f $FASTA_file -b -M
+    $PROGRAM_PATH $VERBOSITY_ARG -d $DATA_DIR $DATA_DIR -f $FASTA_file -b -M
 
     declare -A BED_to_symbols
     BED_to_symbols=(["$TRACK_PREF"'5mC-fakeData.bedGraph.gz']='m1h2f3z9NAT' \
@@ -112,7 +93,7 @@ case $test_to_run in
     ;&
 0|3)
     # -------------------------------- Test 3 --------------------------------
-    cytomod_base_cmd="../../src/cytomod.py $VERBOSITY_ARG -G $ARCHIVE_PATH -b"
+    cytomod_base_cmd="$PROGRAM_PATH $VERBOSITY_ARG -G $ARCHIVE_PATH -b"
     test_len=47
     # test that a random region is retrieved and of the correct length
     if [[ $($cytomod_base_cmd -R $test_len | awk '{print length($0);}') \
