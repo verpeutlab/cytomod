@@ -47,7 +47,7 @@ MEME_MINIMAL_BG_REGEX = """Background\s+letter\s+frequencies\s+\(from.+\):\s+
                            .format(MEME_MINIMAL_BG_REGEX_G_BG)
 MEME_MINIMAL_BG_BASE_REGEX_G_BASE = 'base'
 MEME_MINIMAL_BG_BASE_REGEX = """(?P<{}>\w)\s+\d+\.\d+\s*"""\
-                           .format(MEME_MINIMAL_BG_BASE_REGEX_G_BASE)
+    .format(MEME_MINIMAL_BG_BASE_REGEX_G_BASE)
 MEME_MIN_REGEX_G_ID = 'motif_ID'
 MEME_MIN_REGEX_G_NAME = 'motif_name'
 MEME_MIN_REGEX_G_ALPH_LEN = 'alph_len'
@@ -57,13 +57,13 @@ MEME_MIN_REGEX_G_E_VALUE = 'E_value'
 MEME_MIN_REGEX_G_PWM = 'PWM'
 MEME_MINIMAL_MOTIF_REGEX = """MOTIF\s+(?P<{}>[a-zA-Z0-9_.]+\s+)?
                               (?P<{}>\w+\s+)  # motif ID line
-                            
+
                               letter-probability\s+matrix:  # start properties
                               \s+alength=\s*(?P<{}>\d+)\s+
                               w=\s*(?P<{}>\d+)\s+
                               nsites=\s*(?P<{}>\d+)\s+
                               E=\s*(?P<{}>\d+(?:\.\d+(?:e(?:\+|-)\d+)?)?)
-                              
+
                               (?P<{}>\s*(?:(?:[01]\.\d+)\s*)+)"""\
                                .format(MEME_MIN_REGEX_G_ID,
                                        MEME_MIN_REGEX_G_NAME,
@@ -117,7 +117,8 @@ def warn(msg):
     cUtils.warn(msg, os.path.basename(__file__))
 
 
-def output_motif(freqMatrix, output_descriptor, motif_name, motif_alphabet, numSites, EValue):
+def output_motif(freqMatrix, output_descriptor, motif_name,
+                 motif_alphabet, numSites, EValue):
     if args.revcomp:
         output_descriptor += '-revcomp'
         motif_name += '-revcomp'
@@ -156,11 +157,10 @@ def output_motif(freqMatrix, output_descriptor, motif_name, motif_alphabet, numS
     totalNumBases = freqMatrix.shape[0]
 
     MEMEBody = textwrap.dedent("""\
-               MOTIF %s\n
-               letter-probability matrix: alength= %d w= %d nsites= %d E= %s\n
-               """) \
-               % (motif_name, freqMatrix.shape[1], totalNumBases,
-                  numSites, EValue)
+               MOTIF {}\n
+               letter-probability matrix: alength= {} w= {} nsites= {} E= {}\n
+               """.format(motif_name, freqMatrix.shape[1],
+                          totalNumBases, numSites, EValue))
 
     modCFracs = (args.baseModificationAtAllModifiablePosFractions or
                  args.modAllFractions or args.modCFractions)
@@ -237,8 +237,8 @@ inputFileGroupTitle = \
                               Ensure to also use arguments '-a' and '-S' \
                               as needed for the input file used.\
                               Assumes that only a single matrix \
-                              is input per input argument, except if the input \
-                              is itself already in minimal MEME format \
+                              is input per input argument, except if the \
+                              input is itself already in minimal MEME format \
                               or if sequences are provided, \
                               in which case multiple input motifs \
                               are supported. Only a single matrix format \
@@ -246,10 +246,10 @@ inputFileGroupTitle = \
                               .")
 inputFile = inputFileGroupTitle.add_mutually_exclusive_group(required=False)
 inputFileGroupTitle.add_argument('-s', '--inSeq', type=str,
-                       help="File containing \
-                       an input set of raw sequences or a single seqeunce \
-                       provided as the argument.\
-                       Multiple files or sequences can be provided \
+                                 help="File containing \
+                                 an input set of raw sequences or a single \
+                                 sequence provided as the argument.\
+                                 Multiple files or sequences can be provided \
                        delimited by \"{}\".".format(_ARG_DELIM))
 inputFile.add_argument('-p', '--inPWMFile', type=str, help="File containing \
                        an input whitespace-delimited PWM (i.e. frequency \
@@ -512,7 +512,7 @@ if args.inSeq:
     for seqFileOrStr in args.inSeq.split(_ARG_DELIM):
         if (os.path.isfile(args.inSeq)):
             # NB: min dimensionality of 1 is needed for the character view
-            motifs = np.loadtxt(filename, dtype=str, ndmin=1)
+            motifs = np.loadtxt(args.inSeq, dtype=str, ndmin=1)
             motifChars = motifs.view('S1').reshape((motifs.size, -1))
         else:
             motifChars = np.expand_dims(np.array(list(args.inSeq)), axis=0)
@@ -542,11 +542,11 @@ if filename:  # PWM or PFM
     with open(filename, 'rb') as inFile:
         if args.inMEMEFile:
             input_file = inFile.read()
-            bgIter = re.findall(MEME_MINIMAL_BG_BASE_REGEX, 
-                                 re.search(MEME_MINIMAL_BG_REGEX, input_file,
-                                         flags=MEME_MINIMAL_REGEX_FLAGS)
-                                 .group(MEME_MINIMAL_BG_REGEX_G_BG),
-                                 flags=MEME_MINIMAL_REGEX_FLAGS)
+            bgIter = re.findall(MEME_MINIMAL_BG_BASE_REGEX,
+                                re.search(MEME_MINIMAL_BG_REGEX, input_file,
+                                          flags=MEME_MINIMAL_REGEX_FLAGS)
+                                .group(MEME_MINIMAL_BG_REGEX_G_BG),
+                                flags=MEME_MINIMAL_REGEX_FLAGS)
             motifIter = re.finditer(MEME_MINIMAL_MOTIF_REGEX, input_file,
                                     flags=MEME_MINIMAL_REGEX_FLAGS)
         if args.inMEMEFile:
@@ -591,14 +591,14 @@ if filename:  # PWM or PFM
                     count[...] = count / sum
                 return countsForBase  # needed to use numpy.apply_along_axis
             np.apply_along_axis(_computeFreqFromCountSlice, 1, csvData)
-        
+
         if args.inMEMEFile:
             for match in motifIter:
                 # behave as if read from CSV to minimize changes to other code
                 freqMatrix = np.fromstring(match.group(MEME_MIN_REGEX_G_PWM),
                                            dtype=float, sep=' ')\
-                .reshape((int(match.group(MEME_MIN_REGEX_G_WIDTH)),
-                          int(match.group(MEME_MIN_REGEX_G_ALPH_LEN))))
+                    .reshape((int(match.group(MEME_MIN_REGEX_G_WIDTH)),
+                             int(match.group(MEME_MIN_REGEX_G_ALPH_LEN))))
                 motif_name = (match.group(MEME_MIN_REGEX_G_ID).strip() + ' ' +
                               match.group(MEME_MIN_REGEX_G_NAME).strip())
                 numSites = int(match.group(MEME_MIN_REGEX_G_NUM_SITES))
