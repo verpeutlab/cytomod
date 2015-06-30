@@ -35,6 +35,7 @@ __version__ = cUtils.__version__
 _mESC_BG_NAME = 'mESC'
 _AML_BG_NAME = 'AML'
 _DEFAULT_BG = _mESC_BG_NAME
+_DEFAULT_HEMIMODARG = '+-'
 
 _DELIM = "\t"
 _ARG_DELIM = ','
@@ -109,6 +110,18 @@ Background letter frequencies (from %s):
 """ % (STRANDS, FROM_STR)
 
 
+def _modifyPositionOptionType(arg):
+    permittedCharList = ['c', 'A', 'T', 'G', 'C']
+    if arg in permittedCharList:
+        return arg
+    elif arg:
+        return int(arg)
+    else:
+        raise argparse.ArgumentTypeError("The provided option must contain \
+                                         an integer or one of: " +
+                                         permittedCharList)
+
+
 def die(msg):
     cUtils.die(msg, os.path.basename(__file__))
 
@@ -117,18 +130,18 @@ def warn(msg):
     cUtils.warn(msg, os.path.basename(__file__))
 
 
-def output_motif(freqMatrix, output_descriptor, motif_name,
-                 motif_alphabet, numSites, EValue):
+def output_motif(freq_matrix, output_descriptor, motif_name,
+                 motif_alphabet, numSites, EValue, motif_filename):
     if args.revcomp:
         output_descriptor += '-revcomp'
         motif_name += '-revcomp'
-        freqMatrix = np.flipud(freqMatrix)  # reverse
+        freq_matrix = np.flipud(freq_matrix)  # reverse
         for base_idx, base in enumerate(motif_alphabet):  # complement
             if base_idx >= len(motif_alphabet) / 2:
                 break
             complement_idx = motif_alphabet.index(cUtils.complement(base))
-            freqMatrix[:, [base_idx, complement_idx]] = \
-                freqMatrix[:, [complement_idx, base_idx]]
+            freq_matrix[:, [base_idx, complement_idx]] = \
+                freq_matrix[:, [complement_idx, base_idx]]
 
     if args.skipMotifPortions:
         output_descriptor += '-skip' + args.skipMotifPortions[0][0]
@@ -138,28 +151,31 @@ def output_motif(freqMatrix, output_descriptor, motif_name,
             if match:
                 start = int(match.group(1)) if match.group(1) else 0
                 end = int(match.group(2)) if match.group(2) \
-                    else freqMatrix.shape[0]
+                    else freq_matrix.shape[0]
+                if (start > freq_matrix.shape[0] - 1):
+                    die("""The provided start index ({}) of the motif rows to
+                    skip equals or exceeds the motif length.""".format(start))
                 if (start > end):
-                    die("""The start index of the motif rows to skip cannot
-                    be greater than the end.""")
-                if (end > freqMatrix.shape[0]):
-                    die("""The provided end index of the motif rows to skip
-                    exceeds the motif length.""")
+                    die("""The start index ({}) of the motif rows to skip
+                    cannot be greater than the end ({}).""".format(start, end))
+                if (end > freq_matrix.shape[0]):
+                    die("""The provided end index ({}) of the motif rows to
+                    skip exceeds the motif length.""".format(end))
                 if ((end - start) <= 1):
-                    warn("""The provided skip interval will only cause one
+                    warn("""The provided skip interval ({}) will only cause one
                     motif row to be excluded. Recall that intervals provided
                     in colon notation are half-open and that a single row
                     to skip can be specified by only providing that row number
-                    alone.""")
+                    alone.""".format(end - start))
                 skipRows.extend(range(start, end))
-        freqMatrix = np.delete(freqMatrix, skipRows, 0)
+        freq_matrix = np.delete(freq_matrix, skipRows, 0)
 
-    totalNumBases = freqMatrix.shape[0]
+    totalNumBases = freq_matrix.shape[0]
 
     MEMEBody = textwrap.dedent("""\
                MOTIF {}\n
                letter-probability matrix: alength= {} w= {} nsites= {} E= {}\n
-               """.format(motif_name, freqMatrix.shape[1],
+               """.format(motif_name, freq_matrix.shape[1],
                           totalNumBases, numSites, EValue))
 
     modCFracs = (args.baseModificationAtAllModifiablePosFractions or
@@ -170,6 +186,10 @@ def output_motif(freqMatrix, output_descriptor, motif_name,
     if ((args.baseModification and args.baseModPosition)
             or args.tryAllCModsAtPos or
             args.baseModificationAtAllModifiablePosFractions):
+        if args.baseModPosition and args.baseModPosition >= totalNumBases:
+            die("""The provided modification position ({}) exceeds the
+                   motif's final position ({}).
+                """.format(args.baseModPosition, totalNumBases - 1))
         baseModPos = args.tryAllCModsAtPos or args.baseModPosition
         if args.baseModificationAtAllModifiablePosFractions:
             output_descriptor += '-allPos'
@@ -182,47 +202,47 @@ def output_motif(freqMatrix, output_descriptor, motif_name,
         for b in (motifAlphBGFreqs.keys() if args.tryAllCModsAtPos
                   else (args.baseModification or
                         args.baseModificationAtAllModifiablePosFractions)):
-            modFreqMatrix = np.copy(freqMatrix)
+            modfreq_matrix = np.copy(freq_matrix)
             # only proceed for "primary" modified nucleobases
             if (b not in cUtils.MOD_BASE_NAMES.keys()):
                 if ((b not in cUtils.COMPLEMENTS.keys()) and
                         (b not in cUtils.COMPLEMENTS.values())):
-                    warn("Base " + b + " provided in the background is not " +
-                         "a currently supported modified nucleobase." +
-                         "It has, accordingly, been skipped.")
+                    warn("""Base {} provided in the background is not a
+                            currently supported modified nucleobase.
+                            It has, accordingly, been skipped.""".format(b))
                 continue
-            if modCFracs:
+            if modCFracs and ('+' in args.hemimodifyOnly):
                 # modify cytosine fractions
-                modFreqMatrix[modBaseIndex, motif_alphabet.index(cUtils.getMBMaybeFromComp(b))] = \
-                    modFreqMatrix[modBaseIndex, motif_alphabet.index('C')]
-                modFreqMatrix[modBaseIndex, motif_alphabet.index('C')] = \
-                    (0 if baseModPos else np.zeros(modFreqMatrix.shape[0]))
-            if modGFracs:
+                modfreq_matrix[modBaseIndex, motif_alphabet.index(cUtils.getMBMaybeFromComp(b))] = \
+                    modfreq_matrix[modBaseIndex, motif_alphabet.index('C')]
+                modfreq_matrix[modBaseIndex, motif_alphabet.index('C')] = \
+                    (0 if baseModPos else np.zeros(modfreq_matrix.shape[0]))
+            if modGFracs and ('-' in args.hemimodifyOnly):
                 # modify guanine fractions
-                modFreqMatrix[modBaseIndex, motif_alphabet.index(cUtils.getCompMaybeFromMB(b))] = \
-                    modFreqMatrix[modBaseIndex, motif_alphabet.index('G')]
-                modFreqMatrix[modBaseIndex, motif_alphabet.index('G')] = \
-                    (0 if baseModPos else np.zeros(modFreqMatrix.shape[0]))
+                modfreq_matrix[modBaseIndex, motif_alphabet.index(cUtils.getCompMaybeFromMB(b))] = \
+                    modfreq_matrix[modBaseIndex, motif_alphabet.index('G')]
+                modfreq_matrix[modBaseIndex, motif_alphabet.index('G')] = \
+                    (0 if baseModPos else np.zeros(modfreq_matrix.shape[0]))
             else:
                 # zero all entries along the frequency matrix,
                 # for the given (row) position, except that corresponding
                 # to the (column) index of the modified base,
                 # which is set to unity.
-                modFreqMatrix[(baseModPos - 1), ] = \
-                    np.zeros((1, freqMatrix.shape[1]))
-                modFreqMatrix[(baseModPos - 1),
-                              motif_alphabet.index(b)] = 1
-            with open((os.path.basename(os.path.splitext(filename)[0]) + '-' +
-                       cUtils.MOD_BASE_NAMES[b] + output_descriptor +
+                modfreq_matrix[(baseModPos - 1), ] = \
+                    np.zeros((1, freq_matrix.shape[1]))
+                modfreq_matrix[(baseModPos - 1),
+                               motif_alphabet.index(b)] = 1
+            with open((os.path.basename(os.path.splitext(motif_filename)[0]) +
+                      '-' + cUtils.MOD_BASE_NAMES[b] + output_descriptor +
                        ('-mCFracs' if modCFracs else '') +
                        ('-mGFracs' if modGFracs else '') +
                        '.meme'), "a") as outFile:
                 outFile.write(MEME_header)
                 outFile.write(MEMEBody)
-                np.savetxt(outFile, modFreqMatrix, '%f', _DELIM)
+                np.savetxt(outFile, modfreq_matrix, '%f', _DELIM)
 
     output = StringIO()
-    np.savetxt(output, freqMatrix, '%f', _DELIM)
+    np.savetxt(output, freq_matrix, '%f', _DELIM)
     MEMEBody += output.getvalue()
     output.close()
     return MEMEBody
@@ -243,7 +263,7 @@ inputFileGroupTitle = \
                               in which case multiple input motifs \
                               are supported. Only a single matrix format \
                               can be provided (but a matrix format \
-                              .")
+                              can be combined with '-s').")
 inputFile = inputFileGroupTitle.add_mutually_exclusive_group(required=False)
 inputFileGroupTitle.add_argument('-s', '--inSeq', type=str,
                                  help="File containing \
@@ -288,17 +308,23 @@ modBaseSpecifiers.add_argument('-M', '--baseModification', type=str,
                                This will cause the program to write a file \
                                (as opposed to the usual output to STDOUT) \
                                for the given modification.")
-modBasePositions.add_argument('-P', '--baseModPosition', type=int,
-                              # nargs='?', const=cUtils._PARAM_A_CONST_VAL,
+modBasePositions.add_argument('-P', '--baseModPosition',
+                              type=_modifyPositionOptionType,
+                              nargs='?', const=cUtils._PARAM_A_CONST_VAL,
                               help="The position at which to modify the motif \
                               (using the base specified by '-M'), \
-                              * indexed from 1 *.")
-#                             The below is not yet implemented.
-#                             The argument for this option \
-#                             can be omitted to indicate that the position \
-#                             should be automatically determined by finding \
-#                             the centre CpG dinucleotide, in which case only \
-#                             the cytosine of the CpG will be modified.
+                              * indexed from 1 *. \
+                              Alternatively, 'c' can be provided \
+                              to indicate that the position \
+                              should be automatically determined by finding \
+                              the centre CpG dinucleotide, in which case only \
+                              the cytosine of the CpG will be modified. \
+                              Furthermore, a single primary nuleobase \
+                              (i.e. A/T/G/C), X (with complement 0), can be \
+                              provided to modify only cytosines in \
+                              a CpX context and guanines in a Gp0 context \
+                              (unless only hemi-modification is being \
+                              performed, via '-H').")
 modBaseSpecifiers.add_argument('-C', '--tryAllCModsAtPos', type=int,
                                nargs='?', const=cUtils._PARAM_A_CONST_VAL,
                                help="Modify the motif at the given position, \
@@ -400,6 +426,24 @@ parser.add_argument('-F', '--modAllFractions', action='store_true',
                     options already specifying this behaviour (e.g. '-A').\
                     This option is silently ignored if no modifications \
                     are requested.")
+parser.add_argument('-H', '--hemimodifyOnly', nargs='?',
+                    default=_DEFAULT_HEMIMODARG,
+                    const=_DEFAULT_HEMIMODARG, choices=['+-', '-+', '+', '-'],
+                    help="Only perform hemi-modification. This option \
+                    affects any other option which performs any \
+                    modifications by only modifying a single strand \
+                    (i.e. either cytosine or guanine bases, exclusively). \
+                    If no argument is provided \
+                    (or if either '+-' or '-+' is provided), the number of \
+                    motifs output by any affected option will be doubled, \
+                    with one motif being output with only cytosine bases \
+                    modified and the other with only guanine bases modified. \
+                    Alternatively, '+' or '-' can be provided as an \
+                    argument, in which case only cytosine ('+') or guanine \
+                    ('-') bases will be modified, respectively. \
+                    This argument does not affect explicitly specified \
+                    positional modifications (i.e. '-P' used with a \
+                    specific motif position).")
 parser.add_argument('-b', '--background', default=_DEFAULT_BG,
                     help="The background model to \
                     add to the output file for use by MEME. \
@@ -425,6 +469,7 @@ parser.add_argument('-V', '--version', action='version',
 args = parser.parse_args()
 
 output_descriptor = ''
+
 if bool(args.baseModification) ^ bool(args.baseModPosition):
     warn("""Any base modification specification must specify both the
          particular base to be modified (via '-M') and the position
@@ -442,6 +487,21 @@ if (not args.baseModificationAtAllModifiablePosFractions and
         args.tryAllCModsAtPos == cUtils._PARAM_A_CONST_VAL):
     die("""You must either provide the position to modify to '-C' or use
         '-A' to use all possible positions.""")
+
+filename = (args.inPWMFile or args.inPFMFile or args.inTRANSFACFile or
+            args.inTRANSFACFreqFile or args.inJASPARFile or args.inMEMEFile)
+
+if not (args.inSeq or filename):
+    die("""You must provide some input, by using one of the \"Input File\"
+           arguments.""")
+
+if (args.modCFractions and ('+' not in args.hemimodifyOnly)):
+    warn("""Cytosine bases will not be modified, since only negative-strand
+            modification is permitted in this hemi-modification mode.""")
+
+if (args.modGFractions and ('-' not in args.hemimodifyOnly)):
+    warn("""Guanine bases will not be modified, since only negative-strand
+            modification is permitted in this hemi-modification mode.""")
 
 motifAlphBGFreqs = ()
 if args.background:
@@ -512,15 +572,15 @@ motifs_to_output = ''
 
 if args.inSeq:
     for seqFileOrStr in args.inSeq.split(_ARG_DELIM):
-        if (os.path.isfile(args.inSeq)):
+        if (os.path.isfile(seqFileOrStr)):
             # NB: min dimensionality of 1 is needed for the character view
-            motifs = np.loadtxt(args.inSeq, dtype=str, ndmin=1)
+            motifs = np.loadtxt(seqFileOrStr, dtype=str, ndmin=1)
             motifChars = motifs.view('S1').reshape((motifs.size, -1))
         else:
-            motifChars = np.expand_dims(np.array(list(args.inSeq)), axis=0)
+            motifChars = np.expand_dims(np.array(list(seqFileOrStr)), axis=0)
         totalNumBases = len(motifChars)
 
-        freqMatrix = np.zeros((motifChars.shape[1], len(motifAlphBGFreqs)))
+        freq_matrix = np.zeros((motifChars.shape[1], len(motifAlphBGFreqs)))
         for i in range(0, motifChars.shape[1]):
             bases, baseFreqs = np.unique(motifChars[:, i], return_counts=True)
             # Append to the letter frequency matrix
@@ -529,13 +589,13 @@ if args.inSeq:
                                          len(idx[0]) else 0 for idx in
                                          (np.nonzero(bases == base) for
                                           base in motif_alphabet))))
-            freqMatrix[i] = np.loadtxt(matIn)
-        motifs_to_output += (output_motif(freqMatrix, output_descriptor,
-                                          seqFileOrStr, motif_alphabet, 0, '')
+            freq_matrix[i] = np.loadtxt(matIn)
+        motifs_to_output += (output_motif(freq_matrix, output_descriptor,
+                                          os.path.basename(seqFileOrStr),
+                                          motif_alphabet, 0, '',
+                                          seqFileOrStr)
                              + "\n")
 
-filename = (args.inPWMFile or args.inPFMFile or args.inTRANSFACFile or
-            args.inTRANSFACFreqFile or args.inJASPARFile or args.inMEMEFile)
 if filename:  # PWM or PFM
     # process the matrix for MEME format compatibility
     # If needed, skip columns or rows accordingly and/or
@@ -597,25 +657,27 @@ if filename:  # PWM or PFM
         if args.inMEMEFile:
             for match in motifIter:
                 # behave as if read from CSV to minimize changes to other code
-                freqMatrix = np.fromstring(match.group(MEME_MIN_REGEX_G_PWM),
-                                           dtype=float, sep=' ')\
+                freq_matrix = np.fromstring(match.group(MEME_MIN_REGEX_G_PWM),
+                                            dtype=float, sep=' ')\
                     .reshape((int(match.group(MEME_MIN_REGEX_G_WIDTH)),
                              int(match.group(MEME_MIN_REGEX_G_ALPH_LEN))))
                 motif_name = (match.group(MEME_MIN_REGEX_G_ID).strip() + ' ' +
                               match.group(MEME_MIN_REGEX_G_NAME).strip())
                 numSites = int(match.group(MEME_MIN_REGEX_G_NUM_SITES))
                 EValue = match.group(MEME_MIN_REGEX_G_E_VALUE)
-                motifs_to_output += output_motif(freqMatrix, output_descriptor,
-                                                 motif_name, motif_alphabet,
-                                                 numSites, EValue) + "\n"
+                motifs_to_output += (output_motif(freq_matrix,
+                                                  output_descriptor,
+                                                  motif_name, motif_alphabet,
+                                                  numSites, EValue, filename) +
+                                     "\n")
         else:
-            freqMatrix = np.hstack((np.zeros((csvData.shape[0],
-                                   motif_alphabet.index('A'))), csvData,
-                                   np.zeros((csvData.shape[0],
-                                            (len(motif_alphabet) - 1) -
-                                            motif_alphabet.index('T')))))
-            motifs_to_output += output_motif(freqMatrix, output_descriptor,
-                                             filename, motif_alphabet,
-                                             0, '')
+            freq_matrix = np.hstack((np.zeros((csvData.shape[0],
+                                    motif_alphabet.index('A'))), csvData,
+                                    np.zeros((csvData.shape[0],
+                                             (len(motif_alphabet) - 1) -
+                                             motif_alphabet.index('T')))))
+            motifs_to_output += output_motif(freq_matrix, output_descriptor,
+                                             os.path.basename(filename),
+                                             motif_alphabet, 0, '', filename)
 
 print(MEME_header + motifs_to_output.strip())
