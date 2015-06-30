@@ -49,7 +49,7 @@ case $test_to_run in
     FASTA_file='test1A.fa'
 
     # 1A) check that no masking was performed
-    $PROGRAM_PATH $VERBOSITY_ARG -d $DATA_DIR $DATA_DIR -f $FASTA_file \
+    $PROGRAM_PATH $VERBOSITY_ARG -d "$DATA_DIR/" "$DATA_DIR/" -f "$FASTA_file" \
         -r "$TEST_REGION"
     if [[ ! -z $(fgrep -v '>' $FASTA_file | grep '[z9]') ]]; then
         failMsgAndExit '1A'
@@ -70,7 +70,7 @@ case $test_to_run in
     # -------------------------------- Test 2 --------------------------------
     FASTA_file='test2.fa'
 
-    $PROGRAM_PATH $VERBOSITY_ARG -d $DATA_DIR $DATA_DIR -f $FASTA_file -b -M
+    $PROGRAM_PATH $VERBOSITY_ARG -d "$DATA_DIR/" "$DATA_DIR/" -f "$FASTA_file" -b -M
 
     declare -A BED_to_symbols
     BED_to_symbols=(["$TRACK_PREF"'5mC-fakeData.bedGraph.gz']='m1h2f3z9NAT' \
