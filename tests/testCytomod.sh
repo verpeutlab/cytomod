@@ -4,8 +4,8 @@ set -o nounset -o pipefail -o errexit
 source $(dirname $0)/commonTestUtils.sh
 
 PROGRAM_PATH="$BASE_PROG_PATH/cytomod.py"
-ARCHIVE_PATH='$DATA_DIR/archive/'
-TRACK_PREF='$DATA_DIR/mm9_chrY-only_'
+ARCHIVE_PATH="$DATA_DIR/archive/"
+TRACK_PREF="$DATA_DIR/mm9_chrY-only_"
 VERBOSITY_ARG='-vvvv'
 
 TEST_REGION_CHR='Y'
