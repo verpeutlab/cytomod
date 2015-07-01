@@ -506,7 +506,7 @@ parser.add_argument('-V', '--version', action='version',
                     version="%(prog)s " + __version__)
 args = parser.parse_args()
 
-output_descriptor = args.hemimodifyOnly
+output_descriptor = "({})".format(args.hemimodifyOnly)
 
 if bool(args.baseModification) ^ bool(args.baseModPosition):
     warn("""Any base modification specification must specify both the
