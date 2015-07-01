@@ -253,7 +253,6 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                 modfreq_matrix[mod_base_index, motif_alphabet.index('G')] = \
                     (0 if baseModPos else np.zeros(modfreq_matrix.shape[0]))
             else:
-                # XXX deal with hemi-mod...
                 if mod_base_context == _ALL_BASE_CONTEXTS or \
                     (mod_base_index + 1 <= totalNumBases and
                      (modfreq_matrix[mod_base_index + 1,
@@ -354,6 +353,11 @@ modBasePositions.add_argument('-P', '--baseModPosition',
                               help="The position at which to modify the motif \
                               (using the base specified by '-M'), \
                               * indexed from 1 *. \
+                              Note that for explicitly specified positions, \
+                              this does not check that \
+                              modifications made make biological sense \
+                              (i.e. a thymine could be changed into a \
+                              5-methylcytosine using this option) \
                               Alternatively, 'c' can be provided \
                               to indicate that the position \
                               should be automatically determined by finding \
@@ -542,6 +546,12 @@ if (args.modCFractions and ('+' not in args.hemimodifyOnly)):
 if (args.modGFractions and ('-' not in args.hemimodifyOnly)):
     warn("""Guanine bases will not be modified, since only negative-strand
             modification is permitted in this hemi-modification mode.""")
+
+if (args.baseModification and args.baseModification not in
+    cUtils.MOD_BASE_NAMES.keys() and args.baseModification not in
+        cUtils.complement(cUtils.MOD_BASE_NAMES.keys())):
+    die("""The provided target nucleobase of the modification ({}) is not
+           a recognized modified nucleobase.""".format(args.baseModification))
 
 motifAlphBGFreqs = ()
 if args.background:
