@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# TODO Refactor.
+# TODO refactor.
 # TODO make variable names consistent (i.e. x_y, not xY).
 
 from __future__ import with_statement, division, print_function
@@ -271,7 +271,9 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                     modfreq_matrix[mod_base_index,
                                    motif_alphabet.index(b)] = 1
             with open((os.path.basename(os.path.splitext(motif_filename)[0]) +
-                      '-' + cUtils.MOD_BASE_NAMES[b] + output_descriptor +
+                       '-' + cUtils.MOD_BASE_NAMES[cUtils.
+                                                   getMBMaybeFromComp(b)]
+                       + output_descriptor +
                        ('-mCFracs' if modCFracs else '') +
                        ('-mGFracs' if modGFracs else '') +
                        '.meme'), 'a') as outFile:
@@ -696,7 +698,7 @@ if filename:  # PWM or PFM
             for match in motifIter:
                 # behave as if read from CSV to minimize changes to other code
                 freq_matrix = np.fromstring(match.group(MEME_MIN_REGEX_G_PWM),
-                                            dtype=float, sep=' ')\
+                                            dtype=float, sep=' ') \
                     .reshape((int(match.group(MEME_MIN_REGEX_G_WIDTH)),
                              int(match.group(MEME_MIN_REGEX_G_ALPH_LEN))))
                 motif_name = (match.group(MEME_MIN_REGEX_G_ID).strip() + ' ' +

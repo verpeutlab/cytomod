@@ -6,19 +6,20 @@ EXIT_FAILURE=64
 
 RED_COLOUR_CODE='\e[31m'
 GREEN_COLOUR_CODE='\e[32m'
+RESET_COLOUR_CODE='\x1b[39;49m'
 
 BASE_PROG_PATH="../../src"
 DATA_DIR="../data"
 
 
 function failMsgAndExit {
-    echo -e "${RED_COLOUR_CODE}FAILED test $1." >&2
+    echo -e "${RED_COLOUR_CODE}FAILED test $1.${RESET_COLOUR_CODE}" >&2
     exit $EXIT_FAILURE
 }
 
 
 function passMsg {
-    echo -e "${GREEN_COLOUR_CODE}PASSED test $1." >&2
+    echo -e "${GREEN_COLOUR_CODE}PASSED test $1.${RESET_COLOUR_CODE}" >&2
 }
 
 
