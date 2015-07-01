@@ -10,6 +10,7 @@ GREEN_COLOUR_CODE='\e[32m'
 BASE_PROG_PATH="../../src"
 DATA_DIR="../data"
 
+
 function failMsgAndExit {
     echo -e "${RED_COLOUR_CODE}FAILED test $1." >&2
     exit $EXIT_FAILURE
@@ -21,15 +22,31 @@ function passMsg {
 }
 
 
-function runContainsTest {
-    # runTest <program path> <test ID> <program arguments> <correct result>
-    # checks if the result contains <correct result>
-    if [[ ! "$($1 $3)" =~ "$4" ]]; then
-        failMsgAndExit "$2"
+function _performContainsTest {
+    # _performContainsTest <test ID> <test (program) result> <correct result>
+    # checks if the <test (program) result> contains <correct result>
+    if [[ ! "$2" =~ "$3" ]]; then
+        failMsgAndExit "$1"
     else
-        passMsg "$2"
+        passMsg "$1"
     fi
 }
+
+
+function runContainsTest {
+    # runContainsTest <program path> <test ID> <program arguments> <correct result>
+    _performContainsTest "$2" "$($1 $3)" "$4"
+}
+
+
+function runContainsFileTest {
+    # runContainsFileTest <program path> <test ID> <program arguments> <correct result> [file]
+    eval "$1 $3" &> /dev/null
+    test_result=$(<${5-*.meme})
+    _performContainsTest "$2" "$test_result" "$4"
+    rm -f *.meme
+}
+
 
 work_dir=$(mktemp -d --tmpdir=.)
 cd "$work_dir"
