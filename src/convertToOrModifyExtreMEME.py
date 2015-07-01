@@ -19,7 +19,6 @@ import os
 import re
 import textwrap
 
-
 try:
     from cStringIO import StringIO
 except:
@@ -189,6 +188,8 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
     if ((args.baseModification and args.baseModPosition)
             or args.tryAllCModsAtPos or
             args.baseModificationAtAllModifiablePosFractions):
+        warn("""NB: modified motifs are output to a file.
+                The motif printed to STDOUT is the unmodified version.""")
         if args.baseModPosition and args.baseModPosition >= totalNumBases:
             die("""The provided modification position ({}) exceeds the
                    motif's final position ({}).
