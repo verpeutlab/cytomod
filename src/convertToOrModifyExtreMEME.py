@@ -114,7 +114,7 @@ def _modifyPositionOptionType(arg):
     permittedCharList = ['c', 'A', 'T', 'G', 'C']
     if arg in permittedCharList:
         return arg
-    elif arg:
+    elif arg.isdigit():
         return int(arg)
     else:
         raise argparse.ArgumentTypeError("The provided option must contain \
