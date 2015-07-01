@@ -37,6 +37,9 @@ _AML_BG_NAME = 'AML'
 _DEFAULT_BG = _mESC_BG_NAME
 _DEFAULT_HEMIMODARG = '+-'
 
+_CONTEXT_FREQ_THRESHOLD = 0
+
+_ALL_BASE_CONTEXTS = '*'
 _DELIM = "\t"
 _ARG_DELIM = ','
 BOTH_STRANDS = 0
@@ -104,10 +107,10 @@ N = ACGT
 X = ACGT
 END ALPHABET
 
-strands: %s
+strands: {}
 
-Background letter frequencies (from %s):
-""" % (STRANDS, FROM_STR)
+Background letter frequencies (from {}):
+""".format(STRANDS, FROM_STR)
 
 
 def _modifyPositionOptionType(arg):
@@ -190,53 +193,87 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
             die("""The provided modification position ({}) exceeds the
                    motif's final position ({}).
                 """.format(args.baseModPosition, totalNumBases - 1))
+
+        mod_base_context = _ALL_BASE_CONTEXTS
         baseModPos = args.tryAllCModsAtPos or args.baseModPosition
+        # index is either positional or comprises all nucleobases
+        mod_base_index = (baseModPos - 1) if (baseModPos and baseModPos !=
+                                              cUtils._PARAM_A_CONST_VAL) \
+            else slice(None)
+
+        if args.baseModPosition and not isinstance(args.baseModPosition, int):
+            if args.baseModPosition == 'c':
+                mod_base_context = 'G'
+                centre = totalNumBases//2
+                mod_base_index = slice(centre - 1, centre + 1)
+            else:
+                mod_base_context = args.baseModPosition
+
         if args.baseModificationAtAllModifiablePosFractions:
             output_descriptor += '-allPos'
         elif baseModPos:
             output_descriptor += '-P' + str(baseModPos)
-        # index is either positional or comprises all nucleobases
-        modBaseIndex = (baseModPos - 1) if (baseModPos and baseModPos !=
-                                            cUtils._PARAM_A_CONST_VAL) \
-            else slice(None)
+
+        # XXX check '-P' and '-H' ...
         for b in (motifAlphBGFreqs.keys() if args.tryAllCModsAtPos
                   else (args.baseModification or
                         args.baseModificationAtAllModifiablePosFractions)):
             modfreq_matrix = np.copy(freq_matrix)
-            # only proceed for "primary" modified nucleobases
-            if (b not in cUtils.MOD_BASE_NAMES.keys()):
-                if ((b not in cUtils.COMPLEMENTS.keys()) and
-                        (b not in cUtils.COMPLEMENTS.values())):
-                    warn("""Base {} provided in the background is not a
-                            currently supported modified nucleobase.
-                            It has, accordingly, been skipped.""".format(b))
-                continue
-            if modCFracs and ('+' in args.hemimodifyOnly):
+            if ((b not in cUtils.MOD_BASE_NAMES.keys() and
+                 '-' not in args.hemimodifyOnly) or
+                (b not in cUtils.complement(cUtils.MOD_BASE_NAMES.keys()) and
+                 '+' not in args.hemimodifyOnly)):
+                    if ((b not in cUtils.COMPLEMENTS.keys()) and
+                            (b not in cUtils.COMPLEMENTS.values())):
+                        warn("""Base {} provided in the background is not a
+                                currently supported modified nucleobase. It
+                                has, accordingly, been skipped.""".format(b))
+                    continue
+            if modCFracs and ('+' in args.hemimodifyOnly) and \
+                (mod_base_context == _ALL_BASE_CONTEXTS or
+                 (mod_base_index + 1 <= totalNumBases and
+                  (modfreq_matrix[mod_base_index + 1,
+                   motif_alphabet.index(mod_base_context)]
+                   > _CONTEXT_FREQ_THRESHOLD))):
                 # modify cytosine fractions
-                modfreq_matrix[modBaseIndex, motif_alphabet.index(cUtils.getMBMaybeFromComp(b))] = \
-                    modfreq_matrix[modBaseIndex, motif_alphabet.index('C')]
-                modfreq_matrix[modBaseIndex, motif_alphabet.index('C')] = \
+                modfreq_matrix[mod_base_index, motif_alphabet.index(cUtils.getMBMaybeFromComp(b))] = \
+                    modfreq_matrix[mod_base_index, motif_alphabet.index('C')]
+                modfreq_matrix[mod_base_index, motif_alphabet.index('C')] = \
                     (0 if baseModPos else np.zeros(modfreq_matrix.shape[0]))
-            if modGFracs and ('-' in args.hemimodifyOnly):
+            if modGFracs and ('-' in args.hemimodifyOnly) and \
+                (mod_base_context == _ALL_BASE_CONTEXTS or
+                 (mod_base_index + 1 <= totalNumBases and
+                  (modfreq_matrix[mod_base_index + 1,
+                   motif_alphabet.index(cUtils.complement(mod_base_context))]
+                   > _CONTEXT_FREQ_THRESHOLD))):
                 # modify guanine fractions
-                modfreq_matrix[modBaseIndex, motif_alphabet.index(cUtils.getCompMaybeFromMB(b))] = \
-                    modfreq_matrix[modBaseIndex, motif_alphabet.index('G')]
-                modfreq_matrix[modBaseIndex, motif_alphabet.index('G')] = \
+                modfreq_matrix[mod_base_index, motif_alphabet.index(cUtils.getCompMaybeFromMB(b))] = \
+                    modfreq_matrix[mod_base_index, motif_alphabet.index('G')]
+                modfreq_matrix[mod_base_index, motif_alphabet.index('G')] = \
                     (0 if baseModPos else np.zeros(modfreq_matrix.shape[0]))
             else:
-                # zero all entries along the frequency matrix,
-                # for the given (row) position, except that corresponding
-                # to the (column) index of the modified base,
-                # which is set to unity.
-                modfreq_matrix[(baseModPos - 1), ] = \
-                    np.zeros((1, freq_matrix.shape[1]))
-                modfreq_matrix[(baseModPos - 1),
-                               motif_alphabet.index(b)] = 1
+                # XXX deal with hemi-mod...
+                if mod_base_context == _ALL_BASE_CONTEXTS or \
+                    (mod_base_index + 1 <= totalNumBases and
+                     (modfreq_matrix[mod_base_index + 1,
+                      motif_alphabet.index(mod_base_context
+                                           if b in cUtils.COMPLEMENTS
+                                           else cUtils.
+                                           complement(mod_base_context))]
+                      > _CONTEXT_FREQ_THRESHOLD)):
+                    # zero all entries along the frequency matrix,
+                    # for the given (row) position, except that corresponding
+                    # to the (column) index of the modified base,
+                    # which is set to unity.
+                    modfreq_matrix[mod_base_index, ] = \
+                        np.zeros((1, freq_matrix.shape[1]))
+                    modfreq_matrix[mod_base_index,
+                                   motif_alphabet.index(b)] = 1
             with open((os.path.basename(os.path.splitext(motif_filename)[0]) +
                       '-' + cUtils.MOD_BASE_NAMES[b] + output_descriptor +
                        ('-mCFracs' if modCFracs else '') +
                        ('-mGFracs' if modGFracs else '') +
-                       '.meme'), "a") as outFile:
+                       '.meme'), 'a') as outFile:
                 outFile.write(MEME_header)
                 outFile.write(MEMEBody)
                 np.savetxt(outFile, modfreq_matrix, '%f', _DELIM)
@@ -468,7 +505,7 @@ parser.add_argument('-V', '--version', action='version',
                     version="%(prog)s " + __version__)
 args = parser.parse_args()
 
-output_descriptor = ''
+output_descriptor = args.hemimodifyOnly
 
 if bool(args.baseModification) ^ bool(args.baseModPosition):
     warn("""Any base modification specification must specify both the
@@ -570,6 +607,11 @@ motif_alphabet = sorted(list(motifAlphBGFreqs.keys()))
 
 motifs_to_output = ''
 
+motif_alphabet_bg_freq_output = \
+    ' '.join([str(k) + ' ' + str(v) for k, v
+             in iter(sorted(motifAlphBGFreqs.iteritems()))])
+MEME_header += motif_alphabet_bg_freq_output + "\n\n"
+
 if args.inSeq:
     for seqFileOrStr in args.inSeq.split(_ARG_DELIM):
         if (os.path.isfile(seqFileOrStr)):
@@ -613,11 +655,6 @@ if filename:  # PWM or PFM
                                     flags=MEME_MINIMAL_REGEX_FLAGS)
         if args.inMEMEFile:
             motif_alphabet = list(bgIter)
-
-        motif_alphabet_bg_freq_output = \
-            ' '.join([str(k) + ' ' + str(v) for k, v
-                     in iter(sorted(motifAlphBGFreqs.iteritems()))])
-        MEME_header += motif_alphabet_bg_freq_output + "\n\n"
 
         if args.annotated:
                 ncols = len(inFile.readline().split())
