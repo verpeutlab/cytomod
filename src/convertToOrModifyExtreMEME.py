@@ -112,16 +112,27 @@ Background letter frequencies (from {}):
 """.format(STRANDS, FROM_STR)
 
 
+def _modificationOptionType(arg):
+    if (arg in cUtils.MOD_BASE_NAMES.keys() or
+            arg in cUtils.complement(cUtils.MOD_BASE_NAMES.keys())):
+        return str(arg)
+    else:
+        raise argparse.ArgumentTypeError("""The provided target nucleobase of
+                                            the modification ({}) is not
+                                            a recognized modified nucleobase.
+                                         """.format(arg))
+
+
 def _modifyPositionOptionType(arg):
     permittedCharList = ['c', 'A', 'T', 'G', 'C']
     if arg in permittedCharList:
-        return arg
+        return str(arg)
     elif arg.isdigit():
         return int(arg)
     else:
-        raise argparse.ArgumentTypeError("The provided option must contain \
-                                         an integer or one of: " +
-                                         permittedCharList)
+        raise argparse.ArgumentTypeError("""The provided option must contain
+                                            an integer or one of: {}.
+                                         """.format(permittedCharList))
 
 
 def die(msg):
@@ -338,7 +349,12 @@ inputFile.add_argument('-m', '--inMEMEFile', type=str, help="File containing \
                        an input set of motifs in minimal MEME format.")
 modBaseSpecifiers = parser.add_mutually_exclusive_group()
 modBasePositions = parser.add_mutually_exclusive_group()
-modBaseSpecifiers.add_argument('-M', '--baseModification', type=str,
+modBaseSpecifiers.add_argument('-M', '--baseModification',
+                               type=_modificationOptionType,
+                               choices=(cUtils.MOD_BASE_NAMES.keys() +
+                                        cUtils.complement(cUtils.
+                                                          MOD_BASE_NAMES.
+                                                          keys())),
                                help="Modify the motif to use the modified base \
                                provided in this argument at the position \
                                specified by '-P'. The resultant motif will \
@@ -546,12 +562,6 @@ if (args.modCFractions and ('+' not in args.hemimodifyOnly)):
 if (args.modGFractions and ('-' not in args.hemimodifyOnly)):
     warn("""Guanine bases will not be modified, since only negative-strand
             modification is permitted in this hemi-modification mode.""")
-
-if (args.baseModification and args.baseModification not in
-    cUtils.MOD_BASE_NAMES.keys() and args.baseModification not in
-        cUtils.complement(cUtils.MOD_BASE_NAMES.keys())):
-    die("""The provided target nucleobase of the modification ({}) is not
-           a recognized modified nucleobase.""".format(args.baseModification))
 
 motifAlphBGFreqs = ()
 if args.background:
