@@ -749,10 +749,15 @@ if args.inSeq:
 
         freq_matrix = np.zeros((motifChars.shape[1], len(motifAlphBGFreqs)))
         for i in range(0, motifChars.shape[1]):
-            print(cUtils.IUPAC_BASES[motifChars[:, i][0]])  # XXX
-            bases, baseFreqs = \
-                np.unique(cUtils.IUPAC_BASES[motifChars[:, i][0]],
-                          return_counts=True)
+            base = motifChars[:, i][0]
+            unambig_base_s = (cUtils.IUPAC_BASES.get(base) or
+                              cUtils.AMBIG_MOD_BASES.get(base) or base)
+            # unambig_base_s should only contain core bases, which are those
+            # that have assigned base colours
+            if not all(unambig_base in cUtils.BASE_COLOURS.keys()
+                       for unambig_base in unambig_base_s):
+                die("""Unrecognized base "{}".""".format(base))
+            bases, baseFreqs = np.unique(unambig_base_s, return_counts=True)
             # NB: /= appears to perform //= despite future import statement
             baseFreqs = baseFreqs / len(baseFreqs)
             # Append to the letter frequency matrix
