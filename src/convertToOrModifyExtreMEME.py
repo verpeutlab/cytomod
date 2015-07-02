@@ -227,7 +227,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
 
         mod_base_context = _ALL_BASE_CONTEXTS
         baseModPos = args.tryAllCModsAtPos or args.baseModPosition
-        # index is either positional or comprises all nucleobases
+        # index is either positional, comprises all nucleobases, or contextual
         mod_base_index = slice(baseModPos - 1, baseModPos) \
             if (baseModPos and isinstance(baseModPos, int)
                 and baseModPos != cUtils._PARAM_A_CONST_VAL) else slice(None)
@@ -333,15 +333,15 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                     # use the context mask as a sub-array of the correct length
                     # (i.e. preceded and succeeded by 'False' to make up the
                     # length of the motif) to accomplish this.
-                    matrix[np.concatenate((np.zeros(getattr(mod_base_index,
-                                                            'start'),
-                                                    dtype=bool),
-                                           correct_context,
-                                           np.zeros(getattr(mod_base_index,
-                                                            'stop') -
-                                                    context_len[0],
-                                                    dtype=bool))), ] \
-                        = only_target_base_at_pos
+                    if mod_base_index != slice(None):
+                        correct_context = \
+                            np.concatenate((np.zeros(getattr(mod_base_index,
+                                            'start'), dtype=bool),
+                                            correct_context,
+                                            np.zeros(getattr(mod_base_index,
+                                                             'stop') -
+                                                     context_len[0])))
+                    matrix[correct_context, ] = only_target_base_at_pos
                 print(matrix)  # XXX
                 print()  # XXX
 
