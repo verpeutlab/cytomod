@@ -17,6 +17,7 @@ always correpsonds to the unmodified motif.
 
 import os
 import re
+import operator
 import textwrap
 
 try:
@@ -143,6 +144,23 @@ def warn(msg):
     cUtils.warn(msg, os.path.basename(__file__))
 
 
+def getIncrementedSlice(slice_to_inc, slice_max):
+    if slice_to_inc == slice(None):
+        return slice_to_inc
+    else:
+        slice_stop_plus_one = (getattr(slice_to_inc, 'stop') + 1
+                               if (getattr(slice_to_inc, 'stop')
+                                   + 1) <= slice_max else
+                               slice_max - 1)
+
+        if getattr(slice_to_inc, 'start') is None:
+            return slice(slice_stop_plus_one)
+        else:
+            return slice(getattr(slice_to_inc, 'start') + 1,
+                         slice_stop_plus_one,
+                         getattr(slice_to_inc, 'step'))
+
+
 def output_motif(freq_matrix, output_descriptor, motif_name,
                  motif_alphabet, numSites, EValue, motif_filename):
     if args.revcomp:
@@ -201,7 +219,8 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
             args.baseModificationAtAllModifiablePosFractions):
         warn("""NB: modified motifs are output to a file.
                 The motif printed to STDOUT is the unmodified version.""")
-        if args.baseModPosition and args.baseModPosition >= totalNumBases:
+        if (args.baseModPosition and isinstance(args.baseModPosition, int) and
+            args.baseModPosition >= totalNumBases):
             die("""The provided modification position ({}) exceeds the
                    motif's final position ({}).
                 """.format(args.baseModPosition, totalNumBases - 1))
@@ -209,15 +228,17 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
         mod_base_context = _ALL_BASE_CONTEXTS
         baseModPos = args.tryAllCModsAtPos or args.baseModPosition
         # index is either positional or comprises all nucleobases
-        mod_base_index = (baseModPos - 1) if (baseModPos and baseModPos !=
-                                              cUtils._PARAM_A_CONST_VAL) \
-            else slice(None)
+        mod_base_index = slice(baseModPos - 1, baseModPos) \
+            if (baseModPos and isinstance(baseModPos, int)
+                and baseModPos != cUtils._PARAM_A_CONST_VAL) else slice(None)
 
         if args.baseModPosition and not isinstance(args.baseModPosition, int):
             if args.baseModPosition == 'c':
                 mod_base_context = 'G'
                 centre = totalNumBases//2
-                mod_base_index = slice(centre - 1, centre + 1)
+                mod_base_index = slice(centre - 1 if (centre - 1) >= 0 else 0,
+                                       centre + 1 if (centre + 1)
+                                       <= totalNumBases else totalNumBases - 1)
             else:
                 mod_base_context = args.baseModPosition
 
@@ -226,60 +247,83 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
         elif baseModPos:
             output_descriptor += '-P' + str(baseModPos)
 
+        mod_base_index_plus_one = getIncrementedSlice(mod_base_index,
+                                                       totalNumBases)
         # XXX check '-P' and '-H' ...
         for b in (motifAlphBGFreqs.keys() if args.tryAllCModsAtPos
                   else (args.baseModification or
                         args.baseModificationAtAllModifiablePosFractions)):
             modfreq_matrix = np.copy(freq_matrix)
-            if ((b not in cUtils.MOD_BASE_NAMES.keys() and
-                 '-' not in args.hemimodifyOnly) or
-                (b not in cUtils.complement(cUtils.MOD_BASE_NAMES.keys()) and
-                 '+' not in args.hemimodifyOnly)):
-                    if ((b not in cUtils.COMPLEMENTS.keys()) and
-                            (b not in cUtils.COMPLEMENTS.values())):
-                        warn("""Base {} provided in the background is not a
-                                currently supported modified nucleobase. It
-                                has, accordingly, been skipped.""".format(b))
-                    continue
-            if modCFracs and ('+' in args.hemimodifyOnly) and \
-                (mod_base_context == _ALL_BASE_CONTEXTS or
-                 (mod_base_index + 1 <= totalNumBases and
-                  (modfreq_matrix[mod_base_index + 1,
-                   motif_alphabet.index(mod_base_context)]
-                   > _CONTEXT_FREQ_THRESHOLD))):
+            #~ if ((b not in cUtils.MOD_BASE_NAMES.keys() and
+                 #~ '-' not in args.hemimodifyOnly) or
+                #~ (b not in cUtils.complement(cUtils.MOD_BASE_NAMES.keys()) and
+                 #~ '+' not in args.hemimodifyOnly)):
+            if ((b not in cUtils.COMPLEMENTS.keys()) and
+                    (b not in cUtils.COMPLEMENTS.values())):
+                warn("""Base {} provided in the background is not a
+                        currently supported modified nucleobase. It
+                        has, accordingly, been skipped.""".format(b))
+                    #~ continue
+
+
+            def _modifyMatrixPortion(primary_base_to_mod, target_modified_base):
+                cmp_operator = operator.le if mod_base_context != primary_base_to_mod else operator.gt
+                print(modfreq_matrix[mod_base_index,
+                                   motif_alphabet.index(primary_base_to_mod)]) # XXX
+                print(modfreq_matrix[mod_base_index_plus_one,
+                                   motif_alphabet.index(mod_base_context)]) # XXX
+                context_len = modfreq_matrix[mod_base_index,
+                                   motif_alphabet.index(primary_base_to_mod)].shape[0]
+                correct_context = np.where(np.logical_and(np.logical_and(modfreq_matrix[mod_base_index,
+                                   motif_alphabet.index(primary_base_to_mod)] > _CONTEXT_FREQ_THRESHOLD, cmp_operator(modfreq_matrix[mod_base_index_plus_one,
+                                   motif_alphabet.index(mod_base_context)], _CONTEXT_FREQ_THRESHOLD)), np.roll(modfreq_matrix[mod_base_index_plus_one,
+                                   motif_alphabet.index(mod_base_context)], -1) > _CONTEXT_FREQ_THRESHOLD), np.ones(context_len, dtype=bool), np.zeros(context_len, dtype=bool))
+                if args.baseModPosition == 'c':  # corrects the context mask being off-by-one
+                    correct_context = np.roll(correct_context, 1)
+                print(correct_context) # XXX
+
+                modfreq_matrix_cur_view = \
+                    modfreq_matrix[mod_base_index, motif_alphabet.
+                                   index(cUtils.complement(b))].view()
+                modfreq_matrix_modified_view = \
+                    modfreq_matrix[mod_base_index, motif_alphabet.
+                                   index(primary_base_to_mod)].view()
+                print(modfreq_matrix) #XXX
+                print() # XXX
+                # TODO would be nice to use variables for LHS and
+                # have assignment work (would need to change indexing method)
+                modfreq_matrix[mod_base_index,
+                               motif_alphabet.index(target_modified_base)] = \
+                    np.where(correct_context, modfreq_matrix_modified_view,
+                             modfreq_matrix_cur_view)
+                modfreq_matrix[mod_base_index,
+                               motif_alphabet.index(primary_base_to_mod)] = \
+                    np.where(correct_context,
+                             (0 if baseModPos else
+                              np.zeros(modfreq_matrix.shape[0])),
+                             modfreq_matrix_modified_view)
+                print(modfreq_matrix) #XXX
+                print() # XXX
+
+
+            if modCFracs and ('+' in args.hemimodifyOnly):
                 # modify cytosine fractions
-                modfreq_matrix[mod_base_index, motif_alphabet.index(cUtils.getMBMaybeFromComp(b))] = \
-                    modfreq_matrix[mod_base_index, motif_alphabet.index('C')]
-                modfreq_matrix[mod_base_index, motif_alphabet.index('C')] = \
-                    (0 if baseModPos else np.zeros(modfreq_matrix.shape[0]))
-            if modGFracs and ('-' in args.hemimodifyOnly) and \
-                (mod_base_context == _ALL_BASE_CONTEXTS or
-                 (mod_base_index + 1 <= totalNumBases and
-                  (modfreq_matrix[mod_base_index + 1,
-                   motif_alphabet.index(cUtils.complement(mod_base_context))]
-                   > _CONTEXT_FREQ_THRESHOLD))):
+                _modifyMatrixPortion('C', b)
+            if modGFracs and ('-' in args.hemimodifyOnly):
                 # modify guanine fractions
-                modfreq_matrix[mod_base_index, motif_alphabet.index(cUtils.getCompMaybeFromMB(b))] = \
-                    modfreq_matrix[mod_base_index, motif_alphabet.index('G')]
-                modfreq_matrix[mod_base_index, motif_alphabet.index('G')] = \
-                    (0 if baseModPos else np.zeros(modfreq_matrix.shape[0]))
+                _modifyMatrixPortion('G', cUtils.complement(b))
             else:
-                if mod_base_context == _ALL_BASE_CONTEXTS or \
-                    (mod_base_index + 1 <= totalNumBases and
-                     (modfreq_matrix[mod_base_index + 1,
-                      motif_alphabet.index(mod_base_context
-                                           if b in cUtils.COMPLEMENTS
-                                           else cUtils.
-                                           complement(mod_base_context))]
-                      > _CONTEXT_FREQ_THRESHOLD)):
-                    # zero all entries along the frequency matrix,
-                    # for the given (row) position, except that corresponding
-                    # to the (column) index of the modified base,
-                    # which is set to unity.
-                    modfreq_matrix[mod_base_index, ] = \
-                        np.zeros((1, freq_matrix.shape[1]))
-                    modfreq_matrix[mod_base_index,
-                                   motif_alphabet.index(b)] = 1
+                # zero all entries along the frequency matrix,
+                # for the given (row) position, except that corresponding
+                # to the (column) index of the modified base,
+                # which is set to unity.
+
+                # XXX replace with amended call to _modifyMatrixPortion
+                modfreq_matrix[mod_base_index, ] = \
+                    np.zeros((1, freq_matrix.shape[1]))
+                modfreq_matrix[mod_base_index,
+                               motif_alphabet.index(b)] = 1
+
             with open((os.path.basename(os.path.splitext(motif_filename)[0]) +
                        '-' + cUtils.MOD_BASE_NAMES[cUtils.
                                                    getMBMaybeFromComp(b)]
