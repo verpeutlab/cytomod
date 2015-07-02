@@ -8,6 +8,7 @@
 
    Constants:
 
+   IUPAC_BASES               - IUPAC DNA bases, including ambiguity codes
    MOD_BASES                 - Map mod. base abbreviations to base.
    MOD_BASE_NAMES            - Inverse of MOD_BASES.
    AMBIG_MOD_BASES           - Define mod. base ambiguity codes.
@@ -218,6 +219,17 @@ POS_STRAND_BASES_MODIFIED = ['C']
                                            POS_STRAND_BASES_MODIFIED,
                                            BASE_TO_COVALENT_MODIFICATION_MAP,
                                            MOD_BASE_COMPLEMENT_NUM_ORDER)
+
+# Define the IUPAC DNA bases, including ambiguity codes
+# The list includes the additional MEME 'X' = 'N' as well as the
+# four core nulceobases.
+IUPAC_BASES = {'A': ['A'], 'T': ['T'], 'C': ['C'], 'G': ['G'],
+               'R': ['A', 'G'], 'Y': ['C', 'T'],
+               'K': ['G', 'T'], 'M': ['A', 'C'],
+               'S': ['C', 'G'], 'W': ['A', 'T'],
+               'B': ['C', 'G', 'T'], 'D': ['G', 'A', 'T'],
+               'H': ['A', 'C', 'T'], 'V': ['A', 'C', 'G'],
+               'N': ['A', 'C', 'G', 'T'], 'X': ['A', 'C', 'G', 'T']}
 
 # Define the modified base ambiguity codes, listed in
 # their order of decreasing generality and then by the

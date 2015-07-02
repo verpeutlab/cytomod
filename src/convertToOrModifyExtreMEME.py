@@ -304,6 +304,8 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                 if roll:  # corrects the context mask being off-by-one
                     correct_context = np.roll(correct_context, 1)
                 print()  # XXX
+                print(correct_context)  # XXX
+                print()  # XXX
                 print(matrix)  # XXX
                 print()  # XXX
                 # TODO would be nice to use variables for LHS and
@@ -747,7 +749,12 @@ if args.inSeq:
 
         freq_matrix = np.zeros((motifChars.shape[1], len(motifAlphBGFreqs)))
         for i in range(0, motifChars.shape[1]):
-            bases, baseFreqs = np.unique(motifChars[:, i], return_counts=True)
+            print(cUtils.IUPAC_BASES[motifChars[:, i][0]])  # XXX
+            bases, baseFreqs = \
+                np.unique(cUtils.IUPAC_BASES[motifChars[:, i][0]],
+                          return_counts=True)
+            # NB: /= appears to perform //= despite future import statement
+            baseFreqs = baseFreqs / len(baseFreqs)
             # Append to the letter frequency matrix
             matIn = StringIO(_DELIM.join(str(x) for x in
                                          (baseFreqs[idx][0]/totalNumBases if
