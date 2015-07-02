@@ -284,6 +284,8 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                 if mod_base_context == _ALL_BASE_CONTEXTS:
                     correct_context = np.ones(context_len, dtype=bool)
                 else:
+                    # create a mask which ensures that modifications are
+                    # only permitted in their valid genomic context
                     correct_context = \
                         np.where(np.logical_and(np.logical_and(
                             matrix[mod_base_index, motif_alphabet.
@@ -341,12 +343,13 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                 print(matrix)  # XXX
                 print()  # XXX
 
-            if modCFracs and ('+' in args.hemimodifyOnly):
+            if modCFracs and '+' in args.hemimodifyOnly:
                 # modify cytosine fractions
                 _modifyMatrixPortion(modfreq_matrix, 'C', b, True,
                                      True if args.baseModPosition == 'c'
                                      else False)
-            if modGFracs and ('-' in args.hemimodifyOnly):
+            if (modGFracs and '-' in args.hemimodifyOnly and
+                not isinstance(args.baseModPosition, int)):
                 # modify guanine fractions
                 mod_base_index = mod_base_index_plus_one
                 mod_base_index_plus_one = getAlteredSlice(mod_base_index,
@@ -355,11 +358,12 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                 _modifyMatrixPortion(modfreq_matrix, 'G', cUtils.complement(b),
                                      True)
             if not (modCFracs or modGFracs):
-                if ('+' in args.hemimodifyOnly):
+                if '+' in args.hemimodifyOnly:
                     _modifyMatrixPortion(modfreq_matrix, 'C', b, False,
                                          True if args.baseModPosition == 'c'
                                          else False)
-                if ('-' in args.hemimodifyOnly):
+                if ('-' in args.hemimodifyOnly and
+                    not isinstance(args.baseModPosition, int)):
                     mod_base_index = mod_base_index_plus_one
                     mod_base_index_plus_one = getAlteredSlice(mod_base_index,
                                                               totalNumBases,
