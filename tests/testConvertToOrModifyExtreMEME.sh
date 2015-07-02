@@ -209,11 +209,11 @@ correct_result=$(cat <<'EOF'
 EOF
 )
 
-runContainsFileTest "$PROGRAM_PATH" '5A' "-s $DATA_DIR/NFATC1.seq -P 2 -M f" "$correct_result"
+runContainsFileTest "$PROGRAM_PATH" '5A' "-W -s $DATA_DIR/NFATC1.seq -P 2 -M f" "$correct_result"
 
 # 5B) check that 5A is identical in fractional mode as well (since all matrix values are 0 or 1)
 
-runContainsFileTest "$PROGRAM_PATH" '5B' "-s $DATA_DIR/NFATC1.seq -P 2 -M f -F" "$correct_result"
+runContainsFileTest "$PROGRAM_PATH" '5B' "-W -s $DATA_DIR/NFATC1.seq -P 2 -M f -F" "$correct_result"
 
 # 6) check that ambiguity codes are parsed correctly
 
@@ -231,6 +231,34 @@ correct_result=$(cat <<'EOF'
 EOF
 )
 
-runContainsTest "$PROGRAM_PATH" '6' "-s KRzxTCym3N" "$correct_result"
+runContainsTest "$PROGRAM_PATH" '6' "-W -s KRzxTCym3N" "$correct_result"
 
+# 7A) check a fractional CpG context modification in a motif containing a modified ambiguity code
 
+correct_result=$(cat <<'EOF'
+0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	1.000000	0.000000	0.000000	0.000000	0.000000
+0.000000	0.000000	0.000000	0.000000	0.000000	1.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000
+0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.500000	0.500000
+1.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000
+0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	1.000000	0.000000	0.000000	0.000000	0.000000	0.000000
+EOF
+)
+
+runContainsFileTest "$PROGRAM_PATH" '7A' "-W -s TCxGG -M m -P G" "$correct_result"
+
+# 7B) check that the fractional version of 7A is identical
+
+runContainsFileTest "$PROGRAM_PATH" '7B' "-W -s TCxGG -M m -P G -F" "$correct_result"
+
+# 8) check a CpT context modification
+
+correct_result=$(cat <<'EOF'
+0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	1.000000	0.000000	0.000000	0.000000	0.000000
+0.000000	0.000000	0.000000	0.000000	0.000000	1.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000
+0.000000	0.000000	0.000000	0.000000	0.000000	1.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000
+0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	1.000000	0.000000	0.000000	0.000000	0.000000	0.000000
+0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000
+EOF
+)
+
+runContainsFileTest "$PROGRAM_PATH" '8' "-W -s TCCGG -M m -P T" "$correct_result"

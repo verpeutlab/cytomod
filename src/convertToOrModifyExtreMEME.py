@@ -141,7 +141,8 @@ def die(msg):
 
 
 def warn(msg):
-    cUtils.warn(msg, os.path.basename(__file__))
+    if not args.noWarnings:
+        cUtils.warn(msg, os.path.basename(__file__))
 
 
 def getAlteredSlice(slice_to_inc, slice_max, operation, value):
@@ -314,11 +315,15 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                 if mod_fractions:
                     # transfer primary_base_to_mod frequency to the
                     # corresponding target_modified_base entry.
+
+                    # make the modification
+                    # XXX below code is causing other positions to be nuked (set to 0) XXX
                     matrix[mod_base_index,
                            motif_alphabet.index(target_modified_base)] = \
                         np.where(correct_context, matrix_modified_view,
                                  matrix_cur_view)
 
+                    # zero out other base frequencies at modification's pos.
                     matrix[mod_base_index,
                            motif_alphabet.index(primary_base_to_mod)] = \
                         np.where(correct_context,
@@ -341,7 +346,8 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                                             np.zeros(getattr(mod_base_index,
                                                              'stop') -
                                                      context_len[0])))
-                    matrix[correct_context, ] = only_target_base_at_pos
+                    matrix[correct_context.astype('bool'), ] = \
+                        only_target_base_at_pos
                 print(matrix)  # XXX
                 print()  # XXX
 
@@ -618,6 +624,8 @@ parser.add_argument('-b', '--background', default=_DEFAULT_BG,
                     All lines starting with '#' in the file will be ignored. \
                     If this argument is not provided, it will default to \
                     the mESC background model.")
+parser.add_argument('-W', '--noWarnings', help="Disable warnings.",
+                    action='store_true')
 parser.add_argument('-v', '--verbose', help="increase output verbosity",
                     action='count')
 parser.add_argument('-V', '--version', action='version',

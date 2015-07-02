@@ -42,7 +42,10 @@ function runContainsTest {
 
 function runContainsFileTest {
     # runContainsFileTest <program path> <test ID> <program arguments> <correct result> [file]
-    eval "$1 $3" &> /dev/null
+    run_errors="$($1 $3 2>&1 >/dev/null)"
+    if [[ $(echo "$run_errors") ]]; then
+        failMsgAndExit $2
+    fi
     test_result=$(<${5-*.meme})
     _performContainsTest "$2" "$test_result" "$4"
     rm -f *.meme
