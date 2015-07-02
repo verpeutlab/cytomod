@@ -198,7 +198,7 @@ EOF
 
 runContainsTest "$PROGRAM_PATH" '4B' "-c $DATA_DIR/TFAP2A.pfm -N c,5hmC" "$correct_result"
 
-# 5) check a basic positional modification
+# 5A) check a basic positional modification
 
 correct_result=$(cat <<'EOF'
 0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	1.000000	0.000000	0.000000	0.000000	0.000000
@@ -209,6 +209,10 @@ correct_result=$(cat <<'EOF'
 EOF
 )
 
-runContainsFileTest "$PROGRAM_PATH" '5' "-s $DATA_DIR/NFATC1.seq -P 2 -M f" "$correct_result"
+runContainsFileTest "$PROGRAM_PATH" '5A' "-s $DATA_DIR/NFATC1.seq -P 2 -M f" "$correct_result"
+
+# 5B) check that 5A is identical in fractional mode as well (since all matrix values are 0 or 1)
+
+runContainsFileTest "$PROGRAM_PATH" '5B' "-s $DATA_DIR/NFATC1.seq -P 2 -M f -F" "$correct_result"
 
 

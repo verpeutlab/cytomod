@@ -349,7 +349,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                                      True if args.baseModPosition == 'c'
                                      else False)
             if (modGFracs and '-' in args.hemimodifyOnly and
-                not isinstance(args.baseModPosition, int)):
+                    not isinstance(args.baseModPosition, int)):
                 # modify guanine fractions
                 mod_base_index = mod_base_index_plus_one
                 mod_base_index_plus_one = getAlteredSlice(mod_base_index,
@@ -363,7 +363,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                                          True if args.baseModPosition == 'c'
                                          else False)
                 if ('-' in args.hemimodifyOnly and
-                    not isinstance(args.baseModPosition, int)):
+                        not isinstance(args.baseModPosition, int)):
                     mod_base_index = mod_base_index_plus_one
                     mod_base_index_plus_one = getAlteredSlice(mod_base_index,
                                                               totalNumBases,
@@ -656,6 +656,12 @@ if (args.modCFractions and ('+' not in args.hemimodifyOnly)):
 if (args.modGFractions and ('-' not in args.hemimodifyOnly)):
     warn("""Guanine bases will not be modified, since only negative-strand
             modification is permitted in this hemi-modification mode.""")
+
+if (isinstance(args.baseModPosition, int) and
+        args.hemimodifyOnly != _DEFAULT_HEMIMODARG):
+    die("""Hemi-modification cannot be specified with an explicit
+           modification position (motif position {}).
+        """.format(args.baseModPosition))
 
 motifAlphBGFreqs = ()
 if args.background:
