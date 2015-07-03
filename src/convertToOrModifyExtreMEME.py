@@ -37,6 +37,7 @@ _DEFAULT_BG = _mESC_BG_NAME
 _DEFAULT_HEMIMODARG = '+-'
 
 _CONTEXT_FREQ_THRESHOLD = 0
+_DIST_FROM_CEN = 1  # distance from centre to still be considered "central"
 
 _ALL_BASE_CONTEXTS = '*'
 _DELIM = "\t"
@@ -111,6 +112,13 @@ strands: {}
 Background letter frequencies (from {}):
 """.format(STRANDS, FROM_STR)
 
+INVALID_PWM_MSG = """Invalid PWM; rows do not sum to one."""
+
+MODIFYING_INVALID_PWM_MSG = """The resultant PWM would not have rows summing to
+                               to one. This is likely caused by an attempt to
+                               modify an already modified motif, which cannot
+                               be performed."""
+
 
 def _modificationOptionType(arg):
     if (arg in cUtils.MOD_BASE_NAMES.keys() or
@@ -142,6 +150,11 @@ def die(msg):
 def warn(msg):
     if not args.noWarnings:
         cUtils.warn(msg, os.path.basename(__file__))
+
+
+def checkPWMValidity(matrix, invalid_msg=INVALID_PWM_MSG):
+    if not np.allclose(np.sum(matrix, axis=1), 1):
+        die(invalid_msg)
 
 
 def getAlteredSlice(slice_to_inc, slice_max, operation, value):
@@ -201,6 +214,9 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                 skipRows.extend(range(start, end))
         freq_matrix = np.delete(freq_matrix, skipRows, 0)
 
+    # add an extra final row to be removed later, to make computations simpler
+    freq_matrix = np.vstack([freq_matrix, np.zeros(freq_matrix.shape[1])])
+
     totalNumBases = freq_matrix.shape[0]
 
     MEMEBody = textwrap.dedent("""\
@@ -235,10 +251,14 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
         if args.baseModPosition and not isinstance(args.baseModPosition, int):
             if args.baseModPosition == 'c':
                 mod_base_context = 'G'
-                centre = totalNumBases//2 + 1  # add one since indexed from 1
-                # +2 on stop, since slice is [start, stop)
-                mod_base_index = slice(centre - 1 if (centre - 1) >= 0 else 0,
-                                       centre + 2 if (centre + 2)
+                # would add one to centre since indexed from 1, but do not
+                # due to the extra row accounting for this
+                centre = totalNumBases//2
+                central_start = centre - _DIST_FROM_CEN
+                # +1 extra on stop, since slice is [start, stop)
+                central_end = centre + _DIST_FROM_CEN + 1
+                mod_base_index = slice(central_start if central_start >= 0
+                                       else 0, central_end if central_end
                                        <= totalNumBases else totalNumBases - 1)
             else:
                 mod_base_context = args.baseModPosition
@@ -264,76 +284,82 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                                      hemimodifyOnly, old_matrix=None):
                 if old_matrix is None:
                     old_matrix = matrix
-                matrix_cur_view = \
-                    matrix[mod_base_index, motif_alphabet.
-                           index(target_modified_base)
-                           if mod_fractions else slice(None)].view()
                 if not mod_fractions:
                     only_target_base_at_pos = \
-                        np.zeros(matrix_cur_view.shape[1])
+                        np.zeros(matrix.shape[1])
                     only_target_base_at_pos[motif_alphabet.
                                             index(target_modified_base)] = 1
-                matrix_modified_view = \
-                    matrix[mod_base_index, motif_alphabet.
-                           index(primary_base_to_mod)].view() \
-                    if mod_fractions else only_target_base_at_pos
+                    only_target_base_at_pos_comp = \
+                        np.zeros(only_target_base_at_pos.shape)
+                    only_target_base_at_pos_comp[motif_alphabet.
+                                                 index(cUtils.complement
+                                                       (target_modified_base))
+                                                 ] = 1
 
                 context_len = matrix[mod_base_index, motif_alphabet.
                                      index(target_modified_base)].shape
                 if mod_base_context == _ALL_BASE_CONTEXTS:
                     correct_context = np.ones(context_len, dtype=bool)
+                    correct_context_minus = correct_context
                 else:
                     # create a mask which ensures that modifications are
                     # only permitted in their valid genomic context
+                    # NB: the position of the insertion of 'False' depends upon
+                    # the portion of the conjunction (i.e. [:-1] vs. [1:])
+                    # such that it always inserts on the sequence's termination
                     correct_context = \
-                        np.insert(np.logical_and(
-                                  old_matrix[mod_base_index,
-                                             motif_alphabet.
-                                             index(primary_base_to_mod)]
-                                  [:-1]
-                                  > _CONTEXT_FREQ_THRESHOLD,
-                                  old_matrix[mod_base_index,
-                                             motif_alphabet.
-                                             index(mod_base_context)][1:]
-                                  > _CONTEXT_FREQ_THRESHOLD), -1, [0])
+                        np.logical_and(
+                            np.insert(old_matrix[mod_base_index,
+                                      motif_alphabet.
+                                      index(primary_base_to_mod)], -1, [0])
+                            [:-1]
+                            > _CONTEXT_FREQ_THRESHOLD,
+                            np.insert(old_matrix[mod_base_index,
+                                      motif_alphabet.
+                                      index(mod_base_context)]
+                                      > _CONTEXT_FREQ_THRESHOLD, -1, [0])[1:])
+                    correct_context_minus = np.zeros(context_len, dtype=bool)
 
                     if '-' in hemimodifyOnly:
-                        # set all elements next to True to True
-                        correct_context = \
-                            np.logical_or(correct_context,
-                                          np.insert(correct_context[:-1],
-                                                    0, [0]))
-                    if '+' not in hemimodifyOnly:
-                        # set all elements next to True to True
-                        # and previously True to False
-                        # (i.e. shift Boolean values right, clipping them)
-                        correct_context = \
+                        # shift Boolean values right, clipping them
+                        correct_context_minus = \
                             np.insert(correct_context[:-1], 0, [0])
-                print()  # XXX
-                print(correct_context)  # XXX
-                print()  # XXX
-                print(matrix)  # XXX
-                print()  # XXX
-                # TODO would be nice to use variables for LHS and
-                # have assignment work (would need to change indexing method)
+                    if '+' not in hemimodifyOnly:
+                        # shift Boolean values right, clipping them
+                        correct_context = \
+                            np.zeros(context_len, dtype=bool)
 
                 if mod_fractions:
-                    # transfer primary_base_to_mod frequency to the
-                    # corresponding target_modified_base entry.
+                    for iter, fun in enumerate([lambda x: x,
+                                               cUtils.complement]):
+                        context_to_use = (correct_context if iter == 0
+                                          else correct_context_minus)
+                        # NB: this definition precludes further modification of
+                        # modified bases, since it presumes residual
+                        # frequencies are in the primary_base_to_mod column
+                        matrix_cur_view = \
+                            matrix[mod_base_index, motif_alphabet.
+                                   index(fun(target_modified_base))].view()
+                        matrix_modified_view = \
+                            matrix[mod_base_index, motif_alphabet.
+                                   index(fun(primary_base_to_mod))].view()
 
-                    # make the modification
-                    matrix[mod_base_index,
-                           motif_alphabet.index(target_modified_base)] = \
-                        np.where(correct_context, matrix_modified_view,
-                                 matrix_cur_view)
+                        # transfer primary_base_to_mod frequency to the
+                        # corresponding target_modified_base entry.
 
-                    # zero out other base frequencies at modification's pos.
-                    matrix[mod_base_index,
-                           motif_alphabet.index(primary_base_to_mod)] = \
-                        np.where(correct_context,
-                                 (0 if baseModPos else
-                                  np.zeros(matrix.shape[0])),
-                                 matrix_modified_view)
+                        # make the modification
+                        matrix[mod_base_index,
+                               motif_alphabet.index(fun(target_modified_base))] = \
+                            np.where(context_to_use, matrix_modified_view,
+                                     matrix_cur_view)
+
+                        # zero out other base frequencies at modification pos.
+                        matrix[mod_base_index,
+                               motif_alphabet.index(fun(primary_base_to_mod))] = \
+                            np.where(context_to_use,
+                                     (0 if baseModPos else
+                                      np.zeros(matrix.shape[0])),
+                                     matrix_modified_view)
                 else:
                     # zero all entries along the frequency matrix,
                     # for the given (row) position, except that corresponding
@@ -343,18 +369,24 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                     # (i.e. preceded and succeeded by 'False' to make up the
                     # length of the motif) to accomplish this.
                     if mod_base_index != slice(None):
-                        correct_context = \
-                            np.concatenate((np.zeros(getattr(mod_base_index,
-                                            'start'), dtype=bool),
-                                            correct_context,
-                                            np.zeros(getattr(mod_base_index,
-                                                             'stop') -
-                                                     context_len[0])))
+                        def _resize_context(context):
+                            return np.concatenate(
+                                (np.zeros(getattr(mod_base_index,
+                                          'start'), dtype=bool), context,
+                                 np.zeros(getattr(mod_base_index,
+                                          'stop') - context_len[0])))
+
+                        correct_context = _resize_context(correct_context)
+                        correct_context_minus = \
+                            _resize_context(correct_context_minus)
+
                     matrix[correct_context.astype('bool'), ] = \
                         only_target_base_at_pos
-                print(matrix)  # XXX
-                print("------------\n")  # XXX
-                assert np.allclose(np.sum(matrix, axis=1), 1)
+                    if mod_base_context != _ALL_BASE_CONTEXTS:
+                        matrix[correct_context_minus.astype('bool'), ] = \
+                            only_target_base_at_pos_comp
+
+                checkPWMValidity(matrix[:-1], MODIFYING_INVALID_PWM_MSG)
 
             _modifyMatrixPortion(modfreq_matrix, mod_base_index, 'C', b,
                                  mod_base_context,
@@ -373,6 +405,8 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                                      args.hemimodifyOnly,
                                      freq_matrix if modGFracs else None)
 
+            modfreq_matrix = modfreq_matrix[:-1]  # remove extra final row
+            checkPWMValidity(modfreq_matrix)
             with open((os.path.basename(os.path.splitext(motif_filename)[0]) +
                        '-' + cUtils.MOD_BASE_NAMES[cUtils.
                                                    getMBMaybeFromComp(b)]
@@ -384,6 +418,8 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                 outFile.write(MEMEBody)
                 np.savetxt(outFile, modfreq_matrix, '%f', _DELIM)
 
+    freq_matrix = freq_matrix[:-1]  # remove extra final row
+    checkPWMValidity(freq_matrix)
     output = StringIO()
     np.savetxt(output, freq_matrix, '%f', _DELIM)
     MEMEBody += output.getvalue()
