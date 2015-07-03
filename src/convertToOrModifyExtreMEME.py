@@ -17,7 +17,6 @@ always correpsonds to the unmodified motif.
 
 import os
 import re
-import operator
 import textwrap
 
 try:
@@ -236,9 +235,10 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
         if args.baseModPosition and not isinstance(args.baseModPosition, int):
             if args.baseModPosition == 'c':
                 mod_base_context = 'G'
-                centre = totalNumBases//2
+                centre = totalNumBases//2 + 1  # add one since indexed from 1
+                # +2 on stop, since slice is [start, stop)
                 mod_base_index = slice(centre - 1 if (centre - 1) >= 0 else 0,
-                                       centre + 1 if (centre + 1)
+                                       centre + 2 if (centre + 2)
                                        <= totalNumBases else totalNumBases - 1)
             else:
                 mod_base_context = args.baseModPosition
@@ -261,10 +261,10 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
 
             def _modifyMatrixPortion(matrix, mod_base_index,
                                      primary_base_to_mod, target_modified_base,
-                                     mod_fractions, roll=False):
-                mod_base_index_plus_one = getAlteredSlice(mod_base_index,
-                                                          totalNumBases,
-                                                          operator.add, 1)
+                                     mod_base_context, mod_fractions,
+                                     hemimodifyOnly, old_matrix=None):
+                if old_matrix is None:
+                    old_matrix = matrix
                 matrix_cur_view = \
                     matrix[mod_base_index, motif_alphabet.
                            index(cUtils.complement(b))
@@ -278,8 +278,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                     matrix[mod_base_index, motif_alphabet.
                            index(primary_base_to_mod)].view() \
                     if mod_fractions else only_target_base_at_pos
-                cmp_operator = (operator.le if mod_base_context
-                                != primary_base_to_mod else operator.gt)
+
                 context_len = matrix[mod_base_index, motif_alphabet.
                                      index(cUtils.complement(b))].shape
                 if mod_base_context == _ALL_BASE_CONTEXTS:
@@ -288,22 +287,29 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                     # create a mask which ensures that modifications are
                     # only permitted in their valid genomic context
                     correct_context = \
-                        np.where(np.logical_and(np.logical_and(
-                            matrix[mod_base_index, motif_alphabet.
-                                   index(primary_base_to_mod)].view()
-                                 > _CONTEXT_FREQ_THRESHOLD,
-                                 cmp_operator(matrix[mod_base_index_plus_one,
-                                                     motif_alphabet.
-                                                     index(mod_base_context)],
-                                              _CONTEXT_FREQ_THRESHOLD)),
-                            np.roll(matrix[mod_base_index_plus_one,
-                                           motif_alphabet.
-                                           index(mod_base_context)], -1)
-                            > _CONTEXT_FREQ_THRESHOLD),
-                            np.ones(context_len, dtype=bool),
-                            np.zeros(context_len, dtype=bool))
-                if roll:  # corrects the context mask being off-by-one
-                    correct_context = np.roll(correct_context, 1)
+                        np.insert(np.logical_and(
+                                  old_matrix[mod_base_index,
+                                             motif_alphabet.
+                                             index(primary_base_to_mod)]
+                                  [:-1]
+                                  > _CONTEXT_FREQ_THRESHOLD,
+                                  old_matrix[mod_base_index,
+                                             motif_alphabet.
+                                             index(mod_base_context)][1:]
+                                  > _CONTEXT_FREQ_THRESHOLD), -1, [0])
+
+                    if '-' in hemimodifyOnly:
+                        # set all elements next to True to True
+                        correct_context = \
+                            np.logical_or(correct_context,
+                                          np.insert(correct_context[:-1],
+                                                    0, [0]))
+                    if '+' not in hemimodifyOnly:
+                        # set all elements next to True to True
+                        # and previously True to False
+                        # (i.e. shift Boolean values right, clipping them)
+                        correct_context = \
+                            np.insert(correct_context[:-1], 0, [0])
                 print()  # XXX
                 print(correct_context)  # XXX
                 print()  # XXX
@@ -317,7 +323,6 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                     # corresponding target_modified_base entry.
 
                     # make the modification
-                    # XXX below code is causing other positions to be nuked (set to 0) XXX
                     matrix[mod_base_index,
                            motif_alphabet.index(target_modified_base)] = \
                         np.where(correct_context, matrix_modified_view,
@@ -349,33 +354,18 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                     matrix[correct_context.astype('bool'), ] = \
                         only_target_base_at_pos
                 print(matrix)  # XXX
-                print()  # XXX
+                print("------------\n")  # XXX
+                return correct_context
 
-            for _ in range(2 if not isinstance(args.baseModPosition, int)
-                           else 1):
-                if modCFracs and '+' in args.hemimodifyOnly:
-                    # modify cytosine fractions
-                    _modifyMatrixPortion(modfreq_matrix, mod_base_index,
-                                         'C', b, True,
-                                         True if args.baseModPosition == 'c'
-                                         else False)
-                if modGFracs and '-' in args.hemimodifyOnly:
-                    # modify guanine fractions
-                    _modifyMatrixPortion(modfreq_matrix, mod_base_index, 'G',
-                                         cUtils.complement(b), True)
-                if not (modCFracs or modGFracs):
-                    if '+' in args.hemimodifyOnly:
-                        _modifyMatrixPortion(modfreq_matrix, mod_base_index,
-                                             'C', b, False, True if
-                                             args.baseModPosition == 'c'
-                                             else False)
-                    if '-' in args.hemimodifyOnly:
-                        _modifyMatrixPortion(modfreq_matrix, mod_base_index,
-                                             'G', cUtils.complement(b), False)
-                # now modify the next base, context permiting, if not int. pos.
-                mod_base_index = getAlteredSlice(mod_base_index,
-                                                 totalNumBases,
-                                                 operator.add, 1)
+            _modifyMatrixPortion(modfreq_matrix, mod_base_index, 'C', b,
+                                 mod_base_context,
+                                 True if modCFracs else False,
+                                 args.hemimodifyOnly)
+            _modifyMatrixPortion(modfreq_matrix, mod_base_index, 'G',
+                                 cUtils.complement(b),
+                                 cUtils.complement(mod_base_context),
+                                 True if modGFracs else False,
+                                 args.hemimodifyOnly, freq_matrix)
 
             with open((os.path.basename(os.path.splitext(motif_filename)[0]) +
                        '-' + cUtils.MOD_BASE_NAMES[cUtils.
