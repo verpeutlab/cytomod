@@ -283,14 +283,6 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                 if mod_base_context == _ALL_BASE_CONTEXTS:
                     correct_context = np.ones(context_len, dtype=bool)
                 else:
-                    print(old_matrix[mod_base_index,
-                                             motif_alphabet.
-                                             index(primary_base_to_mod)]
-                                  [:-1]) # XXX
-                    print(old_matrix[mod_base_index,
-                                             motif_alphabet.
-                                             index(mod_base_context)][1:]) # XXX
-                    
                     # create a mask which ensures that modifications are
                     # only permitted in their valid genomic context
                     correct_context = \
@@ -363,7 +355,6 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                 print(matrix)  # XXX
                 print("------------\n")  # XXX
                 assert np.allclose(np.sum(matrix, axis=1), 1)
-                
 
             _modifyMatrixPortion(modfreq_matrix, mod_base_index, 'C', b,
                                  mod_base_context,
