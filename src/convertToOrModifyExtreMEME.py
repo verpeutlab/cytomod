@@ -268,7 +268,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
         elif baseModPos:
             output_descriptor += '-P' + str(baseModPos)
 
-        for b in (motifAlphBGFreqs.keys() if args.tryAllCModsAtPos
+        for b in (cUtils.MOD_BASE_NAMES.keys() if args.tryAllCModsAtPos
                   else (args.baseModification or
                         args.baseModificationAtAllModifiablePosFractions)):
             modfreq_matrix = np.copy(freq_matrix)
@@ -385,7 +385,13 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                     if mod_base_context != _ALL_BASE_CONTEXTS:
                         matrix[correct_context_minus.astype('bool'), ] = \
                             only_target_base_at_pos_comp
-
+                
+                print() # XXX
+                print(mod_base_context) # XXX
+                print() # XXX
+                print(matrix) # XXX
+                print() # XXX
+                
                 checkPWMValidity(matrix[:-1], MODIFYING_INVALID_PWM_MSG)
 
             _modifyMatrixPortion(modfreq_matrix, mod_base_index, 'C', b,
