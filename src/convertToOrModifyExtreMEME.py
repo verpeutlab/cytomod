@@ -248,9 +248,6 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
         elif baseModPos:
             output_descriptor += '-P' + str(baseModPos)
 
-        mod_base_index_plus_one = getAlteredSlice(mod_base_index,
-                                                  totalNumBases,
-                                                  operator.add, 1)
         # XXX check '-P' and '-H' ...
         for b in (motifAlphBGFreqs.keys() if args.tryAllCModsAtPos
                   else (args.baseModification or
@@ -262,9 +259,12 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                         currently supported modified nucleobase. It
                         has, accordingly, been skipped.""".format(b))
 
-            def _modifyMatrixPortion(matrix, primary_base_to_mod,
-                                     target_modified_base, mod_fractions,
-                                     roll=False):
+            def _modifyMatrixPortion(matrix, mod_base_index,
+                                     primary_base_to_mod, target_modified_base,
+                                     mod_fractions, roll=False):
+                mod_base_index_plus_one = getAlteredSlice(mod_base_index,
+                                                          totalNumBases,
+                                                          operator.add, 1)
                 matrix_cur_view = \
                     matrix[mod_base_index, motif_alphabet.
                            index(cUtils.complement(b))
@@ -351,33 +351,31 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                 print(matrix)  # XXX
                 print()  # XXX
 
-            if modCFracs and '+' in args.hemimodifyOnly:
-                # modify cytosine fractions
-                _modifyMatrixPortion(modfreq_matrix, 'C', b, True,
-                                     True if args.baseModPosition == 'c'
-                                     else False)
-            if (modGFracs and '-' in args.hemimodifyOnly and
-                    not isinstance(args.baseModPosition, int)):
-                # modify guanine fractions
-                mod_base_index = mod_base_index_plus_one
-                mod_base_index_plus_one = getAlteredSlice(mod_base_index,
-                                                          totalNumBases,
-                                                          operator.add, 1)
-                _modifyMatrixPortion(modfreq_matrix, 'G', cUtils.complement(b),
-                                     True)
-            if not (modCFracs or modGFracs):
-                if '+' in args.hemimodifyOnly:
-                    _modifyMatrixPortion(modfreq_matrix, 'C', b, False,
+            for _ in range(2 if not isinstance(args.baseModPosition, int)
+                           else 1):
+                if modCFracs and '+' in args.hemimodifyOnly:
+                    # modify cytosine fractions
+                    _modifyMatrixPortion(modfreq_matrix, mod_base_index,
+                                         'C', b, True,
                                          True if args.baseModPosition == 'c'
                                          else False)
-                if ('-' in args.hemimodifyOnly and
-                        not isinstance(args.baseModPosition, int)):
-                    mod_base_index = mod_base_index_plus_one
-                    mod_base_index_plus_one = getAlteredSlice(mod_base_index,
-                                                              totalNumBases,
-                                                              operator.add, 1)
-                    _modifyMatrixPortion(modfreq_matrix, 'G',
-                                         cUtils.complement(b), False)
+                if modGFracs and '-' in args.hemimodifyOnly:
+                    # modify guanine fractions
+                    _modifyMatrixPortion(modfreq_matrix, mod_base_index, 'G',
+                                         cUtils.complement(b), True)
+                if not (modCFracs or modGFracs):
+                    if '+' in args.hemimodifyOnly:
+                        _modifyMatrixPortion(modfreq_matrix, mod_base_index,
+                                             'C', b, False, True if
+                                             args.baseModPosition == 'c'
+                                             else False)
+                    if '-' in args.hemimodifyOnly:
+                        _modifyMatrixPortion(modfreq_matrix, mod_base_index,
+                                             'G', cUtils.complement(b), False)
+                # now modify the next base, context permiting, if not int. pos.
+                mod_base_index = getAlteredSlice(mod_base_index,
+                                                 totalNumBases,
+                                                 operator.add, 1)
 
             with open((os.path.basename(os.path.splitext(motif_filename)[0]) +
                        '-' + cUtils.MOD_BASE_NAMES[cUtils.
