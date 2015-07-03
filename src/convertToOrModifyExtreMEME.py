@@ -248,7 +248,6 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
         elif baseModPos:
             output_descriptor += '-P' + str(baseModPos)
 
-        # XXX check '-P' and '-H' ...
         for b in (motifAlphBGFreqs.keys() if args.tryAllCModsAtPos
                   else (args.baseModification or
                         args.baseModificationAtAllModifiablePosFractions)):
@@ -361,11 +360,12 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                                  mod_base_context,
                                  True if modCFracs else False,
                                  args.hemimodifyOnly)
-            _modifyMatrixPortion(modfreq_matrix, mod_base_index, 'G',
-                                 cUtils.complement(b),
-                                 cUtils.complement(mod_base_context),
-                                 True if modGFracs else False,
-                                 args.hemimodifyOnly, freq_matrix)
+            if modGFracs:
+                _modifyMatrixPortion(modfreq_matrix, mod_base_index, 'G',
+                                     cUtils.complement(b),
+                                     cUtils.complement(mod_base_context),
+                                     True,
+                                     args.hemimodifyOnly, freq_matrix)
 
             with open((os.path.basename(os.path.splitext(motif_filename)[0]) +
                        '-' + cUtils.MOD_BASE_NAMES[cUtils.
