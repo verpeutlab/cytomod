@@ -299,8 +299,10 @@ MASK_BASE = AMBIG_MOD_BASES.keys()[0]
 
 @_unpacked
 def complement(bases):
-    """Complement the given, potentially modified, base."""
-    return [COMPLEMENTS.get(base) or (~COMPLEMENTS).get(base)
+    """Complement the given, potentially modified, base.
+    Returns the input base if no complement for that base is found.
+    """
+    return [COMPLEMENTS.get(base) or (~COMPLEMENTS).get(base) or base
             for base in bases]
 
 
