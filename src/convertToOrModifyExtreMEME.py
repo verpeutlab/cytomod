@@ -266,7 +266,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                     old_matrix = matrix
                 matrix_cur_view = \
                     matrix[mod_base_index, motif_alphabet.
-                           index(cUtils.complement(b))
+                           index(target_modified_base)
                            if mod_fractions else slice(None)].view()
                 if not mod_fractions:
                     only_target_base_at_pos = \
@@ -279,7 +279,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                     if mod_fractions else only_target_base_at_pos
 
                 context_len = matrix[mod_base_index, motif_alphabet.
-                                     index(cUtils.complement(b))].shape
+                                     index(target_modified_base)].shape
                 if mod_base_context == _ALL_BASE_CONTEXTS:
                     correct_context = np.ones(context_len, dtype=bool)
                 else:
@@ -362,7 +362,8 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                         only_target_base_at_pos
                 print(matrix)  # XXX
                 print("------------\n")  # XXX
-                return correct_context
+                assert np.allclose(np.sum(matrix, axis=1), 1)
+                
 
             _modifyMatrixPortion(modfreq_matrix, mod_base_index, 'C', b,
                                  mod_base_context,
