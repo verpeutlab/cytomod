@@ -935,9 +935,9 @@ if args.inMEMEFile:
                       match.group(MEME_MIN_REGEX_G_NAME).strip())
         numSites = int(match.group(MEME_MIN_REGEX_G_NUM_SITES))
         EValue = match.group(MEME_MIN_REGEX_G_E_VALUE)
-        motifs_to_output += _getMotif(freq_matrix, sorted_index)
+        motifs_to_output += _getMotif(freq_matrix, sorted_index) + "\n"
 else:
     motifs_to_output = _getMotif(freq_matrix, sorted_index)
 
 
-print(MEME_header + motifs_to_output)
+print(MEME_header + motifs_to_output.strip())
