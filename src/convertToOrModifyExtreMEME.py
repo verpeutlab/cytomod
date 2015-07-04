@@ -225,10 +225,8 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                """.format(motif_name, freq_matrix.shape[1],
                           totalNumBases, numSites, EValue))
 
-    modCFracs = (args.baseModificationAtAllModifiablePosFractions or
-                 args.modAllFractions or args.modCFractions)
-    modGFracs = (args.baseModificationAtAllModifiablePosFractions or
-                 args.modAllFractions or args.modGFractions)
+    modFracs = (args.baseModificationAtAllModifiablePosFractions or
+                 args.modAllFractions)
 
     if ((args.baseModification and args.baseModPosition)
             or args.tryAllCModsAtPos or
@@ -420,7 +418,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
 
             _modifyMatrixPortion(modfreq_matrix, mod_base_index, 'C', b,
                                  mod_base_context,
-                                 True if modCFracs else False,
+                                 True if modFracs else False,
                                  args.hemimodifyOnly)
             # the modification for 'G' needs to use the unmodified matrix for
             # context computations, unless in non-fractional mode, in which
@@ -429,9 +427,9 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
             # integer positional modifications only run the method once
             _modifyMatrixPortion(modfreq_matrix, mod_base_index, 'G',
                                  cUtils.complement(b), mod_base_context,
-                                 True if modGFracs else False,
+                                 True if modFracs else False,
                                  args.hemimodifyOnly,
-                                 freq_matrix if modGFracs else None)
+                                 freq_matrix if modFracs else None)
 
             modfreq_matrix = modfreq_matrix[:-1]  # remove extra final row
             checkPWMValidity(modfreq_matrix)
@@ -439,8 +437,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                        '-' + cUtils.MOD_BASE_NAMES[cUtils.
                                                    getMBMaybeFromComp(b)]
                        + output_descriptor +
-                       ('-mCFracs' if modCFracs else '') +
-                       ('-mGFracs' if modGFracs else '') +
+                       ('-mFracs' if modFracs else '') +
                        '.meme'), 'a') as outFile:
                 outFile.write(MEME_header)
                 outFile.write(MEMEBody)
@@ -624,23 +621,9 @@ parser.add_argument('-N', '--notNucleobases', help="Do not use the \
                     (i.e. 'm' and not '1'). For example, \"c,5hmC\", \
                     would use neither 5-carboxylcytosine nor \
                     5-hydroxymethylcytosine.")
-parser.add_argument('--modCFractions', action='store_true',
-                    help="Modify fractions of cytosines instead of setting \
-                    the modified base frequency to 1. Has no effect with \
-                    options already specifying this behaviour (e.g. '-A').\
-                    This option is silently ignored if no modifications \
-                    are requested.")
-parser.add_argument('--modGFractions', action='store_true',
-                    help="Modify fractions of gunanines instead of setting \
-                    the modified base frequency to 1. Has no effect with \
-                    options already specifying this behaviour (e.g. '-A').\
-                    This option is silently ignored if no modifications \
-                    are requested.")
 parser.add_argument('-F', '--modAllFractions', action='store_true',
-                    help="Convinience option to set both \
-                    '--modCFractions' and '--modGFractions'. \
-                    This will modify fractions of both cytosine and guanine \
-                    irrespective of their individual settings. \
+                    help="Modify fractions of both cytosine and guanine \
+                    (instead of setting the modified base frequency to 1). \
                     Has no effect with \
                     options already specifying this behaviour (e.g. '-A').\
                     This option is silently ignored if no modifications \
@@ -715,14 +698,6 @@ filename = (args.inPWMFile or args.inPFMFile or args.inTRANSFACFile or
 if not (args.inSeq or filename):
     die("""You must provide some input, by using one of the \"Input File\"
            arguments.\nUse '-h' to view the help message.""")
-
-if (args.modCFractions and ('+' not in args.hemimodifyOnly)):
-    warn("""Cytosine bases will not be modified, since only negative-strand
-            modification is permitted in this hemi-modification mode.""")
-
-if (args.modGFractions and ('-' not in args.hemimodifyOnly)):
-    warn("""Guanine bases will not be modified, since only negative-strand
-            modification is permitted in this hemi-modification mode.""")
 
 if (isinstance(args.baseModPosition, int) and
         args.hemimodifyOnly != _DEFAULT_HEMIMODARG):
