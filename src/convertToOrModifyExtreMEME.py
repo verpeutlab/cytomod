@@ -268,9 +268,13 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
         elif baseModPos:
             output_descriptor += '-P' + str(baseModPos)
 
-        for b in (cUtils.MOD_BASE_NAMES.keys() if args.tryAllCModsAtPos
-                  else (args.baseModification or
-                        args.baseModificationAtAllModifiablePosFractions)):
+        bases_to_iter_over = args.baseModification or \
+            args.baseModificationAtAllModifiablePosFractions
+        if args.tryAllCModsAtPos:
+            bases_to_iter_over = \
+                [base for base in cUtils.MOD_BASE_NAMES.keys()
+                 if base in motifAlphBGFreqs]
+        for b in bases_to_iter_over:
             modfreq_matrix = np.copy(freq_matrix)
             if ((b not in cUtils.COMPLEMENTS.keys()) and
                     (b not in cUtils.COMPLEMENTS.values())):
@@ -304,7 +308,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                 # as the primary_base_to_mod
                 correct_context = \
                     old_matrix[mod_base_index, motif_alphabet.
-                                         index(primary_base_to_mod)] \
+                               index(primary_base_to_mod)] \
                     > _CONTEXT_FREQ_THRESHOLD
 
                 if mod_base_context != _ALL_BASE_CONTEXTS:
@@ -315,10 +319,11 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                     # such that it always inserts on the sequence's termination
                     correct_context = \
                         np.logical_and(correct_context,
-                            np.insert(old_matrix[mod_base_index,
-                                      motif_alphabet.
-                                      index(mod_base_context)]
-                                      > _CONTEXT_FREQ_THRESHOLD, -1, [0])[1:])
+                                       np.insert(old_matrix[mod_base_index,
+                                                            motif_alphabet.
+                                                 index(mod_base_context)]
+                                                 > _CONTEXT_FREQ_THRESHOLD,
+                                                 -1, [0])[1:])
 
                 correct_context_minus = np.zeros(context_len, dtype=bool)
 
@@ -362,7 +367,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                                motif_alphabet.index(fun(primary_base_to_mod))] = \
                             np.where(context_to_use,
                                      (0 if baseModPos else
-                                      np.zeros(matrix.shape[0])), # XXX
+                                      np.zeros(matrix.shape[0])),
                                      matrix_modified_view)
                 else:
                     # zero all entries along the frequency matrix,
