@@ -714,7 +714,7 @@ filename = (args.inPWMFile or args.inPFMFile or args.inTRANSFACFile or
 
 if not (args.inSeq or filename):
     die("""You must provide some input, by using one of the \"Input File\"
-           arguments.""")
+           arguments.\nUse '-h' to view the help message.""")
 
 if (args.modCFractions and ('+' not in args.hemimodifyOnly)):
     warn("""Cytosine bases will not be modified, since only negative-strand
