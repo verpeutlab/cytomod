@@ -24,6 +24,8 @@ try:
 except:
     from StringIO import StringIO
 
+from collections import OrderedDict
+
 import numpy as np
 import numpy.testing as npt
 
@@ -42,6 +44,9 @@ _DIST_FROM_CEN = 1  # distance from centre to still be considered "central"
 _ALL_BASE_CONTEXTS = '*'
 _DELIM = "\t"
 _ARG_DELIM = ','
+_LIST_OF_PRIMARY_MOD_BASES_AND_ABBREVS = \
+    list(reduce(lambda abbrev, base: abbrev + base, cUtils.MOD_BASES.items()))
+
 BOTH_STRANDS = 0
 STRANDS = '+ -' if BOTH_STRANDS else '+'
 FROM_STR = 'custom'
@@ -120,6 +125,16 @@ MODIFYING_INVALID_PWM_MSG = """The resultant PWM would not have rows summing to
                                be performed."""
 
 
+def _omitModBaseOptionType(arg):
+    bases_list = arg.split(_ARG_DELIM)
+    for base in bases_list:
+        if (base not in _LIST_OF_PRIMARY_MOD_BASES_AND_ABBREVS):
+            raise argparse.ArgumentTypeError("""The provided primary modified
+                                                nucleobase ({}) is not
+                                                recognized.""".format(arg))
+    return bases_list
+
+
 def _modificationOptionType(arg):
     if (arg in cUtils.MOD_BASE_NAMES.keys() or
             arg in cUtils.complement(cUtils.MOD_BASE_NAMES.keys())):
@@ -155,6 +170,16 @@ def warn(msg):
 def checkPWMValidity(matrix, invalid_msg=INVALID_PWM_MSG):
     if not np.allclose(np.sum(matrix, axis=1), 1):
         die(invalid_msg)
+
+
+def _createBG(backgroundString):
+    motifAlphBGFreqs = OrderedDict()
+    for bFreq in backgroundString:
+        if not bFreq:
+            continue
+        (base, freq) = bFreq.split(_DELIM)
+        motifAlphBGFreqs[base] = float(freq)
+    return motifAlphBGFreqs
 
 
 def getAlteredSlice(slice_to_inc, slice_max, operation, value):
@@ -226,7 +251,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                           totalNumBases, numSites, EValue))
 
     modFracs = (args.baseModificationAtAllModifiablePosFractions or
-                 args.modAllFractions)
+                args.modAllFractions)
 
     if ((args.baseModification and args.baseModPosition)
             or args.tryAllCModsAtPos or
@@ -613,7 +638,9 @@ parser.add_argument('-S', '--skipMotifPortions', nargs='+', action='append',
                     from 0 or go until the end of the motif.")
 parser.add_argument('--revcomp', help="Reverse complement the input motif.",
                     action='store_true')
-parser.add_argument('-N', '--notNucleobases', help="Do not use the \
+parser.add_argument('-N', '--notNucleobases', type=_omitModBaseOptionType,
+                    metavar=_LIST_OF_PRIMARY_MOD_BASES_AND_ABBREVS,
+                    help="Do not use the \
                     provided (comma-delimited) list of nucleobases. \
                     These may be specified by either their abbreviation \
                     or base. However, the base specified must be a \
@@ -705,13 +732,11 @@ if (isinstance(args.baseModPosition, int) and
            modification position (motif position {}).
         """.format(args.baseModPosition))
 
-motifAlphBGFreqs = ()
+motifAlphBGFreqs = OrderedDict()
 if args.background:
     if os.path.isfile(args.background):
         with open(args.background) as bgFile:
-            for bFreq in bgFile:
-                (base, freq) = bFreq.split(_DELIM)
-                motifAlphBGFreqs[int(base)] = freq
+            motifAlphBGFreqs = _createBG(bgFile)
     else:
         if args.background == _mESC_BG_NAME:
             # The alphabet frequencies used are (WRT Cs only):
@@ -740,42 +765,10 @@ if args.background:
                  'm': 0.01455, '1': 0.01455, 'h': 0.000195, '2': 0.000195,
                  'f': 0.000010906, '3': 0.000010906}
 
-# The zero-order Markov model must sum to unity to be sensical
-npt.assert_allclose([sum(motifAlphBGFreqs.itervalues())], [1])
-
-if args.notNucleobases:
-    for base in args.notNucleobases.split(_ARG_DELIM):
-        if base in cUtils.MOD_BASES:
-            base = cUtils.MOD_BASES[base]
-        elif base not in cUtils.MOD_BASE_NAMES:
-            die(""""Only "primary" modified nucleobases can be
-            specified for removal.""")
-        motifAlphBGFreqs[base] += \
-            motifAlphBGFreqs[base]
-        motifAlphBGFreqs[cUtils.complement(base)] += \
-            motifAlphBGFreqs[cUtils.complement(base)]
-        del motifAlphBGFreqs[base]
-        del motifAlphBGFreqs[cUtils.complement(base)]
-        # remove excluded nucleobase from alphabet
-        MEME_header = re.sub('.*' + cUtils.FULL_MOD_BASE_NAMES[base]
-                             + '.*\n', '', MEME_header)
-        # remove excluded nucleobase from any containing ambiguity codes
-        MEME_header = re.sub('^(. = .*)(?:' + base + '|'
-                             + cUtils.complement(base) + ')(.*\n)',
-                             '\g<1>\g<2>', MEME_header, flags=re.MULTILINE)
-    # remove any ambiguity codes that are now empty
-    MEME_header = re.sub('(. = \n)', '', MEME_header, flags=re.MULTILINE)
-
-# The MEME Suite uses ASCII ordering for custom alphabets
-# This is the natural lexicographic sorting order, so no "key" is needed
-motif_alphabet = sorted(list(motifAlphBGFreqs.keys()))
-
 motifs_to_output = ''
-
-motif_alphabet_bg_freq_output = \
-    ' '.join([str(k) + ' ' + str(v) for k, v
-             in iter(sorted(motifAlphBGFreqs.iteritems()))])
-MEME_header += motif_alphabet_bg_freq_output + "\n\n"
+numSites = 0
+EValue = ''
+motif_alphabet = list(motifAlphBGFreqs.keys())
 
 if args.inSeq:
     for seqFileOrStr in args.inSeq.split(_ARG_DELIM):
@@ -807,11 +800,7 @@ if args.inSeq:
                                          (np.nonzero(bases == base) for
                                           base in motif_alphabet))))
             freq_matrix[i] = np.loadtxt(matIn)
-        motifs_to_output += (output_motif(freq_matrix, output_descriptor,
-                                          os.path.basename(seqFileOrStr),
-                                          motif_alphabet, 0, '',
-                                          seqFileOrStr)
-                             + "\n")
+        motif_name = os.path.basename(seqFileOrStr)
 
 if filename:  # PWM or PFM
     # process the matrix for MEME format compatibility
@@ -821,11 +810,14 @@ if filename:  # PWM or PFM
     with open(filename, 'rb') as inFile:
         if args.inMEMEFile:
             input_file = inFile.read()
-            bgIter = re.findall(MEME_MINIMAL_BG_BASE_REGEX,
-                                re.search(MEME_MINIMAL_BG_REGEX, input_file,
-                                          flags=MEME_MINIMAL_REGEX_FLAGS)
-                                .group(MEME_MINIMAL_BG_REGEX_G_BG),
+            bg_contents = re.search(MEME_MINIMAL_BG_REGEX, input_file,
+                                    flags=MEME_MINIMAL_REGEX_FLAGS) \
+                            .group(MEME_MINIMAL_BG_REGEX_G_BG)
+            bgIter = re.findall(MEME_MINIMAL_BG_BASE_REGEX, bg_contents,
                                 flags=MEME_MINIMAL_REGEX_FLAGS)
+            bg_contents = re.sub(r' ', r'\t', re.sub(r'(\d\d) ',
+                                 r"\1\n", bg_contents)).split('\n')
+            motifAlphBGFreqs = _createBG(bg_contents)
             motifIter = re.finditer(MEME_MINIMAL_MOTIF_REGEX, input_file,
                                     flags=MEME_MINIMAL_REGEX_FLAGS)
         if args.inMEMEFile:
@@ -866,30 +858,86 @@ if filename:  # PWM or PFM
                 return countsForBase  # needed to use numpy.apply_along_axis
             np.apply_along_axis(_computeFreqFromCountSlice, 1, csvData)
 
-        if args.inMEMEFile:
-            for match in motifIter:
-                # behave as if read from CSV to minimize changes to other code
-                freq_matrix = np.fromstring(match.group(MEME_MIN_REGEX_G_PWM),
-                                            dtype=float, sep=' ') \
-                    .reshape((int(match.group(MEME_MIN_REGEX_G_WIDTH)),
-                             int(match.group(MEME_MIN_REGEX_G_ALPH_LEN))))
-                motif_name = (match.group(MEME_MIN_REGEX_G_ID).strip() + ' ' +
-                              match.group(MEME_MIN_REGEX_G_NAME).strip())
-                numSites = int(match.group(MEME_MIN_REGEX_G_NUM_SITES))
-                EValue = match.group(MEME_MIN_REGEX_G_E_VALUE)
-                motifs_to_output += (output_motif(freq_matrix,
-                                                  output_descriptor,
-                                                  motif_name, motif_alphabet,
-                                                  numSites, EValue, filename) +
-                                     "\n")
-        else:
+        if not args.inMEMEFile:
             freq_matrix = np.hstack((np.zeros((csvData.shape[0],
                                     motif_alphabet.index('A'))), csvData,
                                     np.zeros((csvData.shape[0],
                                              (len(motif_alphabet) - 1) -
                                              motif_alphabet.index('T')))))
-            motifs_to_output += output_motif(freq_matrix, output_descriptor,
-                                             os.path.basename(filename),
-                                             motif_alphabet, 0, '', filename)
+            motif_name = os.path.basename(filename)
 
-print(MEME_header + motifs_to_output.strip())
+# The zero-order Markov model must sum to unity to be sensical
+npt.assert_allclose([sum(motifAlphBGFreqs.itervalues())], [1])
+
+matrix_indicies_to_delete = []
+
+if args.notNucleobases:
+    for base in args.notNucleobases:
+        if base in cUtils.MOD_BASES:
+            base = cUtils.MOD_BASES[base]
+        motifAlphBGFreqs[cUtils.MOD_MAP[base]] += \
+            motifAlphBGFreqs[base]
+        motifAlphBGFreqs[cUtils.MOD_MAP[cUtils.complement(base)]] += \
+            motifAlphBGFreqs[cUtils.complement(base)]
+        del motifAlphBGFreqs[base]
+        del motifAlphBGFreqs[cUtils.complement(base)]
+        # remove excluded nucleobase from alphabet
+        MEME_header = re.sub('.*' + cUtils.FULL_MOD_BASE_NAMES[base]
+                             + '.*\n', '', MEME_header)
+        # remove excluded nucleobase from any containing ambiguity codes
+        MEME_header = re.sub('^(. = .*)(?:' + base + '|'
+                             + cUtils.complement(base) + ')(.*\n)',
+                             '\g<1>\g<2>', MEME_header, flags=re.MULTILINE)
+        matrix_indicies_to_delete += [motif_alphabet.index(base),
+                                      motif_alphabet.
+                                      index(cUtils.complement(base))]
+    # remove any ambiguity codes that are now empty
+    MEME_header = re.sub('(. = \n)', '', MEME_header, flags=re.MULTILINE)
+
+# The zero-order Markov model should still sum to unity to be sensical
+npt.assert_allclose([sum(motifAlphBGFreqs.itervalues())], [1])
+
+# used to sort the output in ASCII-code order
+# need to sort both the background and matrix to do so
+sorted_index = np.argsort(list(motifAlphBGFreqs.keys()))
+
+motif_alphabet = [list(motifAlphBGFreqs.keys())[i] for i in sorted_index]
+
+motif_alphabet_bg_freq_output = \
+    ' '.join([str(k) + ' ' + str(v) for k, v
+             in [motifAlphBGFreqs.items()[i] for i in sorted_index]])
+MEME_header += motif_alphabet_bg_freq_output + "\n\n"
+
+
+def _getMotif(freq_matrix, sorted_index):
+    # delete necessary columns
+    if matrix_indicies_to_delete:
+        freq_matrix = np.delete(freq_matrix, matrix_indicies_to_delete, 1)
+    # re-order the matrix by the sorted index
+    identity_index = np.indices(freq_matrix.shape)
+    freq_matrix = freq_matrix[identity_index[0],
+                              np.tile(sorted_index,
+                                      (identity_index[1].shape[0], 1))]
+
+    return (output_motif(freq_matrix, output_descriptor, motif_name,
+                         motif_alphabet, numSites, EValue,
+                         filename or motif_name))
+
+
+if args.inMEMEFile:
+    for match in motifIter:
+        # behave as if read from CSV to minimize changes to other code
+        freq_matrix = np.fromstring(match.group(MEME_MIN_REGEX_G_PWM),
+                                    dtype=float, sep=' ') \
+            .reshape((int(match.group(MEME_MIN_REGEX_G_WIDTH)),
+                     int(match.group(MEME_MIN_REGEX_G_ALPH_LEN))))
+        motif_name = (match.group(MEME_MIN_REGEX_G_ID).strip() + ' ' +
+                      match.group(MEME_MIN_REGEX_G_NAME).strip())
+        numSites = int(match.group(MEME_MIN_REGEX_G_NUM_SITES))
+        EValue = match.group(MEME_MIN_REGEX_G_E_VALUE)
+        motifs_to_output += _getMotif(freq_matrix, sorted_index)
+else:
+    motifs_to_output = _getMotif(freq_matrix, sorted_index)
+
+
+print(MEME_header + motifs_to_output)
