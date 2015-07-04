@@ -770,37 +770,6 @@ numSites = 0
 EValue = ''
 motif_alphabet = list(motifAlphBGFreqs.keys())
 
-if args.inSeq:
-    for seqFileOrStr in args.inSeq.split(_ARG_DELIM):
-        if (os.path.isfile(seqFileOrStr)):
-            # NB: min dimensionality of 1 is needed for the character view
-            motifs = np.loadtxt(seqFileOrStr, dtype=str, ndmin=1)
-            motifChars = motifs.view('S1').reshape((motifs.size, -1))
-        else:
-            motifChars = np.expand_dims(np.array(list(seqFileOrStr)), axis=0)
-        totalNumBases = len(motifChars)
-
-        freq_matrix = np.zeros((motifChars.shape[1], len(motifAlphBGFreqs)))
-        for i in range(0, motifChars.shape[1]):
-            base = motifChars[:, i][0]
-            unambig_base_s = (cUtils.IUPAC_BASES.get(base) or
-                              cUtils.AMBIG_MOD_BASES.get(base) or base)
-            # unambig_base_s should only contain core bases, which are those
-            # that have assigned base colours
-            if not all(unambig_base in cUtils.BASE_COLOURS.keys()
-                       for unambig_base in unambig_base_s):
-                die("""Unrecognized base "{}".""".format(base))
-            bases, baseFreqs = np.unique(unambig_base_s, return_counts=True)
-            # NB: /= appears to perform //= despite future import statement
-            baseFreqs = baseFreqs / len(baseFreqs)
-            # Append to the letter frequency matrix
-            matIn = StringIO(_DELIM.join(str(x) for x in
-                                         (baseFreqs[idx][0]/totalNumBases if
-                                         len(idx[0]) else 0 for idx in
-                                         (np.nonzero(bases == base) for
-                                          base in motif_alphabet))))
-            freq_matrix[i] = np.loadtxt(matIn)
-        motif_name = os.path.basename(seqFileOrStr)
 
 if filename:  # PWM or PFM
     # process the matrix for MEME format compatibility
@@ -866,6 +835,38 @@ if filename:  # PWM or PFM
                                              motif_alphabet.index('T')))))
             motif_name = os.path.basename(filename)
 
+if args.inSeq:
+    for seqFileOrStr in args.inSeq.split(_ARG_DELIM):
+        if (os.path.isfile(seqFileOrStr)):
+            # NB: min dimensionality of 1 is needed for the character view
+            motifs = np.loadtxt(seqFileOrStr, dtype=str, ndmin=1)
+            motifChars = motifs.view('S1').reshape((motifs.size, -1))
+        else:
+            motifChars = np.expand_dims(np.array(list(seqFileOrStr)), axis=0)
+        totalNumBases = len(motifChars)
+
+        freq_matrix = np.zeros((motifChars.shape[1], len(motifAlphBGFreqs)))
+        for i in range(0, motifChars.shape[1]):
+            base = motifChars[:, i][0]
+            unambig_base_s = (cUtils.IUPAC_BASES.get(base) or
+                              cUtils.AMBIG_MOD_BASES.get(base) or base)
+            # unambig_base_s should only contain core bases, which are those
+            # that have assigned base colours
+            if not all(unambig_base in cUtils.BASE_COLOURS.keys()
+                       for unambig_base in unambig_base_s):
+                die("""Unrecognized base "{}".""".format(base))
+            bases, baseFreqs = np.unique(unambig_base_s, return_counts=True)
+            # NB: /= appears to perform //= despite future import statement
+            baseFreqs = baseFreqs / len(baseFreqs)
+            # Append to the letter frequency matrix
+            matIn = StringIO(_DELIM.join(str(x) for x in
+                                         (baseFreqs[idx][0]/totalNumBases if
+                                         len(idx[0]) else 0 for idx in
+                                         (np.nonzero(bases == base) for
+                                          base in motif_alphabet))))
+            freq_matrix[i] = np.loadtxt(matIn)
+        motif_name = os.path.basename(seqFileOrStr)
+
 # The zero-order Markov model must sum to unity to be sensical
 npt.assert_allclose([sum(motifAlphBGFreqs.itervalues())], [1])
 
@@ -875,6 +876,10 @@ if args.notNucleobases:
     for base in args.notNucleobases:
         if base in cUtils.MOD_BASES:
             base = cUtils.MOD_BASES[base]
+        if base not in motifAlphBGFreqs:
+            warn("""A provided base to omit ({}) is not present in the
+                    current input and has been skipped.""".format(base))
+            continue
         motifAlphBGFreqs[cUtils.MOD_MAP[base]] += \
             motifAlphBGFreqs[base]
         motifAlphBGFreqs[cUtils.MOD_MAP[cUtils.complement(base)]] += \
@@ -923,21 +928,19 @@ def _getMotif(freq_matrix, sorted_index):
                          motif_alphabet, numSites, EValue,
                          filename or motif_name))
 
-
+if args.inSeq or not args.inMEMEFile:
+    motifs_to_output += _getMotif(freq_matrix, sorted_index)
 if args.inMEMEFile:
     for match in motifIter:
         # behave as if read from CSV to minimize changes to other code
-        freq_matrix = np.fromstring(match.group(MEME_MIN_REGEX_G_PWM),
-                                    dtype=float, sep=' ') \
+        meme_freq_matrix = np.fromstring(match.group(MEME_MIN_REGEX_G_PWM),
+                                         dtype=float, sep=' ') \
             .reshape((int(match.group(MEME_MIN_REGEX_G_WIDTH)),
                      int(match.group(MEME_MIN_REGEX_G_ALPH_LEN))))
         motif_name = (match.group(MEME_MIN_REGEX_G_ID).strip() + ' ' +
                       match.group(MEME_MIN_REGEX_G_NAME).strip())
         numSites = int(match.group(MEME_MIN_REGEX_G_NUM_SITES))
         EValue = match.group(MEME_MIN_REGEX_G_E_VALUE)
-        motifs_to_output += _getMotif(freq_matrix, sorted_index) + "\n"
-else:
-    motifs_to_output = _getMotif(freq_matrix, sorted_index)
-
+        motifs_to_output += _getMotif(meme_freq_matrix, sorted_index) + "\n"
 
 print(MEME_header + motifs_to_output.strip())
