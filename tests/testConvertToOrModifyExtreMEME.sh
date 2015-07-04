@@ -331,3 +331,17 @@ runContainsFileTest "$PROGRAM_PATH" '11A' "-W -s AACATCGAACGC -M m -P c" "$corre
 
 runContainsFileTest "$PROGRAM_PATH" '11B' "-W -s AACATCGAACGC -M m -P c -F" "$correct_result"
 
+# 12) check that combinatorial modifications can at least run
+# NB: this test does not verify the validity of the actual modifications themselves
+
+correct_result=$(cat <<'EOF'
+0.000000	0.000000	0.000000	0.000000	0.000000	1.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000
+0.000000	0.000000	0.000000	0.000000	0.000000	1.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000
+0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	1.000000	0.000000	0.000000	0.000000	0.000000	0.000000
+0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	1.000000	0.000000	0.000000	0.000000	0.000000
+EOF
+)
+
+runContainsTest "$PROGRAM_PATH" '12A' "-W -s CCGT -C 3" "$correct_result"
+
+runContainsTest "$PROGRAM_PATH" '12B' "-W -s CCGT -C -A" "$correct_result"
