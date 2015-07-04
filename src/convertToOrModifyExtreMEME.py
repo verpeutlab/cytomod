@@ -286,6 +286,21 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                                      primary_base_to_mod, target_modified_base,
                                      mod_base_context, mod_fractions,
                                      hemimodifyOnly, old_matrix=None):
+                """Modifies the provided portion of the provided matrix,
+                   in the indicated fashion, under the provided genomic
+                   context."""
+                def _resize_context(context):
+                    """Places the Boolean context vector in the correct
+                       position WRT the bases that the indication of context
+                       pertains to."""
+                    return np.concatenate((np.zeros(getattr(mod_base_index,
+                                                    'start'), dtype=bool),
+                                           context,
+                                           np.zeros(getattr(mod_base_index,
+                                                            'stop')
+                                                    - context_len[0],
+                                                    dtype=bool)))
+
                 if old_matrix is None:
                     old_matrix = matrix
                 if not mod_fractions:
@@ -327,13 +342,26 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
 
                 correct_context_minus = np.zeros(context_len, dtype=bool)
 
-                # also only permit modifiable bases to be modified on - strand
-                if ('-' in hemimodifyOnly and mod_base_context
-                    in [primary_base_to_mod,
-                        cUtils.complement(primary_base_to_mod)]):
+                if '-' in hemimodifyOnly:
                     # shift Boolean values right, clipping them
                     correct_context_minus = \
                         np.insert(correct_context[:-1], 0, [0])
+                    # also only permit modifiable bases to be mod on - strand
+                    correct_context_minus_for_query = correct_context_minus
+                    if correct_context_minus.size != old_matrix.shape[0]:
+                        correct_context_minus_for_query = \
+                            _resize_context(correct_context_minus)
+                    bases_to_modify_minus = \
+                        old_matrix[correct_context_minus_for_query]
+                    if bases_to_modify_minus.size > 0:
+                        correct_context_minus = \
+                            np. \
+                            logical_and(correct_context_minus,
+                                        bases_to_modify_minus[0]
+                                        [motif_alphabet.
+                                         index(cUtils.
+                                               complement(primary_base_to_mod)
+                                               )] > _CONTEXT_FREQ_THRESHOLD)
                 if '+' not in hemimodifyOnly:
                     correct_context = \
                         np.zeros(context_len, dtype=bool)
@@ -378,21 +406,13 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                     # (i.e. preceded and succeeded by 'False' to make up the
                     # length of the motif) to accomplish this.
                     if mod_base_index != slice(None):
-                        def _resize_context(context):
-                            return np.concatenate(
-                                (np.zeros(getattr(mod_base_index,
-                                          'start'), dtype=bool), context,
-                                 np.zeros(getattr(mod_base_index,
-                                          'stop') - context_len[0],
-                                          dtype=bool)))
-
                         correct_context = _resize_context(correct_context)
                         correct_context_minus = \
                             _resize_context(correct_context_minus)
 
                     matrix[correct_context, ] = \
                         only_target_base_at_pos
-                    if mod_base_context != _ALL_BASE_CONTEXTS:
+                    if not isinstance(args.baseModPosition, int):
                         matrix[correct_context_minus, ] = \
                             only_target_base_at_pos_comp
 
