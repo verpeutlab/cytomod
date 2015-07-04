@@ -298,36 +298,40 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
 
                 context_len = matrix[mod_base_index, motif_alphabet.
                                      index(target_modified_base)].shape
-                if mod_base_context == _ALL_BASE_CONTEXTS:
-                    correct_context = np.ones(context_len, dtype=bool)
-                    correct_context_minus = correct_context
-                else:
+
+                # only permit the modifiable bases to be modified
+                # the modifiable base is only that which was provided
+                # as the primary_base_to_mod
+                correct_context = \
+                    old_matrix[mod_base_index, motif_alphabet.
+                                         index(primary_base_to_mod)] \
+                    > _CONTEXT_FREQ_THRESHOLD
+
+                if mod_base_context != _ALL_BASE_CONTEXTS:
                     # create a mask which ensures that modifications are
                     # only permitted in their valid genomic context
                     # NB: the position of the insertion of 'False' depends upon
                     # the portion of the conjunction (i.e. [:-1] vs. [1:])
                     # such that it always inserts on the sequence's termination
                     correct_context = \
-                        np.logical_and(
-                            np.insert(old_matrix[mod_base_index,
-                                      motif_alphabet.
-                                      index(primary_base_to_mod)], -1, [0])
-                            [:-1]
-                            > _CONTEXT_FREQ_THRESHOLD,
+                        np.logical_and(correct_context,
                             np.insert(old_matrix[mod_base_index,
                                       motif_alphabet.
                                       index(mod_base_context)]
                                       > _CONTEXT_FREQ_THRESHOLD, -1, [0])[1:])
-                    correct_context_minus = np.zeros(context_len, dtype=bool)
 
-                    if '-' in hemimodifyOnly:
-                        # shift Boolean values right, clipping them
-                        correct_context_minus = \
-                            np.insert(correct_context[:-1], 0, [0])
-                    if '+' not in hemimodifyOnly:
-                        # shift Boolean values right, clipping them
-                        correct_context = \
-                            np.zeros(context_len, dtype=bool)
+                correct_context_minus = np.zeros(context_len, dtype=bool)
+
+                # also only permit modifiable bases to be modified on - strand
+                if ('-' in hemimodifyOnly and mod_base_context
+                    in [primary_base_to_mod,
+                        cUtils.complement(primary_base_to_mod)]):
+                    # shift Boolean values right, clipping them
+                    correct_context_minus = \
+                        np.insert(correct_context[:-1], 0, [0])
+                if '+' not in hemimodifyOnly:
+                    correct_context = \
+                        np.zeros(context_len, dtype=bool)
 
                 if mod_fractions:
                     for iter, fun in enumerate([lambda x: x,
@@ -358,7 +362,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                                motif_alphabet.index(fun(primary_base_to_mod))] = \
                             np.where(context_to_use,
                                      (0 if baseModPos else
-                                      np.zeros(matrix.shape[0])),
+                                      np.zeros(matrix.shape[0])), # XXX
                                      matrix_modified_view)
                 else:
                     # zero all entries along the frequency matrix,
@@ -374,24 +378,19 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                                 (np.zeros(getattr(mod_base_index,
                                           'start'), dtype=bool), context,
                                  np.zeros(getattr(mod_base_index,
-                                          'stop') - context_len[0])))
+                                          'stop') - context_len[0],
+                                          dtype=bool)))
 
                         correct_context = _resize_context(correct_context)
                         correct_context_minus = \
                             _resize_context(correct_context_minus)
 
-                    matrix[correct_context.astype('bool'), ] = \
+                    matrix[correct_context, ] = \
                         only_target_base_at_pos
                     if mod_base_context != _ALL_BASE_CONTEXTS:
-                        matrix[correct_context_minus.astype('bool'), ] = \
+                        matrix[correct_context_minus, ] = \
                             only_target_base_at_pos_comp
-                
-                print() # XXX
-                print(mod_base_context) # XXX
-                print() # XXX
-                print(matrix) # XXX
-                print() # XXX
-                
+
                 checkPWMValidity(matrix[:-1], MODIFYING_INVALID_PWM_MSG)
 
             _modifyMatrixPortion(modfreq_matrix, mod_base_index, 'C', b,
@@ -403,13 +402,11 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
             # case it needs to use the already modified matrix to prevent
             # changing the target modification to its complement.
             # integer positional modifications only run the method once
-            if not isinstance(args.baseModPosition, int):
-                _modifyMatrixPortion(modfreq_matrix, mod_base_index, 'G',
-                                     cUtils.complement(b),
-                                     mod_base_context,
-                                     True if modGFracs else False,
-                                     args.hemimodifyOnly,
-                                     freq_matrix if modGFracs else None)
+            _modifyMatrixPortion(modfreq_matrix, mod_base_index, 'G',
+                                 cUtils.complement(b), mod_base_context,
+                                 True if modGFracs else False,
+                                 args.hemimodifyOnly,
+                                 freq_matrix if modGFracs else None)
 
             modfreq_matrix = modfreq_matrix[:-1]  # remove extra final row
             checkPWMValidity(modfreq_matrix)
@@ -504,11 +501,10 @@ modBasePositions.add_argument('-P', '--baseModPosition',
                               help="The position at which to modify the motif \
                               (using the base specified by '-M'), \
                               * indexed from 1 *. \
-                              Note that for explicitly specified positions, \
-                              this does not check that \
-                              modifications made make biological sense \
-                              (i.e. a thymine could be changed into a \
-                              5-methylcytosine using this option) \
+                              Note that this does a basic check that \
+                              modifications made make some biological sense \
+                              (e.g. a thymine cannot be changed into a \
+                              5-methylcytosine using this option). \
                               Alternatively, 'c' can be provided \
                               to indicate that the position \
                               should be automatically determined by finding \
