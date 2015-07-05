@@ -263,21 +263,24 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
             args.baseModificationAtAllModifiablePosFractions):
         warn("""NB: modified motifs are output to a file.
                 The motif printed to STDOUT is the unmodified version.""")
-        if (args.baseModPosition and isinstance(args.baseModPosition, int) and
-                args.baseModPosition >= totalNumBases):
+
+        mod_base_context = _ALL_BASE_CONTEXTS
+        baseModPos = args.tryAllCModsAtPos or args.baseModPosition
+
+        if (baseModPos != cUtils._PARAM_A_CONST_VAL
+                and isinstance(baseModPos, int)
+                and baseModPos >= totalNumBases):
             die("""The provided modification position ({}) exceeds the
                    motif's final position ({}).
                 """.format(args.baseModPosition, totalNumBases - 1))
 
-        mod_base_context = _ALL_BASE_CONTEXTS
-        baseModPos = args.tryAllCModsAtPos or args.baseModPosition
         # index is either positional, comprises all nucleobases, or contextual
         mod_base_index = slice(baseModPos - 1, baseModPos) \
             if (baseModPos and isinstance(baseModPos, int)
                 and baseModPos != cUtils._PARAM_A_CONST_VAL) else slice(None)
 
-        if args.baseModPosition and not isinstance(args.baseModPosition, int):
-            if args.baseModPosition == 'c':
+        if baseModPos and not isinstance(baseModPos, int):
+            if baseModPos == 'c':
                 mod_base_context = 'G'
                 # would add one to centre since indexed from 1, but do not
                 # due to the extra row accounting for this
@@ -289,7 +292,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                                        else 0, central_end if central_end
                                        <= totalNumBases else totalNumBases - 1)
             else:
-                mod_base_context = args.baseModPosition
+                mod_base_context = baseModPos
 
         if args.baseModificationAtAllModifiablePosFractions:
             output_descriptor += '-allPos'
@@ -440,7 +443,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
 
                     matrix[correct_context, ] = \
                         only_target_base_at_pos
-                    if not isinstance(args.baseModPosition, int):
+                    if not isinstance(baseModPos, int):
                         matrix[correct_context_minus, ] = \
                             only_target_base_at_pos_comp
 
@@ -571,7 +574,8 @@ modBasePositions.add_argument('-P', '--baseModPosition',
                               Non-numeric arguments (i.e. context-based) \
                               are currently experimental and may not \
                               function as intended.")
-modBaseSpecifiers.add_argument('-C', '--tryAllCModsAtPos', type=int,
+modBaseSpecifiers.add_argument('-C', '--tryAllCModsAtPos',
+                               type=_modifyPositionOptionType,
                                nargs='?', const=cUtils._PARAM_A_CONST_VAL,
                                help="Modify the motif at the given position, \
                                whose consensus sequence should correspond to \
@@ -734,11 +738,12 @@ if not (args.inSeq or filename):
     die("""You must provide some input, by using one of the \"Input File\"
            arguments.\nUse '-h' to view the help message.""")
 
-if (isinstance(args.baseModPosition, int) and
+if ((isinstance(args.baseModPosition, int) or
+     isinstance(args.tryAllCModsAtPos, int)) and
         args.hemimodifyOnly != _DEFAULT_HEMIMODARG):
-    die("""Hemi-modification cannot be specified with an explicit
-           modification position (motif position {}).
-        """.format(args.baseModPosition))
+        die("""Hemi-modification cannot be specified with an explicit
+               modification position (motif position {}).
+            """.format(args.baseModPosition or args.tryAllCModsAtPos))
 
 motifAlphBGFreqs = OrderedDict()
 if args.background:
