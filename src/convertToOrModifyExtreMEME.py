@@ -250,7 +250,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
 
     MEMEBody = textwrap.dedent("""\
                MOTIF {}\n
-               letter-probability matrix: alength= {} w= {} nsites= {} E= {}\n
+               letter-probability matrix: alength= {} w= {} nsites= {} E= {}
                """.format(motif_name, freq_matrix.shape[1],
                           totalNumBases, numSites, EValue))
 
