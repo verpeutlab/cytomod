@@ -203,7 +203,8 @@ def getAlteredSlice(slice_to_inc, slice_max, operation, value):
 
 
 def output_motif(freq_matrix, output_descriptor, motif_name,
-                 motif_alphabet, numSites, EValue, motif_filename):
+                 motif_alphabet, numSites, EValue, motif_filename,
+                 MEME_header):
     if args.revcomp:
         output_descriptor += '-revcomp'
         motif_name += '-revcomp'
@@ -929,7 +930,7 @@ motif_alphabet_bg_freq_output = \
 MEME_header += motif_alphabet_bg_freq_output + "\n\n"
 
 
-def _getMotif(freq_matrix, sorted_index):
+def _getMotif(freq_matrix, sorted_index, MEME_header):
     # delete necessary columns
     if matrix_indicies_to_delete:
         freq_matrix = np.delete(freq_matrix, matrix_indicies_to_delete, 1)
@@ -941,12 +942,12 @@ def _getMotif(freq_matrix, sorted_index):
 
     return (output_motif(freq_matrix, output_descriptor, motif_name,
                          motif_alphabet, numSites, EValue,
-                         filename or motif_name))
+                         filename or motif_name, MEME_header))
 
 if args.inSeq or not args.inMEMEFile:
-    motifs_to_output += _getMotif(freq_matrix, sorted_index)
+    motifs_to_output += _getMotif(freq_matrix, sorted_index, MEME_header)
 if args.inMEMEFile:
-    for match in motifIter:
+    for match_num, match in enumerate(motifIter):
         # behave as if read from CSV to minimize changes to other code
         meme_freq_matrix = np.fromstring(match.group(MEME_MIN_REGEX_G_PWM),
                                          dtype=float, sep=' ') \
@@ -956,6 +957,9 @@ if args.inMEMEFile:
                       match.group(MEME_MIN_REGEX_G_NAME).strip())
         numSites = int(match.group(MEME_MIN_REGEX_G_NUM_SITES))
         EValue = match.group(MEME_MIN_REGEX_G_E_VALUE)
-        motifs_to_output += _getMotif(meme_freq_matrix, sorted_index) + "\n"
+
+        motifs_to_output += _getMotif(meme_freq_matrix, sorted_index,
+                                      (MEME_header if match_num == 0
+                                       else "\n")) + "\n"
 
 print(MEME_header + motifs_to_output.strip())
