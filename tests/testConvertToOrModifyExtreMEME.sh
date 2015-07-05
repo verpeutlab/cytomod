@@ -3,7 +3,8 @@ set -o nounset -o pipefail -o errexit
 
 source $(dirname $0)/commonTestUtils.sh
 
-PROGRAM_PATH="$BASE_PROG_PATH/convertToOrModifyExtreMEME.py"
+# NB: all test cases use non-default ASCII-code order
+PROGRAM_PATH="$BASE_PROG_PATH/convertToOrModifyExtreMEME.py --ASCII_code_order "
 
 echo -e "------------------------\nconvertToOrModifyExtreMEME.py\n------------------------" >&2
 
@@ -370,11 +371,11 @@ correct_result=$(cat <<'EOF'
 EOF
 )
 
-runContainsFileTest "$PROGRAM_PATH" '5A' "-W -s $DATA_DIR/NFATC1.seq -P 2 -M f" "$correct_result"
+runContainsFileTest "$PROGRAM_PATH" '5A' "--noWarnings -s $DATA_DIR/NFATC1.seq -P 2 -M f" "$correct_result"
 
 # 5B) check that 5A is identical in fractional mode as well (since all matrix values are 0 or 1)
 
-runContainsFileTest "$PROGRAM_PATH" '5B' "-W -s $DATA_DIR/NFATC1.seq -P 2 -M f -F" "$correct_result"
+runContainsFileTest "$PROGRAM_PATH" '5B' "--noWarnings -s $DATA_DIR/NFATC1.seq -P 2 -M f -F" "$correct_result"
 
 # 6) check that ambiguity codes are parsed correctly
 
@@ -392,7 +393,7 @@ correct_result=$(cat <<'EOF'
 EOF
 )
 
-runContainsTest "$PROGRAM_PATH" '6' "-W -s KRzxTCym3N" "$correct_result"
+runContainsTest "$PROGRAM_PATH" '6' "--noWarnings -s KRzxTCym3N" "$correct_result"
 
 # 7A) check a fractional CpG context modification
 
@@ -405,11 +406,11 @@ correct_result=$(cat <<'EOF'
 EOF
 )
 
-runContainsFileTest "$PROGRAM_PATH" '7A' "-W -s TCCGT -M m -P G" "$correct_result"
+runContainsFileTest "$PROGRAM_PATH" '7A' "--noWarnings -s TCCGT -M m -P G" "$correct_result"
 
 # 7B) check that the fractional version of 7A is identical
 
-runContainsFileTest "$PROGRAM_PATH" '7B' "-W -s TCCGT -M m -P G -F" "$correct_result"
+runContainsFileTest "$PROGRAM_PATH" '7B' "--noWarnings -s TCCGT -M m -P G -F" "$correct_result"
 
 # 8) check a CpT context modification
 
@@ -422,7 +423,7 @@ correct_result=$(cat <<'EOF'
 EOF
 )
 
-runContainsFileTest "$PROGRAM_PATH" '8' "-W -s TCCGG -M m -P T" "$correct_result"
+runContainsFileTest "$PROGRAM_PATH" '8' "--noWarnings -s TCCGG -M m -P T" "$correct_result"
 
 # 9) check a fractional CpG context modification for an edge case
 
@@ -435,7 +436,7 @@ correct_result=$(cat <<'EOF'
 EOF
 )
 
-runContainsFileTest "$PROGRAM_PATH" '9' "-W -s TCACG -M h -P G" "$correct_result"
+runContainsFileTest "$PROGRAM_PATH" '9' "--noWarnings -s TCACG -M h -P G" "$correct_result"
 
 # 10) check basic hemi-modification
 
@@ -447,7 +448,7 @@ correct_result=$(cat <<'EOF'
 EOF
 )
 
-runContainsFileTest "$PROGRAM_PATH" '10A' "-W -s CCGT -M m -P G" "$correct_result"
+runContainsFileTest "$PROGRAM_PATH" '10A' "--noWarnings -s CCGT -M m -P G" "$correct_result"
 
 correct_result=$(cat <<'EOF'
 0.000000	0.000000	0.000000	0.000000	0.000000	1.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000
@@ -457,7 +458,7 @@ correct_result=$(cat <<'EOF'
 EOF
 )
 
-runContainsFileTest "$PROGRAM_PATH" '10B' "-W -s CCGT -M m -P G -H +" "$correct_result"
+runContainsFileTest "$PROGRAM_PATH" '10B' "--noWarnings -s CCGT -M m -P G -H +" "$correct_result"
 
 correct_result=$(cat <<'EOF'
 0.000000	0.000000	0.000000	0.000000	0.000000	1.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000
@@ -467,7 +468,7 @@ correct_result=$(cat <<'EOF'
 EOF
 )
 
-runContainsFileTest "$PROGRAM_PATH" '10C' "-W -s CCGT -M m -P G -H -" "$correct_result"
+runContainsFileTest "$PROGRAM_PATH" '10C' "--noWarnings -s CCGT -M m -P G -H -" "$correct_result"
 
 # 11) check central modification
 
@@ -487,9 +488,9 @@ correct_result=$(cat <<'EOF'
 EOF
 )
 
-runContainsFileTest "$PROGRAM_PATH" '11A' "-W -s AACATCGAACGC -M m -P c" "$correct_result"
+runContainsFileTest "$PROGRAM_PATH" '11A' "--noWarnings -s AACATCGAACGC -M m -P c" "$correct_result"
 
-runContainsFileTest "$PROGRAM_PATH" '11B' "-W -s AACATCGAACGC -M m -P c -F" "$correct_result"
+runContainsFileTest "$PROGRAM_PATH" '11B' "--noWarnings -s AACATCGAACGC -M m -P c -F" "$correct_result"
 
 # 12) check that combinatorial modifications can at least run
 # NB: this test does not verify the validity of the actual modifications themselves
@@ -502,9 +503,9 @@ correct_result=$(cat <<'EOF'
 EOF
 )
 
-runContainsTest "$PROGRAM_PATH" '12A' "-W -s CCGT -C 3" "$correct_result"
+runContainsTest "$PROGRAM_PATH" '12A' "--noWarnings -s CCGT -C 3" "$correct_result"
 
-runContainsTest "$PROGRAM_PATH" '12B' "-W -s CCGT -C -A" "$correct_result"
+runContainsTest "$PROGRAM_PATH" '12B' "--noWarnings -s CCGT -C -A" "$correct_result"
 
 rm -f *.meme  # remove output from this test
 
@@ -518,11 +519,11 @@ correct_result=$(cat <<'EOF'
 EOF
 )
 
-runContainsFileTest "$PROGRAM_PATH" '13A' "-W -s TTCT -P T -M m" "$correct_result"
+runContainsFileTest "$PROGRAM_PATH" '13A' "--noWarnings -s TTCT -P T -M m" "$correct_result"
 
-runContainsFileTest "$PROGRAM_PATH" '13B' "-W -s TTCT -P T -M m -F" "$correct_result"
+runContainsFileTest "$PROGRAM_PATH" '13B' "--noWarnings -s TTCT -P T -M m -F" "$correct_result"
 
-runContainsFileTest "$PROGRAM_PATH" '13C' "-W -s TTCT -P T -M m -H +" "$correct_result"
+runContainsFileTest "$PROGRAM_PATH" '13C' "--noWarnings -s TTCT -P T -M m -H +" "$correct_result"
 
 correct_result=$(cat <<'EOF'
 0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	1.000000	0.000000	0.000000	0.000000	0.000000
@@ -532,4 +533,4 @@ correct_result=$(cat <<'EOF'
 EOF
 )
 
-runContainsFileTest "$PROGRAM_PATH" '13D' "-W -s TTCT -P T -M m -H -" "$correct_result"
+runContainsFileTest "$PROGRAM_PATH" '13D' "--noWarnings -s TTCT -P T -M m -H -" "$correct_result"

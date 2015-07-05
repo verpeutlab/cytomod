@@ -42,6 +42,7 @@
    getMBMaybeFromComp        - Map complement mod. base to primary mod base.
    getRGBBaseCol             - Return the (0-1) RGB colour of the given base.
    getRGB256BaseCol          - Return the (0-255) RGB colour of the given base.
+   baseSortOrder             - Map bases to an integer rep. their sort order.
 """
 
 from __future__ import with_statement, division, print_function
@@ -395,6 +396,15 @@ def _getBaseCol(base):
                         [chroma.Color('#' + BASE_COLOURS[primary_base])
                          for primary_base in FULL_BASE_NAMES.keys()])
     return colour
+
+
+def baseSortOrder(base):
+    """Return an integer which represents the mapping of the
+       nucleobase to its sort order.
+       This order is specified by MEME. The order to corresponds to
+       the unmodified bases, followed by primary modified bases,
+       followed by their complements."""
+    return (ord(base) - ord('A')*base.isupper() + ord('Z')*base.isdigit())
 
 
 def getRGBBaseCol(base):

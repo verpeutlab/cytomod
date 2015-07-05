@@ -691,7 +691,10 @@ parser.add_argument('-b', '--background', default=_DEFAULT_BG,
                     All lines starting with '#' in the file will be ignored. \
                     If this argument is not provided, it will default to \
                     the mESC background model.")
-parser.add_argument('-W', '--noWarnings', help="Disable warnings.",
+parser.add_argument('--ASCII_code_order', help="Sort output in ASCII-code \
+                    order, instead of the default order (that specified and \
+                    accepted by the MEME-Suite).", action='store_true')
+parser.add_argument('--noWarnings', help="Disable warnings.",
                     action='store_true')
 parser.add_argument('-v', '--verbose', help="increase output verbosity",
                     action='count')
@@ -902,9 +905,11 @@ if args.notNucleobases:
 # The zero-order Markov model should still sum to unity to be sensical
 npt.assert_allclose([sum(motifAlphBGFreqs.itervalues())], [1])
 
-# used to sort the output in ASCII-code order
+# used to sort the output in the correct sort order
 # need to sort both the background and matrix to do so
-sorted_index = np.argsort(list(motifAlphBGFreqs.keys()))
+sort_fun = (lambda base: ord(base) if args.ASCII_code_order
+            else cUtils.baseSortOrder)
+sorted_index = np.argsort(map(sort_fun, list(motifAlphBGFreqs.keys())))
 
 motif_alphabet = [list(motifAlphBGFreqs.keys())[i] for i in sorted_index]
 
