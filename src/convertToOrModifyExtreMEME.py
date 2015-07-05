@@ -57,6 +57,9 @@ MEME_MINIMAL_BG_REGEX = """Background\s+letter\s+frequencies\s+\(from.+\):\s+
 MEME_MINIMAL_BG_BASE_REGEX_G_BASE = 'base'
 MEME_MINIMAL_BG_BASE_REGEX = """(?P<{}>\w)\s+\d+\.\d+\s*"""\
     .format(MEME_MINIMAL_BG_BASE_REGEX_G_BASE)
+MEME_MINIMAL_REGEX_G_ALPH = 'alph'
+MEME_MINIMAL_ALPH_REGEX = """(?P<{}>ALPHABET(?:.|\\n)*END\sALPHABET)"""\
+    .format(MEME_MINIMAL_REGEX_G_ALPH)
 MEME_MIN_REGEX_G_ID = 'motif_ID'
 MEME_MIN_REGEX_G_NAME = 'motif_name'
 MEME_MIN_REGEX_G_ALPH_LEN = 'alph_len'
@@ -782,9 +785,13 @@ if filename:  # PWM or PFM
     with open(filename, 'rb') as inFile:
         if args.inMEMEFile:
             input_file = inFile.read()
+            MEME_parsed_alphabet = re.search(MEME_MINIMAL_ALPH_REGEX,
+                                             input_file,
+                                             flags=MEME_MINIMAL_REGEX_FLAGS) \
+                .group(MEME_MINIMAL_REGEX_G_ALPH)
             bg_contents = re.search(MEME_MINIMAL_BG_REGEX, input_file,
                                     flags=MEME_MINIMAL_REGEX_FLAGS) \
-                            .group(MEME_MINIMAL_BG_REGEX_G_BG)
+                .group(MEME_MINIMAL_BG_REGEX_G_BG)
             bgIter = re.findall(MEME_MINIMAL_BG_BASE_REGEX, bg_contents,
                                 flags=MEME_MINIMAL_REGEX_FLAGS)
             bg_contents = re.sub(r' ', r'\t', re.sub(r'(\d\d) ',
@@ -792,8 +799,11 @@ if filename:  # PWM or PFM
             motifAlphBGFreqs = _createBG(bg_contents)
             motifIter = re.finditer(MEME_MINIMAL_MOTIF_REGEX, input_file,
                                     flags=MEME_MINIMAL_REGEX_FLAGS)
-        if args.inMEMEFile:
             motif_alphabet = list(bgIter)
+
+            # replace header's alphabet with that just parsed
+            MEME_header = re.sub(MEME_MINIMAL_ALPH_REGEX, MEME_parsed_alphabet,
+                                 MEME_header)
 
         if args.annotated:
                 ncols = len(inFile.readline().split())
