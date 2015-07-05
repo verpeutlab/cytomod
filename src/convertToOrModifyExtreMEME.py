@@ -248,11 +248,12 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
 
     totalNumBases = freq_matrix.shape[0]
 
+    # NB: width is (totalNumBases - 1), due to temp. additional matrix line
     MEMEBody = textwrap.dedent("""\
                MOTIF {}\n
                letter-probability matrix: alength= {} w= {} nsites= {} E= {}
                """.format(motif_name, freq_matrix.shape[1],
-                          totalNumBases, numSites, EValue))
+                          (totalNumBases - 1), numSites, EValue))
 
     modFracs = (args.baseModificationAtAllModifiablePosFractions or
                 args.modAllFractions)
