@@ -243,6 +243,9 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                 skipRows.extend(range(start, end))
         freq_matrix = np.delete(freq_matrix, skipRows, 0)
 
+    if args.annotateMotifNames:
+        motif_name += '-' + args.annotateMotifNames + '-' + output_descriptor
+
     # add an extra final row to be removed later, to make computations simpler
     freq_matrix = np.vstack([freq_matrix, np.zeros(freq_matrix.shape[1])])
 
@@ -700,7 +703,10 @@ parser.add_argument('-b', '--background', default=_DEFAULT_BG,
                     All lines starting with '#' in the file will be ignored. \
                     If this argument is not provided, it will default to \
                     the mESC background model.")
-parser.add_argument('--ASCII_code_order', help="Sort output in ASCII-code \
+parser.add_argument('--annotateMotifNames', nargs='?', type=str,
+                    help="Add information regarding modifications performed \
+                    to motif names, optionally including the provided string.")
+parser.add_argument('--ASCIICodeOrder', help="Sort output in ASCII-code \
                     order, instead of the default order (that specified and \
                     accepted by the MEME-Suite).", action='store_true')
 parser.add_argument('--noWarnings', help="Disable warnings.",
@@ -926,7 +932,7 @@ npt.assert_allclose([sum(motifAlphBGFreqs.itervalues())], [1])
 
 # used to sort the output in the correct sort order
 # need to sort both the background and matrix to do so
-sort_fun = (lambda base: ord(base) if args.ASCII_code_order
+sort_fun = (lambda base: ord(base) if args.ASCIICodeOrder
             else cUtils.baseSortOrder)
 sorted_index = np.argsort(map(sort_fun, list(motifAlphBGFreqs.keys())))
 

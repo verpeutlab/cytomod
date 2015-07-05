@@ -4,7 +4,7 @@ set -o nounset -o pipefail -o errexit
 source $(dirname $0)/commonTestUtils.sh
 
 # NB: all test cases use non-default ASCII-code order
-PROGRAM_PATH="$BASE_PROG_PATH/convertToOrModifyExtreMEME.py --ASCII_code_order "
+PROGRAM_PATH="$BASE_PROG_PATH/convertToOrModifyExtreMEME.py --ASCIICodeOrder "
 
 echo -e "------------------------\nconvertToOrModifyExtreMEME.py\n------------------------" >&2
 
