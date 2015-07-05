@@ -738,12 +738,14 @@ if not (args.inSeq or filename):
     die("""You must provide some input, by using one of the \"Input File\"
            arguments.\nUse '-h' to view the help message.""")
 
-if ((isinstance(args.baseModPosition, int) or
-     isinstance(args.tryAllCModsAtPos, int)) and
-        args.hemimodifyOnly != _DEFAULT_HEMIMODARG):
-        die("""Hemi-modification cannot be specified with an explicit
-               modification position (motif position {}).
-            """.format(args.baseModPosition or args.tryAllCModsAtPos))
+if (((isinstance(args.baseModPosition, int) and
+      args.baseModPosition != cUtils._PARAM_A_CONST_VAL) or
+     (isinstance(args.tryAllCModsAtPos, int) and
+      args.tryAllCModsAtPos != cUtils._PARAM_A_CONST_VAL))
+        and args.hemimodifyOnly != _DEFAULT_HEMIMODARG):
+            die("""Hemi-modification cannot be specified with an explicit
+                   modification position (motif position {}).
+                """.format(args.baseModPosition or args.tryAllCModsAtPos))
 
 motifAlphBGFreqs = OrderedDict()
 if args.background:
