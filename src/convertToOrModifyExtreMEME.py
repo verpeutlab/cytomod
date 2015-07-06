@@ -166,17 +166,19 @@ def warn(msg):
         cUtils.warn(msg, os.path.basename(__file__))
 
 
-def checkPWMValidity(matrix, invalid_msg=INVALID_PWM_MSG, allow_cont=False):
+def checkPWMValidity(matrix, motif_name,
+                     invalid_msg=INVALID_PWM_MSG, allow_cont=False):
     """Checks the PWM validity. Currently this just checks that all rows
        sum to 1. Terminates the program if this is not the case, unless
        specified to allow_cont, in which case it returns False if invalid
        and True if valid."""
     if not np.allclose(np.sum(matrix, axis=1), 1):
+        additional_msg = " Occured for motif: " + motif_name
         if allow_cont:
-            warn(invalid_msg)
+            warn(invalid_msg + additional_msg)
             return False
         else:
-            die(invalid_msg)
+            die(invalid_msg + additional_msg)
     return True
 
 
@@ -456,7 +458,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                         matrix[correct_context_minus, ] = \
                             only_target_base_at_pos_comp
 
-                checkPWMValidity(matrix[:-1], INVALID_PWM_MSG)
+                checkPWMValidity(matrix[:-1], motif_name)
 
             _modifyMatrixPortion(modfreq_matrix, mod_base_index, 'C', b,
                                  mod_base_context,
@@ -474,7 +476,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                                  args.hemimodifyOnly)
 
             modfreq_matrix = modfreq_matrix[:-1]  # remove extra final row
-            checkPWMValidity(modfreq_matrix)
+            checkPWMValidity(modfreq_matrix, motif_name)
 
             if (not args.onlyNonNegChange or
                 # only consider C/G frequency changes to assess the difference
@@ -502,7 +504,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                 status = -1
 
     freq_matrix = freq_matrix[:-1]  # remove extra final row
-    checkPWMValidity(freq_matrix)
+    checkPWMValidity(freq_matrix, motif_name)
     output = StringIO()
     np.savetxt(output, freq_matrix, '%f', _DELIM)
     MEMEBody += output.getvalue()
