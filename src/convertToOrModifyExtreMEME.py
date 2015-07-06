@@ -170,12 +170,23 @@ def warn(msg):
         cUtils.warn(msg, os.path.basename(__file__))
 
 
-def checkPWMValidity(matrix, invalid_msg=INVALID_PWM_MSG):
+def checkPWMValidity(matrix, invalid_msg=INVALID_PWM_MSG, allow_cont=False):
+    """Checks the PWM validity. Currently this just checks that all rows
+       sum to 1. Terminates the program if this is not the case, unless
+       specified to allow_cont, in which case it returns False if invalid
+       and True if valid."""
     if not np.allclose(np.sum(matrix, axis=1), 1):
-        die(invalid_msg)
+        if allow_cont:
+            warn(invalid_msg)
+            return False
+        else:
+            die(invalid_msg)
+    return True
 
 
 def _createBG(backgroundString):
+    """Creates a background ordered dictionary for the
+       given, delimited, background input."""
     motifAlphBGFreqs = OrderedDict()
     for bFreq in backgroundString:
         if not bFreq:
@@ -183,23 +194,6 @@ def _createBG(backgroundString):
         (base, freq) = bFreq.split(_DELIM)
         motifAlphBGFreqs[base] = float(freq)
     return motifAlphBGFreqs
-
-
-def getAlteredSlice(slice_to_inc, slice_max, operation, value):
-    if slice_to_inc == slice(None):
-        return slice_to_inc
-    else:
-        slice_stop_plus_one = (operation(getattr(slice_to_inc, 'stop'), value)
-                               if (operation(getattr(slice_to_inc, 'stop'),
-                                   value)) <= slice_max else
-                               slice_max - 1)
-
-        if getattr(slice_to_inc, 'start') is None:
-            return slice(slice_stop_plus_one)
-        else:
-            return slice(operation(getattr(slice_to_inc, 'start'), value),
-                         slice_stop_plus_one,
-                         getattr(slice_to_inc, 'step'))
 
 
 def output_motif(freq_matrix, output_descriptor, motif_name,
@@ -450,7 +444,10 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                         matrix[correct_context_minus, ] = \
                             only_target_base_at_pos_comp
 
-                checkPWMValidity(matrix[:-1], MODIFYING_INVALID_PWM_MSG)
+                if (checkPWMValidity(matrix[:-1], MODIFYING_INVALID_PWM_MSG,
+                                     True) is False):
+                    return False
+                return True
 
             _modifyMatrixPortion(modfreq_matrix, mod_base_index, 'C', b,
                                  mod_base_context,
@@ -461,11 +458,14 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
             # case it needs to use the already modified matrix to prevent
             # changing the target modification to its complement.
             # integer positional modifications only run the method once
-            _modifyMatrixPortion(modfreq_matrix, mod_base_index, 'G',
-                                 cUtils.complement(b), mod_base_context,
-                                 True if modFracs else False,
-                                 args.hemimodifyOnly,
-                                 freq_matrix if modFracs else None)
+            result = _modifyMatrixPortion(modfreq_matrix, mod_base_index, 'G',
+                                          cUtils.complement(b),
+                                          mod_base_context,
+                                          True if modFracs else False,
+                                          args.hemimodifyOnly,
+                                          freq_matrix if modFracs else None)
+            if result is False:
+                return ''
 
             modfreq_matrix = modfreq_matrix[:-1]  # remove extra final row
             checkPWMValidity(modfreq_matrix)
@@ -760,31 +760,9 @@ if args.background:
             motifAlphBGFreqs = _createBG(bgFile)
     else:
         if args.background == _mESC_BG_NAME:
-            # The alphabet frequencies used are (WRT Cs only):
-            # 2.95% 5mC, 0.055 ± 0.008% 5hmC, 0.0014 ± 0.0003% 5fC,
-            # and 0.000335% 5caC
-            # (Respectively: Ito et al. 2011, Booth et al. 2014,
-            # Booth et al. 2014, and Ito et al. 2011)
-            motifAlphBGFreqs = \
-                {'T': 0.292, 'A': 0.292, 'C': 0.201745991, 'G': 0.201745991,
-                 # (using mouse GC content of 41.6%)
-                 # From: NCBI Eukaryotic Genome Report File
-                 'm': 0.006136, '1': 0.006136, 'h': 0.0001144, '2': 0.0001144,
-                 'f': 0.000002912, '3': 0.000002912,
-                 'c': 0.000000697, '4': 0.000000697}
+            motifAlphBGFreqs = cUtils.MOUSE_ESC_BACKGROUND
         elif args.background == _AML_BG_NAME:
-            # The alphabet frequencies used were (WRT all bases):
-            # 2.91 ± 0.11% 5mC and 0.039% 5hmC.
-            # (Respectively: Liu et al. 2007 and Kroeze et al. 2014)
-            # 5fC at 0.0021812% was estimated from the 5fC to 5hmC ratio
-            # within the melanoma cell line WM-266-4,
-            # which was analyzed by Liu S. et al.
-            motifAlphBGFreqs = \
-                {'T': 0.295, 'A': 0.295, 'C': 0.190244094, 'G': 0.190244094,
-                 # (using human GC content of 41.0%)
-                 # From: NCBI Eukaryotic Genome Report File
-                 'm': 0.01455, '1': 0.01455, 'h': 0.000195, '2': 0.000195,
-                 'f': 0.000010906, '3': 0.000010906}
+            motifAlphBGFreqs = cUtils.HUMAN_AML_BACKGROUND
 
 motifs_to_output = ''
 numSites = 0

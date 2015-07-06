@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 """Provide basic utility functions as well as definitions of
    concepts needed to work with modified nucleobases.
 
@@ -20,10 +23,13 @@
    MASK_BASE                 - The base to be used to mask other bases.
    BASE_COLOURS              - Map of unequivocal base colours,
                                per the MEME custom alphabet specification.
+   MOUSE_ESC_BACKGROUND      - mESC background, from Booth/Ito MS/MS data.
+   HUMAN_AML_BACKGROUND      - Human AML bg., from Liu/Kroeze MS/MS data.
 
    Functions:
 
    Utility:
+   getAlteredSlice           - Return a modified version of an existing Slice.
    makeList                  - Create list from scalar else identity.
    errorMsg                  - Emit error message.
    warn                      - Emit warning message.
@@ -297,6 +303,36 @@ FULL_MOD_BASE_NAMES = _consAmbigBaseNames(FULL_MOD_BASE_NAMES,
 
 MASK_BASE = AMBIG_MOD_BASES.keys()[0]
 
+# --------------------------------------------------------------------------
+# define background based upon existing MS/MS data
+
+# The alphabet frequencies used are (WRT Cs only):
+# 2.95% 5mC, 0.055 ± 0.008% 5hmC, 0.0014 ± 0.0003% 5fC,
+# and 0.000335% 5caC
+# (Respectively: Ito et al. 2011, Booth et al. 2014,
+# Booth et al. 2014, and Ito et al. 2011)
+MOUSE_ESC_BACKGROUND = \
+    OrderedDict({'T': 0.292, 'A': 0.292, 'C': 0.201745991, 'G': 0.201745991,
+                 # (using mouse GC content of 41.6%)
+                 # From: NCBI Eukaryotic Genome Report File
+                 'm': 0.006136, '1': 0.006136, 'h': 0.0001144, '2': 0.0001144,
+                 'f': 0.000002912, '3': 0.000002912,
+                 'c': 0.000000697, '4': 0.000000697})
+# --
+# The alphabet frequencies used were (WRT all bases):
+# 2.91 ± 0.11% 5mC and 0.039% 5hmC.
+# (Respectively: Liu et al. 2007 and Kroeze et al. 2014)
+# 5fC at 0.0021812% was estimated from the 5fC to 5hmC ratio
+# within the melanoma cell line WM-266-4,
+# which was analyzed by Liu S. et al.
+HUMAN_AML_BACKGROUND = \
+    OrderedDict({'T': 0.295, 'A': 0.295, 'C': 0.190244094, 'G': 0.190244094,
+                 # (using human GC content of 41.0%)
+                 # From: NCBI Eukaryotic Genome Report File
+                 'm': 0.01455, '1': 0.01455, 'h': 0.000195, '2': 0.000195,
+                 'f': 0.000010906, '3': 0.000010906})
+# --------------------------------------------------------------------------
+
 
 @_unpacked
 def complement(bases):
@@ -427,6 +463,27 @@ def makeList(lstOrVal):
     may or may not already be lists (and therefore iterable).
     """
     return [lstOrVal] if not isinstance(lstOrVal, list) else lstOrVal
+
+
+def getAlteredSlice(slice_to_alter, slice_max, operation, value):
+    """Alters the provided slice by applying the provided operation, using
+       the provided value.
+       The returned slice will have stop value at most equal to slice_max."""
+    if slice_to_alter == slice(None):
+        return slice_to_alter
+    else:
+        slice_stop_plus_one = (operation(getattr(slice_to_alter, 'stop'),
+                                         value)
+                               if (operation(getattr(slice_to_alter, 'stop'),
+                                   value)) <= slice_max else
+                               slice_max)
+
+        if getattr(slice_to_alter, 'start') is None:
+            return slice(slice_stop_plus_one)
+        else:
+            return slice(operation(getattr(slice_to_alter, 'start'), value),
+                         slice_stop_plus_one,
+                         getattr(slice_to_alter, 'step'))
 
 
 def maybe_gzip_open(filename, *args, **kwargs):
