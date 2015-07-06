@@ -329,7 +329,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
             def _modifyMatrixPortion(matrix, mod_base_index,
                                      primary_base_to_mod, target_modified_base,
                                      mod_base_context, mod_fractions,
-                                     hemimodifyOnly):
+                                     hemimodifyOnly, forward):
                 """Modifies the provided portion of the provided matrix,
                    in the indicated fashion, under the provided genomic
                    context."""
@@ -374,16 +374,20 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                     # NB: the position of the insertion of 'False' depends upon
                     # the portion of the conjunction (i.e. [:-1] vs. [1:])
                     # such that it always inserts on the sequence's termination
+                    # and also depends upon operating on the strand
                     correct_context = \
                         np.logical_and(correct_context,
                                        np.insert(matrix[mod_base_index,
                                                         motif_alphabet.
                                                  index(mod_base_context)]
                                                  > _CONTEXT_FREQ_THRESHOLD,
-                                                 -1, [0])[1:])
+                                                 (-1 if forward else 0),
+                                                 [0])[slice(1, None, None)
+                                                      if forward
+                                                      else slice(None, -1,
+                                                                 None)])
 
                 correct_context_minus = np.zeros(context_len, dtype=bool)
-
                 if '-' in hemimodifyOnly:
                     # shift Boolean values right, clipping them
                     correct_context_minus = \
@@ -464,7 +468,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
             _modifyMatrixPortion(modfreq_matrix, mod_base_index, 'C', b,
                                  mod_base_context,
                                  True if modFracs else False,
-                                 args.hemimodifyOnly)
+                                 args.hemimodifyOnly, True)
             # the modification for 'G' needs to use the unmodified matrix for
             # context computations, unless in non-fractional mode, in which
             # case it needs to use the already modified matrix to prevent
@@ -472,9 +476,9 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
             # integer positional modifications only run the method once
             _modifyMatrixPortion(modfreq_matrix, mod_base_index, 'G',
                                  cUtils.complement(b),
-                                 mod_base_context,
+                                 cUtils.complement(mod_base_context),
                                  True if modFracs else False,
-                                 args.hemimodifyOnly)
+                                 args.hemimodifyOnly, False)
 
             modfreq_matrix = modfreq_matrix[:-1]  # remove extra final row
             checkPWMValidity(modfreq_matrix, motif_name)
