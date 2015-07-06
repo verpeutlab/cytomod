@@ -416,29 +416,30 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                         # NB: this definition precludes further modification of
                         # modified bases, since it presumes residual
                         # frequencies are in the primary_base_to_mod column
-                        matrix_cur_view = \
+                        matrix_target_view = \
                             matrix[mod_base_index, motif_alphabet.
                                    index(fun(target_modified_base))].view()
-                        matrix_modified_view = \
+                        matrix_source_view = \
                             matrix[mod_base_index, motif_alphabet.
                                    index(fun(primary_base_to_mod))].view()
 
                         # transfer primary_base_to_mod frequency to the
                         # corresponding target_modified_base entry.
 
-                        # make the modification
-                        matrix[mod_base_index,
-                               motif_alphabet.index(fun(target_modified_base))] = \
-                            np.where(context_to_use, matrix_modified_view,
-                                     matrix_cur_view)
+                        matrix_target_before_mod = np.copy(matrix_target_view)
 
-                        # zero out other base frequencies at modification pos.
-                        matrix[mod_base_index,
-                               motif_alphabet.index(fun(primary_base_to_mod))] = \
-                            np.where(context_to_use,
-                                     (0 if baseModPos else
-                                      np.zeros(matrix.shape[0])),
-                                     matrix_modified_view)
+                        # make the modification, setting target values
+                        matrix[mod_base_index, motif_alphabet.
+                               index(fun(target_modified_base))] = \
+                            np.where(context_to_use, matrix_source_view,
+                                     matrix_target_view)
+
+                        # set other base frequencies (source values)
+                        # to the previous values of the target(s)
+                        matrix[mod_base_index, motif_alphabet.
+                               index(fun(primary_base_to_mod))] = \
+                            np.where(context_to_use, matrix_target_before_mod,
+                                     matrix_source_view)
                 else:
                     # zero all entries along the frequency matrix,
                     # for the given (row) position, except that corresponding

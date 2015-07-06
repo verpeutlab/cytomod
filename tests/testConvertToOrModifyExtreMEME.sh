@@ -566,3 +566,12 @@ EOF
 )
 
 runContainsFileTest "$PROGRAM_PATH" '14C' "--noWarnings -s CAKCm1Y -A -M f -F" "$correct_result"
+
+# 15) check a specific CpG context modification
+
+correct_result=$(cat <<'EOF'
+
+EOF
+)
+
+runContainsFileTest "$PROGRAM_PATH" '15' "--noWarnings -m $DATA_DIR/MA0500.1_Myog_JASPAR.meme -F -P G -M m" "$correct_result"
