@@ -444,10 +444,8 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                         matrix[correct_context_minus, ] = \
                             only_target_base_at_pos_comp
 
-                if (checkPWMValidity(matrix[:-1], MODIFYING_INVALID_PWM_MSG,
-                                     True) is False):
-                    return False
-                return True
+                print(matrix[:-1]) # XXX
+                checkPWMValidity(matrix[:-1], MODIFYING_INVALID_PWM_MSG)
 
             _modifyMatrixPortion(modfreq_matrix, mod_base_index, 'C', b,
                                  mod_base_context,
@@ -458,14 +456,12 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
             # case it needs to use the already modified matrix to prevent
             # changing the target modification to its complement.
             # integer positional modifications only run the method once
-            result = _modifyMatrixPortion(modfreq_matrix, mod_base_index, 'G',
-                                          cUtils.complement(b),
-                                          mod_base_context,
-                                          True if modFracs else False,
-                                          args.hemimodifyOnly,
-                                          freq_matrix if modFracs else None)
-            if result is False:
-                return ''
+            _modifyMatrixPortion(modfreq_matrix, mod_base_index, 'G',
+                                 cUtils.complement(b),
+                                 mod_base_context,
+                                 True if modFracs else False,
+                                 args.hemimodifyOnly,
+                                 freq_matrix if modFracs else None)
 
             modfreq_matrix = modfreq_matrix[:-1]  # remove extra final row
             checkPWMValidity(modfreq_matrix)
