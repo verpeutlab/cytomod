@@ -40,6 +40,7 @@ _DEFAULT_HEMIMODARG = '+-'
 
 _CONTEXT_FREQ_THRESHOLD = 0
 _DIST_FROM_CEN = 1  # distance from centre to still be considered "central"
+_MAX_BASE_COMP_DIFF_FOR_SIMILARITY = 0.05  # for '--onlyNonNegChange' parameter
 
 _ALL_BASE_CONTEXTS = '*'
 _DELIM = "\t"
@@ -186,13 +187,10 @@ def isMatrixSufficientlyDifferent(freq_matrix, modfreq_matrix, index_arr):
        to consider a rigorous formulation of a significant difference
        between the PWMs. It looks for changes in the composition of the
        specified bases being beyond a threshold."""
-    MAX_BASE_COMP_DIFF_FOR_SIMILARITY = 0.1
     sel_base_comp_diff = (np.linalg.norm(freq_matrix[:, index_arr], axis=0) -
                           np.linalg.norm(modfreq_matrix[:, index_arr],
                                          axis=0))
-    return not np.allclose((MAX_BASE_COMP_DIFF_FOR_SIMILARITY -
-                            sel_base_comp_diff),
-                           [MAX_BASE_COMP_DIFF_FOR_SIMILARITY])
+    return np.all(sel_base_comp_diff >= _MAX_BASE_COMP_DIFF_FOR_SIMILARITY)
 
 
 def _createBG(backgroundString):
