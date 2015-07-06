@@ -122,11 +122,6 @@ Background letter frequencies (from {}):
 
 INVALID_PWM_MSG = """Invalid PWM; rows do not sum to one."""
 
-MODIFYING_INVALID_PWM_MSG = """The resultant PWM would not have rows summing to
-                               to one. This is likely caused by an attempt to
-                               modify an already modified motif, which cannot
-                               be performed."""
-
 
 def _omitModBaseOptionType(arg):
     bases_list = arg.split(_ARG_DELIM)
@@ -313,7 +308,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
             def _modifyMatrixPortion(matrix, mod_base_index,
                                      primary_base_to_mod, target_modified_base,
                                      mod_base_context, mod_fractions,
-                                     hemimodifyOnly, old_matrix=None):
+                                     hemimodifyOnly):
                 """Modifies the provided portion of the provided matrix,
                    in the indicated fashion, under the provided genomic
                    context."""
@@ -329,8 +324,6 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                                                     - context_len[0],
                                                     dtype=bool)))
 
-                if old_matrix is None:
-                    old_matrix = matrix
                 if not mod_fractions:
                     only_target_base_at_pos = \
                         np.zeros(matrix.shape[1])
@@ -350,8 +343,8 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                 # the modifiable base is only that which was provided
                 # as the primary_base_to_mod
                 correct_context = \
-                    old_matrix[mod_base_index, motif_alphabet.
-                               index(primary_base_to_mod)] \
+                    matrix[mod_base_index, motif_alphabet.
+                           index(primary_base_to_mod)] \
                     > _CONTEXT_FREQ_THRESHOLD
 
                 if mod_base_context != _ALL_BASE_CONTEXTS:
@@ -362,8 +355,8 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                     # such that it always inserts on the sequence's termination
                     correct_context = \
                         np.logical_and(correct_context,
-                                       np.insert(old_matrix[mod_base_index,
-                                                            motif_alphabet.
+                                       np.insert(matrix[mod_base_index,
+                                                        motif_alphabet.
                                                  index(mod_base_context)]
                                                  > _CONTEXT_FREQ_THRESHOLD,
                                                  -1, [0])[1:])
@@ -376,11 +369,11 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                         np.insert(correct_context[:-1], 0, [0])
                     # also only permit modifiable bases to be mod on - strand
                     correct_context_minus_for_query = correct_context_minus
-                    if correct_context_minus.size != old_matrix.shape[0]:
+                    if correct_context_minus.size != matrix.shape[0]:
                         correct_context_minus_for_query = \
                             _resize_context(correct_context_minus)
                     bases_to_modify_minus = \
-                        old_matrix[correct_context_minus_for_query]
+                        matrix[correct_context_minus_for_query]
                     if bases_to_modify_minus.size > 0:
                         correct_context_minus = \
                             np. \
@@ -444,8 +437,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                         matrix[correct_context_minus, ] = \
                             only_target_base_at_pos_comp
 
-                print(matrix[:-1]) # XXX
-                checkPWMValidity(matrix[:-1], MODIFYING_INVALID_PWM_MSG)
+                checkPWMValidity(matrix[:-1], INVALID_PWM_MSG)
 
             _modifyMatrixPortion(modfreq_matrix, mod_base_index, 'C', b,
                                  mod_base_context,
@@ -460,8 +452,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                                  cUtils.complement(b),
                                  mod_base_context,
                                  True if modFracs else False,
-                                 args.hemimodifyOnly,
-                                 freq_matrix if modFracs else None)
+                                 args.hemimodifyOnly)
 
             modfreq_matrix = modfreq_matrix[:-1]  # remove extra final row
             checkPWMValidity(modfreq_matrix)
@@ -617,8 +608,6 @@ modBasePositions.add_argument('-A',
                               need be provided to this argument, since all \
                               possibilities will be attempted (for all \
                               modifiable positions). \
-                              This assumes that the input motif did not \
-                              already contain any modified nucleobases. \
                               This will cause the program to write a file \
                               (as opposed to the usual output to STDOUT) \
                               for the given modification.")
