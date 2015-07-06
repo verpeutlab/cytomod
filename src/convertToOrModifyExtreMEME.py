@@ -783,7 +783,7 @@ if filename:  # PWM or PFM
         if args.inTRANSFACFile or args.inTRANSFACFreqFile:
             csvData = np.loadtxt(inFile, dtype=np.float,
                                  usecols=range(1, 5), skiprows=1)
-        else:
+        elif not args.inMEMEFile:
             csvData = np.loadtxt(inFile,
                                  unpack=True, dtype=np.float,
                                  usecols=range(1, ncols)
