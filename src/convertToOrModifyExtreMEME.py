@@ -210,6 +210,7 @@ def _createBG(backgroundString):
 def output_motif(freq_matrix, output_descriptor, motif_name,
                  motif_alphabet, numSites, EValue, motif_filename,
                  MEME_header):
+    status = 0
     if args.revcomp:
         output_descriptor += '-revcomp'
         motif_name += '-revcomp'
@@ -500,6 +501,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                 warn("""A modified matrix ({}) was deemed too close to the
                         original matrix and has accordingly not been output.
                      """.format(motif_name))
+                status = -1
 
     freq_matrix = freq_matrix[:-1]  # remove extra final row
     checkPWMValidity(freq_matrix)
@@ -507,7 +509,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
     np.savetxt(output, freq_matrix, '%f', _DELIM)
     MEMEBody += output.getvalue()
     output.close()
-    return MEMEBody
+    return (status, MEMEBody)
 
 
 import argparse
@@ -950,9 +952,10 @@ def _getMotif(freq_matrix, sorted_index, MEME_header):
                          filename or motif_name, MEME_header))
 
 if args.inSeq or not args.inMEMEFile:
-    motifs_to_output += _getMotif(freq_matrix, sorted_index, MEME_header)
+    motifs_to_output += _getMotif(freq_matrix, sorted_index, MEME_header)[1]
 if args.inMEMEFile:
-    for match_num, match in enumerate(motifIter):
+    output_header = True
+    for match in motifIter:
         # behave as if read from CSV to minimize changes to other code
         meme_freq_matrix = np.fromstring(match.group(MEME_MIN_REGEX_G_PWM),
                                          dtype=float, sep=' ') \
@@ -963,8 +966,11 @@ if args.inMEMEFile:
         numSites = int(match.group(MEME_MIN_REGEX_G_NUM_SITES))
         EValue = match.group(MEME_MIN_REGEX_G_E_VALUE)
 
-        motifs_to_output += _getMotif(meme_freq_matrix, sorted_index,
-                                      (MEME_header if match_num == 0
-                                       else "\n")) + "\n"
+        (status, MEME_body) = _getMotif(meme_freq_matrix, sorted_index,
+                                        (MEME_header if output_header
+                                         else "\n"))
+        motifs_to_output += MEME_body + "\n"
+        # only output a single header per file
+        output_header = True if (status < 0 and output_header) else False
 
 print(MEME_header + motifs_to_output.strip())
