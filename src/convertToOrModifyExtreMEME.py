@@ -492,7 +492,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                                             splitext(motif_filename)[0]) +
                            '-' + cUtils.MOD_BASE_NAMES[cUtils.
                                                        getMBMaybeFromComp(b)]
-                           + '.meme'), 'a') as outFile:
+                           + output_descriptor + '.meme'), 'a') as outFile:
                     outFile.write(MEME_header)
                     outFile.write(MEMEBody)
                     np.savetxt(outFile, modfreq_matrix, '%f', _DELIM)
