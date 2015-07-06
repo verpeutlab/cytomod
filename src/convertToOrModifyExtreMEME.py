@@ -530,9 +530,7 @@ inputFile = inputFileGroupTitle.add_mutually_exclusive_group(required=False)
 inputFileGroupTitle.add_argument('-s', '--inSeq', type=str,
                                  help="File containing \
                                  an input set of raw sequences or a single \
-                                 sequence provided as the argument.\
-                                 Multiple files or sequences can be provided \
-                       delimited by \"{}\".".format(_ARG_DELIM))
+                                 sequence provided as the argument.")
 inputFile.add_argument('-p', '--inPWMFile', type=str, help="File containing \
                        an input whitespace-delimited PWM (i.e. frequency \
                        matrix). The file must only contain floats \
@@ -855,36 +853,35 @@ if filename:  # PWM or PFM
             motif_name = os.path.basename(filename)
 
 if args.inSeq:
-    for seqFileOrStr in args.inSeq.split(_ARG_DELIM):
-        if (os.path.isfile(seqFileOrStr)):
-            # NB: min dimensionality of 1 is needed for the character view
-            motifs = np.loadtxt(seqFileOrStr, dtype=str, ndmin=1)
-            motifChars = motifs.view('S1').reshape((motifs.size, -1))
-        else:
-            motifChars = np.expand_dims(np.array(list(seqFileOrStr)), axis=0)
-        totalNumBases = len(motifChars)
+    if (os.path.isfile(args.inSeq)):
+        # NB: min dimensionality of 1 is needed for the character view
+        motifs = np.loadtxt(args.inSeq, dtype=str, ndmin=1)
+        motifChars = motifs.view('S1').reshape((motifs.size, -1))
+    else:
+        motifChars = np.expand_dims(np.array(list(args.inSeq)), axis=0)
+    totalNumBases = len(motifChars)
 
-        freq_matrix = np.zeros((motifChars.shape[1], len(motifAlphBGFreqs)))
-        for i in range(0, motifChars.shape[1]):
-            base = motifChars[:, i][0]
-            unambig_base_s = (cUtils.IUPAC_BASES.get(base) or
-                              cUtils.AMBIG_MOD_BASES.get(base) or base)
-            # unambig_base_s should only contain core bases, which are those
-            # that have assigned base colours
-            if not all(unambig_base in cUtils.BASE_COLOURS.keys()
-                       for unambig_base in unambig_base_s):
-                die("""Unrecognized base "{}".""".format(base))
-            bases, baseFreqs = np.unique(unambig_base_s, return_counts=True)
-            # NB: /= appears to perform //= despite future import statement
-            baseFreqs = baseFreqs / len(baseFreqs)
-            # Append to the letter frequency matrix
-            matIn = StringIO(_DELIM.join(str(x) for x in
-                                         (baseFreqs[idx][0]/totalNumBases if
-                                         len(idx[0]) else 0 for idx in
-                                         (np.nonzero(bases == base) for
-                                          base in motif_alphabet))))
-            freq_matrix[i] = np.loadtxt(matIn)
-        motif_name = os.path.basename(seqFileOrStr)
+    freq_matrix = np.zeros((motifChars.shape[1], len(motifAlphBGFreqs)))
+    for i in range(0, motifChars.shape[1]):
+        base = motifChars[:, i][0]
+        unambig_base_s = (cUtils.IUPAC_BASES.get(base) or
+                          cUtils.AMBIG_MOD_BASES.get(base) or base)
+        # unambig_base_s should only contain core bases, which are those
+        # that have assigned base colours
+        if not all(unambig_base in cUtils.BASE_COLOURS.keys()
+                   for unambig_base in unambig_base_s):
+            die("""Unrecognized base "{}".""".format(base))
+        bases, baseFreqs = np.unique(unambig_base_s, return_counts=True)
+        # NB: /= appears to perform //= despite future import statement
+        baseFreqs = baseFreqs / len(baseFreqs)
+        # Append to the letter frequency matrix
+        matIn = StringIO(_DELIM.join(str(x) for x in
+                                     (baseFreqs[idx][0]/totalNumBases if
+                                     len(idx[0]) else 0 for idx in
+                                     (np.nonzero(bases == base) for
+                                      base in motif_alphabet))))
+        freq_matrix[i] = np.loadtxt(matIn)
+    motif_name = os.path.basename(args.inSeq)
 
 # The zero-order Markov model must sum to unity to be sensical
 npt.assert_allclose([sum(motifAlphBGFreqs.itervalues())], [1])
