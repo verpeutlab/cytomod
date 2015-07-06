@@ -179,6 +179,22 @@ def checkPWMValidity(matrix, invalid_msg=INVALID_PWM_MSG, allow_cont=False):
     return True
 
 
+def isMatrixSufficientlyDifferent(freq_matrix, modfreq_matrix, index_arr):
+    """Outputs true iff the input matrices are considered sufficiently
+       distinct. This is meant to be used to remove results that are not
+       worth analyzing and will be empirically-tuned, rather than attempting
+       to consider a rigorous formulation of a significant difference
+       between the PWMs. It looks for changes in the composition of the
+       specified bases being beyond a threshold."""
+    MAX_BASE_COMP_DIFF_FOR_SIMILARITY = 0.1
+    sel_base_comp_diff = (np.linalg.norm(freq_matrix[:, index_arr], axis=0) -
+                          np.linalg.norm(modfreq_matrix[:, index_arr],
+                                         axis=0))
+    return not np.allclose((MAX_BASE_COMP_DIFF_FOR_SIMILARITY -
+                            sel_base_comp_diff),
+                           [MAX_BASE_COMP_DIFF_FOR_SIMILARITY])
+
+
 def _createBG(backgroundString):
     """Creates a background ordered dictionary for the
        given, delimited, background input."""
@@ -460,13 +476,30 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
 
             modfreq_matrix = modfreq_matrix[:-1]  # remove extra final row
             checkPWMValidity(modfreq_matrix)
-            with open((os.path.basename(os.path.splitext(motif_filename)[0]) +
-                       '-' + cUtils.MOD_BASE_NAMES[cUtils.
-                                                   getMBMaybeFromComp(b)]
-                       + '.meme'), 'a') as outFile:
-                outFile.write(MEME_header)
-                outFile.write(MEMEBody)
-                np.savetxt(outFile, modfreq_matrix, '%f', _DELIM)
+
+            if (not args.onlyNonNegChange or
+                # only consider C/G frequency changes to assess the difference
+                # (since any modification that wasn't previously present
+                # would appear to be a substantial change)
+                isMatrixSufficientlyDifferent(freq_matrix[:-1],
+                                              modfreq_matrix,
+                                              np.array([motif_alphabet.
+                                                       index('C'),
+                                                       motif_alphabet.
+                                                       index('G')])
+                                              )):
+                with open((os.path.basename(os.path.
+                                            splitext(motif_filename)[0]) +
+                           '-' + cUtils.MOD_BASE_NAMES[cUtils.
+                                                       getMBMaybeFromComp(b)]
+                           + '.meme'), 'a') as outFile:
+                    outFile.write(MEME_header)
+                    outFile.write(MEMEBody)
+                    np.savetxt(outFile, modfreq_matrix, '%f', _DELIM)
+            else:
+                warn("""A modified matrix ({}) was deemed too close to the
+                        original matrix and has accordingly not been output.
+                     """.format(motif_name))
 
     freq_matrix = freq_matrix[:-1]  # remove extra final row
     checkPWMValidity(freq_matrix)
@@ -681,6 +714,14 @@ parser.add_argument('--annotateMotifNames', nargs='?', type=str,
 parser.add_argument('--ASCIICodeOrder', help="Sort output in ASCII-code \
                     order, instead of the default order (that specified and \
                     accepted by the MEME-Suite).", action='store_true')
+parser.add_argument('-D', '--onlyNonNegChange', help="Only output modified \
+                    matrices if they have changed non-negligibly from the \
+                    original matrix. The definition of a non-negligible \
+                    change may be arbitrarily modified and this option is not \
+                    intended to encapsulate a rigorous comparison of the \
+                    PWMs (which should be done post-hoc if desired), but \
+                    merely to remove highly similar matrices.",
+                    action='store_true')
 parser.add_argument('--noWarnings', help="Disable warnings.",
                     action='store_true')
 parser.add_argument('-v', '--verbose', help="increase output verbosity",
