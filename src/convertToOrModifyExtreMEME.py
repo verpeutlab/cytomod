@@ -247,12 +247,11 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                """.format(motif_name, freq_matrix.shape[1],
                           (totalNumBases - 1), numSites, EValue))
 
-    modFracs = (args.baseModificationAtAllModifiablePosFractions or
-                args.modAllFractions)
+    modFracs = args.modAllFractions
 
     if ((args.baseModification and args.baseModPosition)
             or args.tryAllCModsAtPos or
-            args.baseModificationAtAllModifiablePosFractions):
+            args.baseModificationAtAllModifiablePos):
         warn("""NB: modified motifs are output to a file.
                 The motif printed to STDOUT is the unmodified version.""")
 
@@ -286,13 +285,13 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
             else:
                 mod_base_context = baseModPos
 
-        if args.baseModificationAtAllModifiablePosFractions:
+        if args.baseModificationAtAllModifiablePos:
             output_descriptor += '-allPos'
         elif baseModPos:
             output_descriptor += '-P' + str(baseModPos)
 
         bases_to_iter_over = args.baseModification or \
-            args.baseModificationAtAllModifiablePosFractions
+            args.baseModificationAtAllModifiablePos
         if args.tryAllCModsAtPos:
             bases_to_iter_over = \
                 [base for base in cUtils.MOD_BASE_NAMES.keys()
@@ -581,7 +580,7 @@ modBaseSpecifiers.add_argument('-C', '--tryAllCModsAtPos',
                                the specified positions. Note that this is \
                                * indexed from 1 *.")
 modBasePositions.add_argument('-A',
-                              '--baseModificationAtAllModifiablePosFractions',
+                              '--baseModificationAtAllModifiablePos',
                               type=str, nargs='?',
                               const=str(cUtils._PARAM_A_CONST_VAL),
                               help="Modify the motif to use the modified base \
@@ -591,26 +590,11 @@ modBasePositions.add_argument('-A',
                               cytosine or guanine fraction (i.e. \
                               the resultant PWM has non-zero value for its \
                               'C' or 'G' entries at a given position). \
-                              This option results in all modifiable positions \
-                              being modified proportionally. That is, \
-                              only the cytosine or guanine fraction \
-                              will be modified to the provided base. \
-                              The provided base can either be WRT \
-                              cytosines on the positive strand (i.e. 'm') \
-                              or a complementary modification (i.e. '1') \
-                              In either case, the correct corresponding \
-                              modification will be selected, depending upon \
-                              whether the fraction being modified is a 'C' \
-                              or a 'G' (e.g. input: '-A m'. result: \
-                              'C' <-> 'm'; 'G' <-> '1'). \
-                              This argument can be used concomittantly with \
+                              This argument can be used concomitantly with \
                               '-C', in which case no modified nucleobase \
                               need be provided to this argument, since all \
                               possibilities will be attempted (for all \
-                              modifiable positions). \
-                              This will cause the program to write a file \
-                              (as opposed to the usual output to STDOUT) \
-                              for the given modification.")
+                              modifiable positions). ")
 parser.add_argument('-a', '--annotated', action='store_true',
                     help="Assume that the provided matrix file contains \
                     identifiers in the first column. This option allows \
@@ -712,12 +696,12 @@ if bool(args.baseModification) ^ bool(args.baseModPosition):
          '-C' is provided.""")
 
 if (not args.tryAllCModsAtPos and
-        (args.baseModificationAtAllModifiablePosFractions
+        (args.baseModificationAtAllModifiablePos
          == cUtils._PARAM_A_CONST_VAL)):
     die("""You must either provide the modified base to '-A' or use
         '-C' to use all possible nucleobases.""")
 
-if (not args.baseModificationAtAllModifiablePosFractions and
+if (not args.baseModificationAtAllModifiablePos and
         args.tryAllCModsAtPos == cUtils._PARAM_A_CONST_VAL):
     die("""You must either provide the position to modify to '-C' or use
         '-A' to use all possible positions.""")
