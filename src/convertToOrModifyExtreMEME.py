@@ -232,13 +232,11 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                 skipRows.extend(range(start, end))
         freq_matrix = np.delete(freq_matrix, skipRows, 0)
 
-    if args.annotateMotifNames:
-        motif_name += '-' + args.annotateMotifNames + '-' + output_descriptor
-
     # add an extra final row to be removed later, to make computations simpler
     freq_matrix = np.vstack([freq_matrix, np.zeros(freq_matrix.shape[1])])
 
     totalNumBases = freq_matrix.shape[0]
+    modFracs = args.modAllFractions
 
     # NB: width is (totalNumBases - 1), due to temp. additional matrix line
     MEMEBody = textwrap.dedent("""\
@@ -246,8 +244,6 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                letter-probability matrix: alength= {} w= {} nsites= {} E= {}
                """.format(motif_name, freq_matrix.shape[1],
                           (totalNumBases - 1), numSites, EValue))
-
-    modFracs = args.modAllFractions
 
     if ((args.baseModification and args.baseModPosition)
             or args.tryAllCModsAtPos or
@@ -289,6 +285,15 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
             output_descriptor += '-allPos'
         elif baseModPos:
             output_descriptor += '-P' + str(baseModPos)
+        if modFracs:
+            output_descriptor += '-mFracs'
+
+        if args.annotateMotifNames:
+            motif_name += ('-' + args.annotateMotifNames +
+                           '-' + output_descriptor)
+
+        # replace the previous motif name with the modified motif name
+        MEMEBody = re.sub(r"^(MOTIF\s).*", r"\1" + motif_name, MEMEBody)
 
         bases_to_iter_over = args.baseModification or \
             args.baseModificationAtAllModifiablePos
@@ -458,9 +463,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
             with open((os.path.basename(os.path.splitext(motif_filename)[0]) +
                        '-' + cUtils.MOD_BASE_NAMES[cUtils.
                                                    getMBMaybeFromComp(b)]
-                       + output_descriptor +
-                       ('-mFracs' if modFracs else '') +
-                       '.meme'), 'a') as outFile:
+                       + '.meme'), 'a') as outFile:
                 outFile.write(MEME_header)
                 outFile.write(MEMEBody)
                 np.savetxt(outFile, modfreq_matrix, '%f', _DELIM)
