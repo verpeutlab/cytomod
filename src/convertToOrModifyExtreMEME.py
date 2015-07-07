@@ -38,6 +38,7 @@ _AML_BG_NAME = 'AML'
 _DEFAULT_BG = _mESC_BG_NAME
 _DEFAULT_HEMIMODARG = '+-'
 
+_PSEUDO_EVALUE_TO_USE = 9999999  # used when the E-value is unknown
 _CONTEXT_FREQ_THRESHOLD = 0
 _DIST_FROM_CEN = 1  # distance from centre to still be considered "central"
 _MAX_BASE_COMP_DIFF_FOR_SIMILARITY = 0.05  # for '--onlyNonNegChange' parameter
@@ -784,7 +785,7 @@ if args.background:
 
 motifs_to_output = ''
 numSites = 0
-EValue = ''
+EValue = _PSEUDO_EVALUE_TO_USE
 motif_alphabet = list(motifAlphBGFreqs.keys())
 
 
@@ -927,7 +928,7 @@ npt.assert_allclose([sum(motifAlphBGFreqs.itervalues())], [1])
 
 # used to sort the output in the correct sort order
 # need to sort both the background and matrix to do so
-sort_fun = (lambda base: ord(base) if args.ASCIICodeOrder
+sort_fun = ((lambda base: ord(base)) if args.ASCIICodeOrder
             else cUtils.baseSortOrder)
 sorted_index = np.argsort(map(sort_fun, list(motifAlphBGFreqs.keys())))
 
@@ -954,7 +955,8 @@ def _getMotif(freq_matrix, sorted_index, MEME_header):
                          filename or motif_name, MEME_header))
 
 if args.inSeq or not args.inMEMEFile:
-    motifs_to_output += _getMotif(freq_matrix, sorted_index, MEME_header)[1]
+    motifs_to_output += _getMotif(freq_matrix, sorted_index, MEME_header)[1] \
+        + "\n"
 if args.inMEMEFile:
     output_header = True
     for match in motifIter:
