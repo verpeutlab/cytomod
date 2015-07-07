@@ -69,7 +69,7 @@ MEME_MIN_REGEX_G_WIDTH = 'width'
 MEME_MIN_REGEX_G_NUM_SITES = 'num_sites'
 MEME_MIN_REGEX_G_E_VALUE = 'E_value'
 MEME_MIN_REGEX_G_PWM = 'PWM'
-MEME_MINIMAL_MOTIF_REGEX = """MOTIF\s+(?P<{}>[a-zA-Z0-9_.]+\s+)?
+MEME_MINIMAL_MOTIF_REGEX = """MOTIF\s+(?P<{}>[a-zA-Z0-9_.\[\]]+\s+)?
                               (?P<{}>\w+\s+)  # motif ID line
 
                               letter-probability\s+matrix:  # start properties
@@ -311,7 +311,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                            '-' + output_descriptor)
 
         # replace the previous motif name with the modified motif name
-        MEMEBody = re.sub(r"^(MOTIF\s).*", r"\1" + motif_name, MEMEBody)
+        MEMEBody = re.sub(r"^(MOTIF ).*", r"\g<1>" + motif_name, MEMEBody)
 
         bases_to_iter_over = args.baseModification or \
             args.baseModificationAtAllModifiablePos
