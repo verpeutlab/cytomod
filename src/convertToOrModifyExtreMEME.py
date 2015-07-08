@@ -38,7 +38,8 @@ _AML_BG_NAME = 'AML'
 _DEFAULT_BG = _mESC_BG_NAME
 _DEFAULT_HEMIMODARG = '+-'
 
-_PSEUDO_EVALUE_TO_USE = 9999999  # used when the E-value is unknown
+_PSEUDO_NUMSITES_TO_USE = 0 # used when the num. sites is unknown to omit it
+_PSEUDO_EVALUE_TO_USE = 9999999  # used when the E-value is unknown to omit it
 _CONTEXT_FREQ_THRESHOLD = 0
 _DIST_FROM_CEN = 1  # distance from centre to still be considered "central"
 _MAX_BASE_COMP_DIFF_FOR_SIMILARITY = 0.05  # for '--onlyNonNegChange' parameter
@@ -259,9 +260,13 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
     # NB: width is (totalNumBases - 1), due to temp. additional matrix line
     MEMEBody = textwrap.dedent("""\
                MOTIF {}\n
-               letter-probability matrix: alength= {} w= {} nsites= {} E= {}
+               letter-probability matrix: alength= {} w= {}{}{}
                """.format(motif_name, freq_matrix.shape[1],
-                          (totalNumBases - 1), numSites, EValue))
+                          (totalNumBases - 1),
+                          (' nsites= ' + str(numSites)
+                          if numSites != _PSEUDO_NUMSITES_TO_USE else ''),
+                          (' E= ' + str(EValue)
+                          if EValue != _PSEUDO_EVALUE_TO_USE else '')))
 
     if ((args.baseModification and args.baseModPosition)
             or args.tryAllCModsAtPos or
@@ -784,7 +789,7 @@ if args.background:
             motifAlphBGFreqs = cUtils.HUMAN_AML_BACKGROUND
 
 motifs_to_output = ''
-numSites = 0
+numSites = _PSEUDO_NUMSITES_TO_USE
 EValue = _PSEUDO_EVALUE_TO_USE
 motif_alphabet = list(motifAlphBGFreqs.keys())
 
