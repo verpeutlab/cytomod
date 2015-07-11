@@ -46,6 +46,7 @@ CHROMOSOME_EXCLUSION_REGEX = '(?:random|hap|chrM)'
 MOD_BASE_REGEX = '5(m|hm|f|ca)C'
 REGION_REGEX = '(chr(?:\d+|[XYM]))(?::(?P<start>\d+)?-(?P<end>\d+)?)?'
 
+_DEFAULT_ARCHIVE_NAME = 'archive'
 _DEFAULT_FASTA_FILENAME = 'modGenome.fa'
 # bases ordered by least frequent in our dataset with most ambiguous bases last
 _DEFAULT_BASE_PRIORITY = 'fhmc' + ''.join(cUtils.AMBIG_MOD_BASES.keys()[::-1])
@@ -337,8 +338,9 @@ def determineTrackPriority(genome):
 
 
 parser = argparse.ArgumentParser()
+
 genomeArchive = parser.add_mutually_exclusive_group(required=True)
-genomeArchive.add_argument('-G', '--genomedataArchive',
+genomeArchive.add_argument('-G', '--genomeDataArchiveFullname',
                            help="The genome data archive. \
                            It must contain all needed \
                            sequence and track files. \
@@ -346,11 +348,11 @@ genomeArchive.add_argument('-G', '--genomedataArchive',
                            use '-d' instead to create it.")
 genomeArchive.add_argument("-d", "--archiveCompDirs", nargs=2,
                            metavar=('GENOME_DIR', 'TRACKS_DIR'),
-                           help="Two arguments first specifying the directory containing \
-                           the genome and then the directory containing all \
-                           modified base tracks. The genome directory must \
-                           contain (optionally Gzipped) FASTA files of \
-                           chromosomes and/or scaffolds. \
+                           help="Two arguments first specifying the directory \
+                           containing the genome and then the directory \
+                           containing all modified base tracks. The genome \
+                           directory must contain (optionally Gzipped) \
+                           FASTA files of chromosomes and/or scaffolds. \
                            The sequence files must end in either a \
                            \".fa\" or \".mask\" extension \
                            (with an optional \".gz\" suffix). \
@@ -361,21 +363,21 @@ genomeArchive.add_argument("-d", "--archiveCompDirs", nargs=2,
                            \".wig\", \".bed\", and \".bedGraph\". \
                            Provided BED files must have exactly \
                            four columns. The fourth column must be numeric. \
-                           Any rows with a data value of zero will be ignored \
-                           (this does not apply for masking; see '-M'). \
-                           The filename of each track must specify what \
-                           modified nucleobase it pertains to; \
-                           one of: {5mC, 5hmC, 5fC, 5caC}. \
+                           Any rows with a data value of zero will be \
+                           ignored (this does not apply for masking; \
+                            see '-M'). The filename of each track must \
+                           specify what modified nucleobase it pertains to; \
+                           one of: {}. \
                            Track names can also be of ambiguity codes \
                            (e.g. \"5xC\") on the positive strand only. \
                            Such tracks directly specify ambiguous loci. \
-                           If multiple tracks of the same type are provided, \
-                           all such tracks will be added to the archive. \
-                           The output sequence will default to the union of \
-                           all of the same modification type (but see '-I'). \
-                           Alternatively, the track name can contain  \"" +
-                           _MASK_TNAME + "\", in which case masking can be \
-                           used via '-M' (refer to that option for details). \
+                           If multiple tracks of the same type are \
+                           provided, all such tracks will be added to the \
+                           archive. The output sequence will default to the \
+                           union ofall of the same modification type \
+                           (but see '-I'). Alternatively, the track name \
+                           can contain {}, in which case masking can be used \
+                           via '-M' (refer to that option for details). \
                            Instead of a track directory, a single filename \
                            that meets the aforementioned requirements may \
                            be provided if the archive is to contain only \
@@ -385,7 +387,21 @@ genomeArchive.add_argument("-d", "--archiveCompDirs", nargs=2,
                            genome provided. This will \
                            create a genome data archive in an \"archive\" \
                            sub-directory of the provided track directory. \
-                           Use '-G' instead to use an existing archive.")
+                           Use '-G' instead to use an existing \
+                           archive.".format(cUtils.MOD_BASES.keys(),
+                                            _MASK_TNAME))
+parser.add_argument("--archiveOutDir",
+                    help="Only applicable if '-d' is used. \
+                    The directory in which to save the created \
+                    genome data archive. If not specified, this \
+                    defaults to the directory containing the tracks \
+                    (i.e. the second argument provided to '-d'). \
+                    This defaults to {}.".format(_DEFAULT_ARCHIVE_NAME))
+parser.add_argument("--archiveOutName", default=_DEFAULT_ARCHIVE_NAME,
+                    help="Only applicable if '-d' is used. \
+                    The name of the archive (i.e. the name \
+                    of the directory which comprises the genome data \
+                    archive).")
 region = parser.add_mutually_exclusive_group()
 region.add_argument('-r', '--region', help="Only output the modified genome \
                     for the given region. This can either be via a file \
@@ -553,6 +569,11 @@ if args.onlyBED and args.fastaFile:
     warn("""Request to only generate BED files ignored,
             since an output FASTA path was provided.""")
 
+if args.archiveCompDirs and (args.archiveOutDir or args.archiveOutName !=
+                             _DEFAULT_ARCHIVE_NAME):
+    warn("""Neither the output directory nor the output name of a
+            genome archive are applicable, because an archive
+            is not being created.""")
 
 if args.alterIncludedChromosomes:
     _modifychrmExclusionRegex(args.alterIncludedChromosomes)
@@ -572,13 +593,16 @@ v_print_timestamp(args.verbose, "Using the following ambiguity map: " +
 
 from genomedata import Genome, load_genomedata
 
-genomeDataArchive = ""
+genomeDataArchiveFullname = ""
 if args.archiveCompDirs:
-    v_print_timestamp(args.verbose, "Creating genomedata archive.")
     # Create the archive in the directory of the track files
-    genomeDataArchive = os.path.dirname(args.archiveCompDirs[1]) + "/archive/" \
-        if os.path.isfile(args.archiveCompDirs[1]) \
-        else args.archiveCompDirs[1] + "/archive/"
+    # unless another directory is specified
+    defaultArchiveDir = os.path.dirname(args.archiveCompDirs[1]) if \
+        os.path.isfile(args.archiveCompDirs[1]) else args.archiveCompDirs[1]
+    genomeDataArchiveFullname = (args.archiveOutDir or defaultArchiveDir) + \
+        '/' + args.archiveOutName + '/'
+    v_print_timestamp(args.verbose, "Creating genomedata archive in {}.".
+                      format(genomeDataArchiveFullname))
     # Create the genome data archive
     # Load all supported track files in the tracks directory
     # Load all FASTA files in the sequences directory
@@ -593,7 +617,7 @@ if args.archiveCompDirs:
     if not FASTA_file_list:
         die("Unable to locate FASTA input files for archive creation.")
     load_genomedata.load_genomedata(
-        genomeDataArchive,
+        genomeDataArchiveFullname,
         # args.archiveCompDirs[1] is either a directory of tracks
         # or is the full path to a single track.
         tracks=([(os.path.basename(args.archiveCompDirs[1]),
@@ -608,9 +632,9 @@ if args.archiveCompDirs:
 
 else:
     v_print_timestamp(args.verbose, "Using existing genomedata archive.")
-    genomeDataArchive = args.genomedataArchive
+    genomeDataArchiveFullname = args.genomeDataArchiveFullname
 
-with Genome(genomeDataArchive) as genome:
+with Genome(genomeDataArchiveFullname) as genome:
     warnings.simplefilter("ignore")  # Ignore supercontig warnings
     v_print_timestamp(args.verbose, "Genomedata archive successfully loaded.")
     maskRegionTName = ''
@@ -624,8 +648,8 @@ with Genome(genomeDataArchive) as genome:
                 tnames[_MASK_TNAME] = track
                 maskRegionTName = track
             else:
-                warn("""Genomedata archive contains a mask track, but '-M' was not
-                        given. Masking will not be performed.""")
+                warn("""Genomedata archive contains a mask track, but
+                        '-M' was not given. Masking will not be performed.""")
         else:
             trackToBase = {covalent_mod_base for
                            covalent_mod, covalent_mod_base in

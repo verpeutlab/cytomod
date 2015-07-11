@@ -15,6 +15,7 @@ written to a file, while the MEME output written to STDOUT
 always correpsonds to the unmodified motif.
 """
 
+import argparse
 import os
 import re
 import textwrap
@@ -38,7 +39,7 @@ _AML_BG_NAME = 'AML'
 _DEFAULT_BG = _mESC_BG_NAME
 _DEFAULT_HEMIMODARG = '+-'
 
-_PSEUDO_NUMSITES_TO_USE = 0 # used when the num. sites is unknown to omit it
+_PSEUDO_NUMSITES_TO_USE = 0  # used when the num. sites is unknown to omit it
 _PSEUDO_EVALUE_TO_USE = 9999999  # used when the E-value is unknown to omit it
 _CONTEXT_FREQ_THRESHOLD = 0
 _DIST_FROM_CEN = 1  # distance from centre to still be considered "central"
@@ -523,8 +524,8 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
     return (status, MEMEBody)
 
 
-import argparse
 parser = argparse.ArgumentParser()
+
 inputFileGroupTitle = \
     parser.add_argument_group(title="Input File", description="Input set(s) \
                               of sequences or matrices from which to create a \

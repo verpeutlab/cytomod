@@ -69,9 +69,14 @@ case $test_to_run in
 0|2)
     # -------------------------------- Test 2 --------------------------------
     FASTA_file='test2.fa'
-
-    $PROGRAM_PATH $VERBOSITY_ARG -d "$DATA_DIR/" "$DATA_DIR/" -f "$FASTA_file" -b -M
-
+    mkdir "$DATA_DIR/test"
+    $PROGRAM_PATH $VERBOSITY_ARG -d "$DATA_DIR/" "$DATA_DIR/" --archiveOutDir "$DATA_DIR/test" --archiveOutName 'testArchive' -f "$FASTA_file" -b -M
+    
+    # check that the use of a custom archive directory and name was successful
+    if [[ ! -d "$DATA_DIR/test/testArchive" ]]; then
+        failMsgAndExit "2: Expected archive not present."
+    fi
+    
     declare -A BED_to_symbols
     BED_to_symbols=(["$TRACK_PREF"'5mC-fakeData.bedGraph.gz']='m1h2f3z9NAT' \
                     ["$TRACK_PREF"'5hmC-fakeData.bedGraph.gz']='h2f3z9NAT' \

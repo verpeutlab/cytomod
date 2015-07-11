@@ -8,6 +8,7 @@ of only modified nucleobase.
 
 from __future__ import with_statement, division, print_function
 
+import argparse
 import re
 import sys
 
@@ -181,7 +182,6 @@ def makeSelFreqPlot(charFreqsP, plotPath, selectionInclusionRegex,
     plt.savefig(plotPath +
                 ('.png' if args.rasterize else '.pdf'))
 
-import argparse
 parser = argparse.ArgumentParser()
 
 parser.add_argument('-f', '--file', required=True,
