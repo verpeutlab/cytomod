@@ -569,8 +569,8 @@ if args.onlyBED and args.fastaFile:
     warn("""Request to only generate BED files ignored,
             since an output FASTA path was provided.""")
 
-if args.archiveCompDirs and (args.archiveOutDir or args.archiveOutName !=
-                             _DEFAULT_ARCHIVE_NAME):
+if not args.archiveCompDirs and (args.archiveOutDir or args.archiveOutName !=
+                                 _DEFAULT_ARCHIVE_NAME):
     warn("""Neither the output directory nor the output name of a
             genome archive are applicable, because an archive
             is not being created.""")
