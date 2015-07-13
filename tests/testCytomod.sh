@@ -47,10 +47,12 @@ case $test_to_run in
 0|1)
     # -------------------------------- Test 1 --------------------------------
     FASTA_file='test1A.fa'
-
+    track_out_dir="$DATA_DIR/testTracks/"
+    mkdir "$track_out_dir"
+    
     # 1A) check that no masking was performed
     $PROGRAM_PATH $VERBOSITY_ARG -d "$DATA_DIR/" "$DATA_DIR/" -f "$FASTA_file" \
-        -r "$TEST_REGION"
+        -r "$TEST_REGION" --BEDOutDir "$track_out_dir"
     if [[ ! -z $(fgrep -v '>' $FASTA_file | grep '[z9]') ]]; then
         failMsgAndExit '1A'
     else
@@ -58,7 +60,8 @@ case $test_to_run in
     fi
 
     # 1B) check that all expected BED files were generated
-    if [[ $(find . -name "*track*" -and -name "*-*.bed*" | fgrep -f \
+        # check that the use of a custom track directory was successful
+    if [[ $(find "$track_out_dir" -name "*track*" -and -name "*-*.bed*" | fgrep -f \
             ../expected_track_patterns.txt | awk 'END{print NR;}') -ne \
           $(awk 'END{print NR;}' ../expected_track_patterns.txt) ]]; then
         failMsgAndExit '1B'

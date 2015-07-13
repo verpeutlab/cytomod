@@ -31,16 +31,16 @@ import cUtils
 
 __version__ = cUtils.__version__
 
-AUTOSOME_ONLY_FLAG = 'u'
-ALLOSOME_ONLY_FLAG = 'l'
-MITOCHONDRIAL_ONLY_FLAG = 'm'
-MITOCHONDRIAL_INCLUSION_FLAG = MITOCHONDRIAL_ONLY_FLAG.upper()
+_AUTOSOME_ONLY_FLAG = 'u'
+_ALLOSOME_ONLY_FLAG = 'l'
+_MITOCHONDRIAL_ONLY_FLAG = 'm'
+_MITOCHONDRIAL_INCLUSION_FLAG = _MITOCHONDRIAL_ONLY_FLAG.upper()
 
 SUPPORTED_FORMATS_REGEX = '\.(bed|wig|bed[gG]raph)(.gz)?$'
-CHROMOSOME_TYPE_REGEXES = {AUTOSOME_ONLY_FLAG: 'chr\d+',
-                           ALLOSOME_ONLY_FLAG: 'chr[XY]',
-                           MITOCHONDRIAL_ONLY_FLAG: 'chrM',
-                           MITOCHONDRIAL_INCLUSION_FLAG: 'chr(?:\d+|[XYM])'}
+CHROMOSOME_TYPE_REGEXES = {_AUTOSOME_ONLY_FLAG: 'chr\d+',
+                           _ALLOSOME_ONLY_FLAG: 'chr[XY]',
+                           _MITOCHONDRIAL_ONLY_FLAG: 'chrM',
+                           _MITOCHONDRIAL_INCLUSION_FLAG: 'chr(?:\d+|[XYM])'}
 # default chromosomal exclusions include: unmapped data, haplotypes, and chrM
 CHROMOSOME_EXCLUSION_REGEX = '(?:random|hap|chrM)'
 MOD_BASE_REGEX = '5(m|hm|f|ca)C'
@@ -436,20 +436,21 @@ region.add_argument('-R', '--randomRegion', nargs='?',
 parser.add_argument('-A', '--alterIncludedChromosomes',
                     choices=CHROMOSOME_TYPE_REGEXES.keys(),
                     help="Include or exclude chromosome \
-                    types. '" + AUTOSOME_ONLY_FLAG + "': \
-                    Use only autosomal chromosomes  (excludes chrM). \
-                    '" + ALLOSOME_ONLY_FLAG + "': \
-                    Use only allosomal chromosomes (excludes chrM). \
-                    '" + MITOCHONDRIAL_ONLY_FLAG + "': \
-                    Use only the mitochondrial chromosome. \
-                    '" + MITOCHONDRIAL_INCLUSION_FLAG + "': \
-                    Include the mitochondrial chromosome. \
+                    types. '{}': Use only autosomal chromosomes \
+                    (excludes chrM). \
+                    '{}': Use only allosomal chromosomes (excludes chrM). \
+                    '{}': Use only the mitochondrial chromosome. \
+                    '{}': Include the mitochondrial chromosome. \
                     NB: default chromosomal exclusions include: \
                     unmapped data, haplotypes, and chrM. \
                     This parameter will be ignored if a \
                     specific genomic region is queried via '-r', \
                     but will be considered if a file of genomic \
-                    regions is provided (also via '-r').")
+                    regions is provided (also via '-r'). \
+                    ".format(_AUTOSOME_ONLY_FLAG,
+                             _ALLOSOME_ONLY_FLAG,
+                             _MITOCHONDRIAL_ONLY_FLAG,
+                             _MITOCHONDRIAL_INCLUSION_FLAG))
 parser.add_argument('-p', '--priority', default=_DEFAULT_BASE_PRIORITY,
                     help="Specify the priority \
                     of modified bases. The default is:"
@@ -465,6 +466,11 @@ BEDGeneration.add_argument('-B', '--onlyBED', action='store_true',
                            appended to and created in the CWD \
                            irrespective of the use of this option. \
                            This parameter is ignored if '-f' is used.")
+parser.add_argument("--BEDOutDir", default='.',
+                    help="Only applicable if '-b' is not used. \
+                    The directory in which to save the created \
+                    BED tracks. If not specified, this \
+                    defaults to the current working directory.")
 parser.add_argument('-f', '--fastaFile', nargs='?', type=str,
                     const=_DEFAULT_FASTA_FILENAME, help="Output to \
                     a file instead of STDOUT. Provide a full path \
@@ -574,6 +580,10 @@ if not args.archiveCompDirs and (args.archiveOutDir or args.archiveOutName !=
     warn("""Neither the output directory nor the output name of a
             genome archive are applicable, because an archive
             is not being created.""")
+
+if args.suppressBED and args.BEDOutDir:
+    warn("""The directory provided for BED output has been ignored, since
+            BED output has been suppressed.""")
 
 if args.alterIncludedChromosomes:
     _modifychrmExclusionRegex(args.alterIncludedChromosomes)
@@ -692,7 +702,8 @@ with Genome(genomeDataArchiveFullname) as genome:
         trackID += '-' if trackID else ''
         procModBases = []
         for base in modBases + cUtils.complement(modBases):
-            trackFileName = "track-" + trackID + base + ".bed.gz"
+            trackFileName = "{}/track-{}{}.bed.gz".\
+                format(args.BEDOutDir, trackID, base)
             tnames[base] = trackFileName
             # 'EAFP' way of removing any existing old tracks
             try:
