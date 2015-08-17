@@ -169,20 +169,27 @@ def warn(msg):
         cUtils.warn(msg, os.path.basename(__file__))
 
 
+def checkMMSumsToUnity(background):
+    """Checks the iterable's validity as a Markov model background.
+       Currently this just checks that it sums to 1.
+       Terminates the program if this is not the case, unless
+       within a certain tolerence, which emits a warning."""
+    base_err_msg = 'Zero-order Markov model does not exactly sum to unity'
+    npt.assert_allclose([sum(background.itervalues())], [1], atol=0.001,
+                        err_msg="{}.".format(base_err_msg))
+    if not np.allclose([sum(background.itervalues())], [1]):
+        cUtils.warn("""{}, but is within 0.001, and is likely a rounding error
+                       caused upstream of this program. Nonetheless, output
+                       should be carefully verified.""".format(base_err_msg))
+
+
 def checkPWMValidity(matrix, motif_name,
-                     invalid_msg=INVALID_PWM_MSG, allow_cont=False):
+                     invalid_msg=INVALID_PWM_MSG):
     """Checks the PWM validity. Currently this just checks that all rows
-       sum to 1. Terminates the program if this is not the case, unless
-       specified to allow_cont, in which case it returns False if invalid
-       and True if valid."""
-    if not np.allclose(np.sum(matrix, axis=1), 1):
-        additional_msg = " Occured for motif: " + motif_name
-        if allow_cont:
-            warn(invalid_msg + additional_msg)
-            return False
-        else:
-            die(invalid_msg + additional_msg)
-    return True
+       sum to 1."""
+    base_err_msg = "{} Occured for motif: {}".format(invalid_msg, motif_name)
+    npt.assert_allclose(np.sum(matrix, axis=1), np.repeat(1, matrix.shape[0]),
+                        rtol=1e-05, atol=1e-08, err_msg=base_err_msg)
 
 
 def isMatrixSufficientlyDifferent(freq_matrix, modfreq_matrix, index_arr):
@@ -897,8 +904,8 @@ if args.inSeq:
         freq_matrix[i] = np.loadtxt(matIn)
     motif_name = os.path.basename(args.inSeq)
 
-# The zero-order Markov model must sum to unity to be sensical
-npt.assert_allclose([sum(motifAlphBGFreqs.itervalues())], [1])
+# The zero-order Markov model should still sum to unity to be sensical
+checkMMSumsToUnity(motifAlphBGFreqs)
 
 matrix_indicies_to_delete = []
 
@@ -930,7 +937,7 @@ if args.notNucleobases:
     MEME_header = re.sub('(. = \n)', '', MEME_header, flags=re.MULTILINE)
 
 # The zero-order Markov model should still sum to unity to be sensical
-npt.assert_allclose([sum(motifAlphBGFreqs.itervalues())], [1])
+checkMMSumsToUnity(motifAlphBGFreqs)
 
 # used to sort the output in the correct sort order
 # need to sort both the background and matrix to do so
