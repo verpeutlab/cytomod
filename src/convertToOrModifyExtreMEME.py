@@ -927,14 +927,25 @@ if args.notNucleobases:
         MEME_header = re.sub('.*' + cUtils.FULL_MOD_BASE_NAMES[base]
                              + '.*\n', '', MEME_header)
         # remove excluded nucleobase from any containing ambiguity codes
-        MEME_header = re.sub('^(. = .*)(?:' + base + '|'
-                             + cUtils.complement(base) + ')(.*\n)',
-                             '\g<1>\g<2>', MEME_header, flags=re.MULTILINE)
+        MEME_header_new_temp = ''
+        for line in iter(MEME_header.splitlines()):
+            match = re.search('(.)( = )(.*)', line)
+            if match:
+                MEME_header_new_temp += \
+                    (match.group(1) + match.group(2) +
+                     match.group(3).translate(None,
+                                              ''.join([base,
+                                                       cUtils.
+                                                       complement(base)]))
+                     + "\n")
+            else:
+                MEME_header_new_temp += line + "\n"
+        MEME_header = MEME_header_new_temp
         matrix_indicies_to_delete += [motif_alphabet.index(base),
                                       motif_alphabet.
                                       index(cUtils.complement(base))]
-    # remove any ambiguity codes that are now empty
-    MEME_header = re.sub('(. = \n)', '', MEME_header, flags=re.MULTILINE)
+    # remove any ambiguity codes that are now empty or are merely aliases
+    MEME_header = re.sub('(. = .?\n)', '', MEME_header, flags=re.MULTILINE)
 
 # The zero-order Markov model should still sum to unity to be sensical
 checkMMSumsToUnity(motifAlphBGFreqs)
