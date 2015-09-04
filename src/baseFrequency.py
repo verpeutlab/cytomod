@@ -69,7 +69,7 @@ def orderBase(base):
         # and before everything else (so subtract large int)
         return (len(cUtils.MOD_BASES.values()) -
                 cUtils.MOD_BASES.values().
-                index(base[0]) - sys.maxsize - ambigAdj)
+                index(base[0]) - (sys.maxsize / 2) - ambigAdj)
     elif cUtils.getMBMaybeFromComp(base[0]) in cUtils.MOD_BASES.values():
         # if complemented modified base, place in numeric order
         return (cUtils.MOD_BASES.values().
