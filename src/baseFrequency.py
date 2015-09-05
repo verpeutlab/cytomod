@@ -28,6 +28,11 @@ _EXPLODE_DISTANCE = 0.1
 LINE_EXCLUSION_REGEX = '>'
 CHAR_EXCLUSION_REGEX = '\n'
 
+# used as a large integer for sorting code, instead of sys.maxint
+# since it is sufficient and use of larger values can cause problems
+# on some systems
+LARGE_INT = 2**30 if 2**30 < sys.maxint else sys.maxint
+
 # Default inclusion regex for output of modified base only plot
 _DEFAULT_SELECTION_INCLUSION_REGEX = '[a-z0-9]'
 
@@ -68,8 +73,8 @@ def orderBase(base):
         # natural order (by subtracting from # of mod bases)
         # and before everything else (so subtract large int)
         return (len(cUtils.MOD_BASES.values()) -
-                cUtils.MOD_BASES.values().
-                index(base[0]) - (sys.maxsize / 2) - ambigAdj)
+                cUtils.MOD_BASES.values().index(base[0])
+                - LARGE_INT - ambigAdj)
     elif cUtils.getMBMaybeFromComp(base[0]) in cUtils.MOD_BASES.values():
         # if complemented modified base, place in numeric order
         return (cUtils.MOD_BASES.values().
@@ -92,10 +97,10 @@ def filecharcount(openfile, lineExclusionRegex, charExclusionRegex):
     The character counts computation code was adapted from:
     http://rosettacode.org/wiki/Letter_frequency#Python
     """
-    return sorted(Counter
-                  (c for l in openfile if
-                   not re.search(lineExclusionRegex, l) for c in l if
-                   not re.search(charExclusionRegex, c)).items(),
+    counter = Counter(char for line in openfile if not
+                      re.search(lineExclusionRegex, line) for char in line
+                      if not re.search(charExclusionRegex, char))
+    return sorted(counter.items(),
                   key=lambda baseAndFreq: orderBase(baseAndFreq[0]))
 
 
