@@ -75,7 +75,7 @@ MEME_MIN_REGEX_G_NUM_SITES = 'num_sites'
 MEME_MIN_REGEX_G_E_VALUE = 'E_value'
 MEME_MIN_REGEX_G_PWM = 'PWM'
 MEME_MINIMAL_MOTIF_REGEX = """MOTIF\s+(?P<{}>[^\s]+\s+)?
-                              (?P<{}>\w+\s+)  # motif ID line
+                              (?P<{}>[^\s]+\s+)  # motif ID line
 
                               letter-probability\s+matrix:  # start properties
                               \s+alength=\s*(?P<{}>\d+)\s+
