@@ -999,7 +999,8 @@ if args.inMEMEFile:
                                          dtype=float, sep=' ') \
             .reshape((int(match.group(MEME_MIN_REGEX_G_WIDTH)),
                      int(match.group(MEME_MIN_REGEX_G_ALPH_LEN))))
-        motif_name = (match.group(MEME_MIN_REGEX_G_ID).strip() + ' ' +
+        motif_name = ((match.group(MEME_MIN_REGEX_G_ID).strip() + ' '
+                       if match.group(MEME_MIN_REGEX_G_ID) else '') +
                       match.group(MEME_MIN_REGEX_G_NAME).strip())
         numSites = int(match.group(MEME_MIN_REGEX_G_NUM_SITES))
         EValue = match.group(MEME_MIN_REGEX_G_E_VALUE)
