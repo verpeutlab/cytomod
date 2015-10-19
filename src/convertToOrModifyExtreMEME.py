@@ -580,7 +580,14 @@ inputFile.add_argument('-j', '--inJASPARFile', type=str, help="File containing \
                        an input JASPAR matrix. The file must exactly \
                        conform to the JASPAR matrix format.")
 inputFile.add_argument('-m', '--inMEMEFile', type=str, help="File containing \
-                       an input set of motifs in minimal MEME format.")
+                       an input set of motifs in minimal MEME format. \
+                       Note that the parser is slightly more stringent than \
+                       the minimal MEME specification, in that \
+                       alphabet length (\"alength\"), motif width (\"w\"), \
+                       and the number of sites (\"nsites\") must be \
+                       provided for each input motif.")
+# TODO remove this requirement (of needed fields for MEME motif parsing)
+
 modBaseSpecifiers = parser.add_mutually_exclusive_group()
 modBasePositions = parser.add_mutually_exclusive_group()
 modBaseSpecifiers.add_argument('-M', '--baseModification',
