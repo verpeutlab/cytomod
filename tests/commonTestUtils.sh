@@ -46,7 +46,7 @@ function runContainsFileTest {
     if [[ $(echo "$run_errors") ]]; then
         failMsgAndExit $2
     fi
-    test_result=$(<${*.meme})
+    test_result=$(<*.meme)
     _performContainsTest "$2" "$test_result" "$4"
     rm -f *.meme
 }
