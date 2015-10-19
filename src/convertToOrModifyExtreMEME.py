@@ -55,12 +55,15 @@ BOTH_STRANDS = 0
 STRANDS = '+ -' if BOTH_STRANDS else '+'
 FROM_STR = 'custom'
 MEME_MINIMAL_BG_REGEX_G_BG = 'background'
+MEME_MINIMAL_BG_REGEX_BASE_FREQ_FLOAT = '\d+\.\d+(?:e-?\d+)?\s*'
 MEME_MINIMAL_BG_REGEX = """Background\s+letter\s+frequencies\s+\(from.+\):\s+
-                           (?P<{}>(?:\w\s+\d+\.\d+\s*)+)"""\
-                           .format(MEME_MINIMAL_BG_REGEX_G_BG)
+                           (?P<{}>(?:\w\s+{})+)"""\
+                           .format(MEME_MINIMAL_BG_REGEX_G_BG,
+                                   MEME_MINIMAL_BG_REGEX_BASE_FREQ_FLOAT)
 MEME_MINIMAL_BG_BASE_REGEX_G_BASE = 'base'
-MEME_MINIMAL_BG_BASE_REGEX = """(?P<{}>\w)\s+\d+\.\d+\s*"""\
-    .format(MEME_MINIMAL_BG_BASE_REGEX_G_BASE)
+MEME_MINIMAL_BG_BASE_REGEX = """(?P<{}>\w)\s+{}"""\
+    .format(MEME_MINIMAL_BG_BASE_REGEX_G_BASE,
+            MEME_MINIMAL_BG_REGEX_BASE_FREQ_FLOAT)
 MEME_MINIMAL_REGEX_G_ALPH = 'alph'
 MEME_MINIMAL_ALPH_REGEX = """(?P<{}>ALPHABET(?:.|\\n)*END\sALPHABET)"""\
     .format(MEME_MINIMAL_REGEX_G_ALPH)
