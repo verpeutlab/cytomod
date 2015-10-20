@@ -42,12 +42,14 @@ function runContainsTest {
 
 function runContainsFileTest {
     # runContainsFileTest <program path> <test ID> <program arguments> <correct result> [file]
+    shopt -s nullglob
+    rm -f *.meme
+    shopt -u nullglob
+
     run_errors="$($1 $3 2>&1 >/dev/null || true)"
     if [[ $(echo "$run_errors") ]]; then
         failMsgAndExit $2
     fi
-
-    rm -f *.meme
 
     _performContainsTest "$2" "$(<*.meme)" "$4"
 }
