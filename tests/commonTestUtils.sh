@@ -46,10 +46,10 @@ function runContainsFileTest {
     if [[ $(echo "$run_errors") ]]; then
         failMsgAndExit $2
     fi
-    modified_MEME_glob='*5*-*.meme'
-    test_result=$(<$modified_MEME_glob)
-    _performContainsTest "$2" "$test_result" "$4"
-    rm -f $modified_MEME_glob
+
+    _performContainsTest "$2" "$(cat *.meme)" "$4"
+
+    rm -f *.meme
 }
 
 
