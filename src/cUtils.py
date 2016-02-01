@@ -44,6 +44,8 @@
 
    Modified base-interacting:
    complement                - Return complement of given base(s).
+   isModBase                 - Return Boolean indicating if base is mod.
+   isUnivocal                - Return Boolean indicating if base is unambiguous
    getUnivocalModBases       - Return all unambiguous mod. bases.
    getFirstUnivocalBase      - Return first unambiguous mod. base
                                for given ambiguity code.
@@ -53,6 +55,7 @@
    getMBMaybeFromComp        - Map complement mod. base to primary mod base.
    getRGBBaseCol             - Return the (0-1) RGB colour of the given base.
    getRGB256BaseCol          - Return the (0-255) RGB colour of the given base.
+   getHexBaseCol             - Return the hex colour of the given base.
    baseSortOrder             - Map bases to an integer rep. their sort order.
 """
 
@@ -374,9 +377,19 @@ MODIFIED_DINUCL_ORDER = _cons_mod_dinucl_order(MOD_BASE_COMPLEMENT_NUM_ORDER,
                                                MOD_MAP)
 
 
+def isModBase(base):
+    """Return a Boolean indicating if the base is modified (of any kind)."""
+    return (True if base in MOD_MAP.keys() else False)
+
+
 def getUnivocalModBases():
     """Return all modified bases, excluding ambiguity codes."""
     return MOD_BASE_NAMES.keys() + complement(MOD_BASE_NAMES.keys())
+
+
+def isUnivocal(base):
+    """Return a Boolean indicating if the base is univocal."""
+    return (True if base in getUnivocalModBases() else False)
 
 
 def getFirstUnivocalBase(base):
@@ -478,6 +491,12 @@ def getRGB256BaseCol(base):
     via _getBaseCol.
     """
     return _getBaseCol(base).rgb256
+
+
+def getHexBaseCol(base):
+    """Return the given nucleobase's hex (#RRGGBB) colour, via _getBaseCol.
+    """
+    return _getBaseCol(base).hex
 
 
 def makeList(lstOrVal):
