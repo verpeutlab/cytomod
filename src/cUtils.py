@@ -11,20 +11,24 @@
 
    Constants:
 
-   IUPAC_BASES               - IUPAC DNA bases, including ambiguity codes
-   MOD_BASES                 - Map mod. base abbreviations to base.
-   MOD_BASE_NAMES            - Inverse of MOD_BASES.
-   AMBIG_MOD_BASES           - Define mod. base ambiguity codes.
-   INVERTED_AMBIG_MOD_BASES  - Inverse of AMBIG_MOD_BASES.
-   MOD_MAP                   - Map each mod. base to its unmodified base.
-   COMPLEMENTS               - Map of all complements for all bases.
-   FULL_BASE_NAMES           - Full names of unmodmified fundamental bases.
-   FULL_MOD_BASE_NAMES       - Full names of modmified bases.
-   MASK_BASE                 - The base to be used to mask other bases.
-   BASE_COLOURS              - Map of unequivocal base colours,
-                               per the MEME custom alphabet specification.
-   MOUSE_ESC_BACKGROUND      - mESC background, from Booth/Ito MS/MS data.
-   HUMAN_AML_BACKGROUND      - Human AML bg., from Liu/Kroeze MS/MS data.
+   MOD_BASE_COMPLEMENT_NUM_ORDER      - Order of + strand bases, for comp. asn.
+   BASE_TO_COVALENT_MODIFICATION_MAP  - Map of mod. bases to mod. names.
+   NUCLEOTIDE_POSITIONS_MODIFIED      - Positions of the DNA that are mod.
+   POS_STRAND_BASES_MODIFIED          - Positive strand mod. IUPAC bases.
+   IUPAC_BASES                        - IUPAC DNA bases, incl. ambiguity codes
+   MOD_BASES                          - Map mod. base abbreviations to base.
+   MOD_BASE_NAMES                     - Inverse of MOD_BASES.
+   AMBIG_MOD_BASES                    - Define mod. base ambiguity codes.
+   INVERTED_AMBIG_MOD_BASES           - Inverse of AMBIG_MOD_BASES.
+   MOD_MAP                            - Map each mod. base to its unmod. base.
+   COMPLEMENTS                        - Map of all complements for all bases.
+   FULL_BASE_NAMES                    - Full names of unmod. fundamental bases.
+   FULL_MOD_BASE_NAMES                - Full names of modmified bases.
+   MASK_BASE                          - The base used to mask other bases.
+   BASE_COLOURS                       - Map of unequivocal base colours, per
+                                        the MEME custom alphabet specification.
+   MOUSE_ESC_BACKGROUND               - mESC background (Booth/Ito MS/MS data).
+   HUMAN_AML_BACKGROUND               - Human AML bg. (Liu/Kroeze MS/MS data).
 
    Functions:
 
