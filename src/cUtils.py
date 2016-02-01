@@ -24,6 +24,7 @@
    COMPLEMENTS                        - Map of all complements for all bases.
    FULL_BASE_NAMES                    - Full names of unmod. fundamental bases.
    FULL_MOD_BASE_NAMES                - Full names of modmified bases.
+   MODIFIED_DINUCL_ORDER              - Order of mod. bases used in H-testing.
    MASK_BASE                          - The base used to mask other bases.
    BASE_COLOURS                       - Map of unequivocal base colours, per
                                         the MEME custom alphabet specification.
@@ -353,6 +354,24 @@ MOD_MAP.update(_consCompModBasePairs(MOD_MAP))
 FULL_MOD_BASE_NAMES = _consCompModBaseFullNames(FULL_BASE_NAMES,
                                                 FULL_MOD_BASE_NAMES, MOD_MAP,
                                                 MOD_BASES, AMBIG_MOD_BASES)
+
+
+def _cons_mod_dinucl_order(mod_base_order, mod_to_unmod_map):
+    """Returns a list with modified dinucleotides, in their natural ordering.
+       This order is by the underlying order of the primary modified
+       nucleobases, followed by their complements, ordered by:
+       only positive strand hemi-modifications,
+       only negative strand hemi-modifications, and complete modifications."""
+    result = []
+    for mod_base in mod_base_order:
+        result += [mod_base + complement(mod_to_unmod_map[mod_base])]
+        result += [mod_to_unmod_map[mod_base] + complement(mod_base)]
+        result += [mod_base + complement(mod_base)]
+    return result
+
+
+MODIFIED_DINUCL_ORDER = _cons_mod_dinucl_order(MOD_BASE_COMPLEMENT_NUM_ORDER,
+                                               MOD_MAP)
 
 
 def getUnivocalModBases():
