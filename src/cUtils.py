@@ -9,6 +9,10 @@
    Exports:
 
 
+   Objects:
+
+   AutoEnum                           - Auto-numbered Enums with docstrings.
+
    Constants:
 
    MOD_BASE_COMPLEMENT_NUM_ORDER      - Order of + strand bases, for comp. asn.
@@ -64,6 +68,7 @@ from __future__ import with_statement, division, print_function
 __version__ = "0.09"
 
 import datetime
+import enum
 import functools
 import operator
 import re
@@ -87,6 +92,36 @@ _MAX_BASE_NUM = 9
 _PARAM_A_CONST_VAL = 999
 # Operation used for chroma colour mixing (additive or subtractive)
 _COLOUR_MIX_OP = operator.sub
+
+
+class AutoEnum(enum.Enum):
+    """Automatically numbers enum members starting from 1.
+       Includes support for a custom docstring per member.
+
+       Adapted from: Ethan Furman (http://stackoverflow.com/a/19330461).
+    """
+    __last_number__ = 0
+
+    def __new__(cls, *args):
+        """Ignores arguments (will be handled in __init__."""
+        value = cls.__last_number__ + 1
+        cls.__last_number__ = value
+        obj = object.__new__(cls)
+        obj._value_ = value
+        return obj
+
+    def __init__(self, *args):
+        """Can handle 0 or 1 argument; more requires a custom __init__.
+
+           0  = auto-number w/o docstring
+           1  = auto-number w/ docstring
+           2+ = needs custom __init__
+        """
+        if len(args) == 1 and isinstance(args[0], (str, unicode)):
+            self.__doc__ = args[0]
+        elif args:
+            raise TypeError('{} not dealt with -- '
+                            'need custom __init__'.format(args))
 
 
 # FROM: http://stackoverflow.com/a/4029018
