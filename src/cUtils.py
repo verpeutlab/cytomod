@@ -311,10 +311,12 @@ MOD_MAP.update(_consAmbigModBases(MOD_MAP, AMBIG_MOD_BASES))
 
 # All IUPAC nucleobases and their complements, plus 'X',
 # which is just an additional alias for any nucleobase
-COMPLEMENTS = {'A': 'T', 'G': 'C',
-               'R': 'Y', 'M': 'K',
+# NB: Unmod. keys are expected to be those most likely to be covalently mod.,
+# while each value should be the complement that is less commonly modified.
+COMPLEMENTS = {'T': 'A', 'C': 'G',
+               'Y': 'R', 'M': 'K',
                'W': 'W', 'S': 'S',
-               'B': 'V', 'D': 'H',
+               'B': 'V', 'H': 'D',
                'N': 'N', 'X': 'X'}
 COMPLEMENTS = bidict(_consAllComps(COMPLEMENTS, MOD_BASES,
                      AMBIG_MOD_BASES))
@@ -458,24 +460,30 @@ def getLastUnivocalModBase(base):
         return base
 
 
-def getCompMaybeFromMB(modBase):
+def getCompMaybeFromMB(base):
     """Map the given modified based to the corresponding
     modified guanine nucleobase (i.e. the complemented modified base).
     Apply the identity transformation if the given base is
     already a complemented modified nucleobase.
+    If an unmodified base is provided, this attempts to map it to a complement
+    that is less likely to be covalently modified (e.g. C, T) or if already a
+    base that is commonly modified, then to itself.
     """
     # use forward mapping
-    return COMPLEMENTS.get(modBase) or modBase
+    return COMPLEMENTS.get(base) or base
 
 
-def getMBMaybeFromComp(modBase):
+def getMBMaybeFromComp(base):
     """Map the given modified based to the corresponding
     modified cytosine nucleobase (i.e. the actual modified base).
     Apply the identity transformation if the given base is
     already a modified cytosine nucleobase.
+    If an unmodified base is provided, this attempts to map it to a complement
+    that is more likely to be covalently modified (e.g. C, T) or if already a
+    base that is commonly modified, then to itself.
     """
     # use reverse mapping (i.e. invert the bijection)
-    return (~COMPLEMENTS).get(modBase) or modBase
+    return (~COMPLEMENTS).get(base) or base
 
 
 def _getBaseCol(base):
