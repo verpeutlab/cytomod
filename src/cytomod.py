@@ -374,14 +374,14 @@ genomeArchive.add_argument("-d", "--archiveCompDirs", nargs=2,
                            If multiple tracks of the same type are \
                            provided, all such tracks will be added to the \
                            archive. The output sequence will default to the \
-                           union ofall of the same modification type \
+                           union of all of the same modification type \
                            (but see '-I'). Alternatively, the track name \
                            can contain {}, in which case masking can be used \
                            via '-M' (refer to that option for details). \
                            Instead of a track directory, a single filename \
                            that meets the aforementioned requirements may \
                            be provided if the archive is to contain only \
-                           one track.\
+                           one track. \
                            Ensure that all tracks are mapped to the same \
                            assembly and that this assembly matches the \
                            genome provided. This will \
