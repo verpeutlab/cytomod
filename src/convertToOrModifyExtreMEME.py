@@ -1003,7 +1003,8 @@ for i, cur_hemi_mod in enumerate(hemi_mods_to_perform):
     output_descriptor = "({})".format(args.hemimodifyOnly)
 
     if args.inSeq or not args.inMEMEFile:
-        unmod_motifs = _getMotif(freq_matrix, sorted_index, MEME_header)[1]
+        unmod_motifs = _getMotif(freq_matrix, sorted_index, MEME_header)[1] \
+            + "\n"
     if args.inMEMEFile:
         output_header = True
         for match in motifIter:
@@ -1021,14 +1022,14 @@ for i, cur_hemi_mod in enumerate(hemi_mods_to_perform):
             (status, MEME_body) = _getMotif(meme_freq_matrix, sorted_index,
                                             (MEME_header if output_header
                                              else "\n"))
-
-            unmod_motifs = MEME_body
+            if i == 0:  # only output a single unmodified motif per input
+                unmod_motifs += MEME_body + "\n"
 
             # only output a single header per file
             output_header = True if (status < 0 and output_header) else False
 
     # only output a single unmodified motif
     if i == 0:
-        motifs_to_output += unmod_motifs + "\n"
+        motifs_to_output += unmod_motifs
 
 print(MEME_header + motifs_to_output.strip())
