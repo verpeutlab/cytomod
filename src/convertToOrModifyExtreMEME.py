@@ -701,21 +701,17 @@ parser.add_argument('-F', '--modAllFractions', action='store_true',
                     options already specifying this behaviour (e.g. '-A').\
                     This option is silently ignored if no modifications \
                     are requested.")
-parser.add_argument('-H', '--hemimodifyOnly', nargs='?',
+parser.add_argument('-H', '--hemimodifyOnly', choices=['+', '-', 'A'],
                     default=_DEFAULT_HEMIMODARG,
-                    const=_DEFAULT_HEMIMODARG, choices=['+-', '-+', '+', '-'],
                     help="Only perform hemi-modification. This option \
                     affects any other option which performs any \
                     modifications by only modifying a single strand \
                     (i.e. either cytosine or guanine bases, exclusively). \
-                    If no argument is provided \
-                    (or if either '+-' or '-+' is provided), the number of \
-                    motifs output by any affected option will be doubled, \
-                    with one motif being output with only cytosine bases \
-                    modified and the other with only guanine bases modified. \
-                    Alternatively, '+' or '-' can be provided as an \
+                    Either '+' or '-' can be provided as an \
                     argument, in which case only cytosine ('+') or guanine \
                     ('-') bases will be modified, respectively. \
+                    Alternatively, 'A' can be provided to output all \
+                    combinations of complete and hemi-modification. \
                     This argument does not affect explicitly specified \
                     positional modifications (i.e. '-P' used with a \
                     specific motif position).")
@@ -758,8 +754,6 @@ parser.add_argument('-v', '--verbose', help="increase output verbosity",
 parser.add_argument('-V', '--version', action='version',
                     version="%(prog)s " + __version__)
 args = parser.parse_args()
-
-output_descriptor = "({})".format(args.hemimodifyOnly)
 
 if bool(args.baseModification) ^ bool(args.baseModPosition):
     warn("""Any base modification specification must specify both the
@@ -988,28 +982,40 @@ def _getMotif(freq_matrix, sorted_index, MEME_header):
                          motif_alphabet, numSites, EValue,
                          filename or motif_name, MEME_header))
 
-if args.inSeq or not args.inMEMEFile:
-    motifs_to_output += _getMotif(freq_matrix, sorted_index, MEME_header)[1] \
-        + "\n"
-if args.inMEMEFile:
-    output_header = True
-    for match in motifIter:
-        # behave as if read from CSV to minimize changes to other code
-        meme_freq_matrix = np.fromstring(match.group(MEME_MIN_REGEX_G_PWM),
-                                         dtype=float, sep=' ') \
-            .reshape((int(match.group(MEME_MIN_REGEX_G_WIDTH)),
-                     int(match.group(MEME_MIN_REGEX_G_ALPH_LEN))))
-        motif_name = ((match.group(MEME_MIN_REGEX_G_ID).strip() + ' '
-                       if match.group(MEME_MIN_REGEX_G_ID) else '') +
-                      match.group(MEME_MIN_REGEX_G_NAME).strip())
-        numSites = int(match.group(MEME_MIN_REGEX_G_NUM_SITES))
-        EValue = match.group(MEME_MIN_REGEX_G_E_VALUE)
+hemi_mods_to_perform = ['']
+if (args.hemimodifyOnly == 'A'):
+    hemi_mods_to_perform = ['+', '-', '+-']
+else:
+    hemi_mods_to_perform = [args.hemimodifyOnly]
 
-        (status, MEME_body) = _getMotif(meme_freq_matrix, sorted_index,
-                                        (MEME_header if output_header
-                                         else "\n"))
-        motifs_to_output += MEME_body + "\n"
-        # only output a single header per file
-        output_header = True if (status < 0 and output_header) else False
+for cur_hemi_mod in hemi_mods_to_perform:
+    args.hemimodifyOnly = cur_hemi_mod
+
+    output_descriptor = "({})".format(args.hemimodifyOnly)
+
+    if args.inSeq or not args.inMEMEFile:
+        motifs_to_output += _getMotif(freq_matrix, sorted_index, MEME_header)[1] \
+            + "\n"
+    if args.inMEMEFile:
+        output_header = True
+        for match in motifIter:
+            # behave as if read from CSV to minimize changes to other code
+            meme_freq_matrix = np.fromstring(match.group(MEME_MIN_REGEX_G_PWM),
+                                             dtype=float, sep=' ') \
+                .reshape((int(match.group(MEME_MIN_REGEX_G_WIDTH)),
+                         int(match.group(MEME_MIN_REGEX_G_ALPH_LEN))))
+            motif_name = ((match.group(MEME_MIN_REGEX_G_ID).strip() + ' '
+                           if match.group(MEME_MIN_REGEX_G_ID) else '') +
+                          match.group(MEME_MIN_REGEX_G_NAME).strip())
+            numSites = int(match.group(MEME_MIN_REGEX_G_NUM_SITES))
+            EValue = match.group(MEME_MIN_REGEX_G_E_VALUE)
+
+            (status, MEME_body) = _getMotif(meme_freq_matrix, sorted_index,
+                                            (MEME_header if output_header
+                                             else "\n"))
+            motifs_to_output += MEME_body + "\n"
+
+            # only output a single header per file
+            output_header = True if (status < 0 and output_header) else False
 
 print(MEME_header + motifs_to_output.strip())
