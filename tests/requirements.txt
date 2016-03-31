@@ -2,5 +2,6 @@ cython
 numpy
 bidict
 chroma
+enum34
 pybedtools
 genomedata
