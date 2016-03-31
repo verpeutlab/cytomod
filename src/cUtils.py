@@ -499,7 +499,7 @@ def _getBaseCol(base):
         colour = chroma.Color('#' + BASE_COLOURS[base])
     elif getMBMaybeFromComp(base) in AMBIG_MOD_BASES:
         bases = AMBIG_MOD_BASES.get(getMBMaybeFromComp(base))
-        if base in ~COMPLEMENTS:
+        if base in COMPLEMENTS.inv:
             bases = complement(bases)
         # mix of constituent ambiguity code nucleobases
         colour = reduce(_COLOUR_MIX_OP,
