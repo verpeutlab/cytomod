@@ -354,12 +354,14 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                     """Places the Boolean context vector in the correct
                        position WRT the bases that the indication of context
                        pertains to."""
+
                     return np.concatenate((np.zeros(getattr(mod_base_index,
                                                     'start'), dtype=bool),
                                            context,
-                                           np.zeros(getattr(mod_base_index,
-                                                            'stop')
-                                                    - context_len[0],
+                                           # pad to end of motif
+                                           np.zeros(matrix.shape[1] -
+                                                    getattr(mod_base_index,
+                                                            'start'),
                                                     dtype=bool)))
 
                 if not mod_fractions:
@@ -405,6 +407,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                                                                  None)])
 
                 correct_context_minus = np.zeros(context_len, dtype=bool)
+
                 if '-' in hemimodifyOnly:
                     # shift Boolean values right, clipping them
                     correct_context_minus = \
@@ -414,8 +417,10 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                     if correct_context_minus.size != matrix.shape[0]:
                         correct_context_minus_for_query = \
                             _resize_context(correct_context_minus)
+
                     bases_to_modify_minus = \
                         matrix[correct_context_minus_for_query]
+
                     if bases_to_modify_minus.size > 0:
                         correct_context_minus = \
                             np. \
@@ -440,6 +445,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                         matrix_target_view = \
                             matrix[mod_base_index, motif_alphabet.
                                    index(fun(target_modified_base))].view()
+
                         matrix_source_view = \
                             matrix[mod_base_index, motif_alphabet.
                                    index(fun(primary_base_to_mod))].view()
@@ -486,6 +492,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                                  mod_base_context,
                                  True if modFracs else False,
                                  args.hemimodifyOnly, True)
+
             # the modification for 'G' needs to use the unmodified matrix for
             # context computations, unless in non-fractional mode, in which
             # case it needs to use the already modified matrix to prevent
@@ -764,7 +771,7 @@ if bool(args.baseModification) ^ bool(args.baseModPosition):
 
 if (not args.tryAllCModsAtPos and
         (args.baseModificationAtAllModifiablePos
-         == cUtils._PARAM_A_CONST_VAL)):
+         == str(cUtils._PARAM_A_CONST_VAL))):
     die("""You must either provide the modified base to '-A' or use
         '-C' to use all possible nucleobases.""")
 
@@ -988,14 +995,15 @@ if (args.hemimodifyOnly == 'A'):
 else:
     hemi_mods_to_perform = [args.hemimodifyOnly]
 
-for cur_hemi_mod in hemi_mods_to_perform:
+unmod_motifs = ''
+
+for i, cur_hemi_mod in enumerate(hemi_mods_to_perform):
     args.hemimodifyOnly = cur_hemi_mod
 
     output_descriptor = "({})".format(args.hemimodifyOnly)
 
     if args.inSeq or not args.inMEMEFile:
-        motifs_to_output += _getMotif(freq_matrix, sorted_index, MEME_header)[1] \
-            + "\n"
+        unmod_motifs = _getMotif(freq_matrix, sorted_index, MEME_header)[1]
     if args.inMEMEFile:
         output_header = True
         for match in motifIter:
@@ -1013,9 +1021,14 @@ for cur_hemi_mod in hemi_mods_to_perform:
             (status, MEME_body) = _getMotif(meme_freq_matrix, sorted_index,
                                             (MEME_header if output_header
                                              else "\n"))
-            motifs_to_output += MEME_body + "\n"
+
+            unmod_motifs = MEME_body
 
             # only output a single header per file
             output_header = True if (status < 0 and output_header) else False
+
+    # only output a single unmodified motif
+    if i == 0:
+        motifs_to_output += unmod_motifs + "\n"
 
 print(MEME_header + motifs_to_output.strip())
