@@ -300,7 +300,7 @@ COVALENT_MOD_BASES = _consCovalentMods(NUCLEOTIDE_POSITIONS_MODIFIED,
                                        MOD_BASES, AMBIG_MOD_BASES)
 
 COVALENT_MOD_BASES_TO_BASE_MAP = \
-    _consAllPosStrandModsToBase(~BASE_TO_COVALENT_MODIFICATION_MAP,
+    _consAllPosStrandModsToBase(BASE_TO_COVALENT_MODIFICATION_MAP.inv,
                                 COVALENT_MOD_BASES)
 
 # Permits ambiguity code lookup using concatenated modified bases
@@ -384,7 +384,7 @@ def complement(bases):
     """Complement the given, potentially modified, base.
     Returns the input base if no complement for that base is found.
     """
-    return [COMPLEMENTS.get(base) or (~COMPLEMENTS).get(base) or base
+    return [COMPLEMENTS.get(base) or COMPLEMENTS.inv.get(base) or base
             for base in bases]
 
 
@@ -483,7 +483,7 @@ def getMBMaybeFromComp(base):
     base that is commonly modified, then to itself.
     """
     # use reverse mapping (i.e. invert the bijection)
-    return (~COMPLEMENTS).get(base) or base
+    return COMPLEMENTS.inv.get(base) or base
 
 
 def _getBaseCol(base):
