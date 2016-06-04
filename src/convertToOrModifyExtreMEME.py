@@ -15,17 +15,21 @@ written to a file, while the MEME output written to STDOUT
 always correpsonds to the unmodified motif.
 """
 
+# fix piping issues; from http://stackoverflow.com/a/16865106
+from signal import signal, SIGPIPE, SIG_DFL
+signal(SIGPIPE, SIG_DFL)
+
 import argparse
 import os
 import re
 import textwrap
 
+from collections import OrderedDict
+from string import maketrans
 try:
     from cStringIO import StringIO
 except:
     from StringIO import StringIO
-
-from collections import OrderedDict
 
 import numpy as np
 import numpy.testing as npt
@@ -211,13 +215,13 @@ def isMatrixSufficientlyDifferent(freq_matrix, modfreq_matrix, index_arr):
 def _createBG(backgroundString):
     """Creates a background ordered dictionary for the
        given, delimited, background input."""
-    motifAlphBGFreqs = OrderedDict()
+    motif_alph_bg_freqs = OrderedDict()
     for bFreq in backgroundString:
         if not bFreq:
             continue
         (base, freq) = bFreq.split(_DELIM)
-        motifAlphBGFreqs[base] = float(freq)
-    return motifAlphBGFreqs
+        motif_alph_bg_freqs[base] = float(freq)
+    return motif_alph_bg_freqs
 
 
 def output_motif(freq_matrix, output_descriptor, motif_name,
@@ -334,7 +338,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
         if args.tryAllCModsAtPos:
             bases_to_iter_over = \
                 [base for base in cUtils.MOD_BASE_NAMES.keys()
-                 if base in motifAlphBGFreqs]
+                 if base in motif_alph_bg_freqs]
         for b in bases_to_iter_over:
             modfreq_matrix = np.copy(freq_matrix)
             if ((b not in cUtils.COMPLEMENTS.keys()) and
@@ -666,7 +670,18 @@ modBasePositions.add_argument('-A',
                               '-C', in which case no modified nucleobase \
                               need be provided to this argument, since all \
                               possibilities will be attempted (for all \
-                              modifiable positions). ")
+                              modifiable positions).")
+modBaseSpecifiers.add_argument('-U', '--unmodify', action='store_true',
+                               help="Remove all covalent modifications across \
+                                     a motif, such that it only contains \
+                                     conventional IUPAC bases. \
+                                     In this case, since a PWM is created, \
+                                     the alphabet will be reduced to contain \
+                                     only A/C/G/T bases, yielding a \
+                                     PWM with exactly four columns. \
+                                     Any pre-existing modifications \
+                                     will have their frequencies transferred \
+                                     to their cognate unmodified base.")
 parser.add_argument('-a', '--annotated', action='store_true',
                     help="Assume that the provided matrix file contains \
                     identifiers in the first column. This option allows \
@@ -796,21 +811,30 @@ if (((isinstance(args.baseModPosition, int) and
                    modification position (motif position {}).
                 """.format(args.baseModPosition or args.tryAllCModsAtPos))
 
-motifAlphBGFreqs = OrderedDict()
+if args.unmodify:
+    if args.notNucleobases:
+        die("""You cannot exclude any nucleobases when converting to a
+               fully-unmodified alphabet.
+               The unmodfy parameter is equivalent to specifying the
+               exclusion of all modifications.""")
+
+    args.notNucleobases = cUtils.MOD_BASES.keys()
+
+motif_alph_bg_freqs = OrderedDict()
 if args.background:
     if os.path.isfile(args.background):
         with open(args.background) as bgFile:
-            motifAlphBGFreqs = _createBG(bgFile)
+            motif_alph_bg_freqs = _createBG(bgFile)
     else:
         if args.background == _mESC_BG_NAME:
-            motifAlphBGFreqs = cUtils.MOUSE_ESC_BACKGROUND
+            motif_alph_bg_freqs = cUtils.MOUSE_ESC_BACKGROUND
         elif args.background == _AML_BG_NAME:
-            motifAlphBGFreqs = cUtils.HUMAN_AML_BACKGROUND
+            motif_alph_bg_freqs = cUtils.HUMAN_AML_BACKGROUND
 
 motifs_to_output = ''
 numSites = _PSEUDO_NUMSITES_TO_USE
 EValue = _PSEUDO_EVALUE_TO_USE
-motif_alphabet = list(motifAlphBGFreqs.keys())
+motif_alphabet = list(motif_alph_bg_freqs.keys())
 
 
 if filename:  # PWM or PFM
@@ -832,7 +856,7 @@ if filename:  # PWM or PFM
                                 flags=MEME_MINIMAL_REGEX_FLAGS)
             bg_contents = re.sub(r' ', r'\t', re.sub(r'(\d\d) ',
                                  r"\1\n", bg_contents)).split('\n')
-            motifAlphBGFreqs = _createBG(bg_contents)
+            motif_alph_bg_freqs = _createBG(bg_contents)
             motifIter = re.finditer(MEME_MINIMAL_MOTIF_REGEX, input_file,
                                     flags=MEME_MINIMAL_REGEX_FLAGS)
             motif_alphabet = list(bgIter)
@@ -893,7 +917,7 @@ if args.inSeq:
         motifChars = np.expand_dims(np.array(list(args.inSeq)), axis=0)
     totalNumBases = len(motifChars)
 
-    freq_matrix = np.zeros((motifChars.shape[1], len(motifAlphBGFreqs)))
+    freq_matrix = np.zeros((motifChars.shape[1], len(motif_alph_bg_freqs)))
     for i in range(0, motifChars.shape[1]):
         base = motifChars[:, i][0]
         unambig_base_s = (cUtils.IUPAC_BASES.get(base) or
@@ -916,24 +940,43 @@ if args.inSeq:
     motif_name = os.path.basename(args.inSeq)
 
 # The zero-order Markov model should still sum to unity to be sensical
-checkMMSumsToUnity(motifAlphBGFreqs)
+checkMMSumsToUnity(motif_alph_bg_freqs)
 
-matrix_indicies_to_delete = []
+matrix_bases_to_transfer = []
+
+# store previous motif_alph_bg_freqs keys
+unedited_motif_alph_bg = motif_alph_bg_freqs.keys()
 
 if args.notNucleobases:
     for base in args.notNucleobases:
         if base in cUtils.MOD_BASES:
             base = cUtils.MOD_BASES[base]
-        if base not in motifAlphBGFreqs:
+        if base not in motif_alph_bg_freqs:
             warn("""A provided base to omit ({}) is not present in the
                     current input and has been skipped.""".format(base))
             continue
-        motifAlphBGFreqs[cUtils.MOD_MAP[base]] += \
-            motifAlphBGFreqs[base]
-        motifAlphBGFreqs[cUtils.MOD_MAP[cUtils.complement(base)]] += \
-            motifAlphBGFreqs[cUtils.complement(base)]
-        del motifAlphBGFreqs[base]
-        del motifAlphBGFreqs[cUtils.complement(base)]
+
+        if base not in cUtils.MOD_MAP.keys():
+            die("""A provided base to omit ({}) is not a modified base.
+                    You cannot remove core DNA bases.""".format(base))
+
+        # define cognate unmodfied bases
+        cognate_unmod_base = cUtils.MOD_MAP[base]
+        base_comp = cUtils.complement(base)
+        cognate_unmod_base_comp = cUtils.MOD_MAP[base_comp]
+
+        # remove from the background
+        motif_alph_bg_freqs[cognate_unmod_base] += \
+            motif_alph_bg_freqs[base]
+        motif_alph_bg_freqs[cognate_unmod_base_comp] += \
+            motif_alph_bg_freqs[base_comp]
+        del motif_alph_bg_freqs[base]
+        del motif_alph_bg_freqs[cUtils.complement(base)]
+
+        # set up for eventual removal from PWM(s)
+        matrix_bases_to_transfer += [(base, cognate_unmod_base),
+                                     (base_comp, cognate_unmod_base_comp)]
+
         # remove excluded nucleobase from alphabet
         MEME_header = re.sub('.*' + cUtils.FULL_MOD_BASE_NAMES[base]
                              + '.*\n', '', MEME_header)
@@ -952,33 +995,56 @@ if args.notNucleobases:
             else:
                 MEME_header_new_temp += line + "\n"
         MEME_header = MEME_header_new_temp
-        matrix_indicies_to_delete += [motif_alphabet.index(base),
-                                      motif_alphabet.
-                                      index(cUtils.complement(base))]
+
     # remove any ambiguity codes that are now empty or are merely aliases
     MEME_header = re.sub('(. = .?\n)', '', MEME_header, flags=re.MULTILINE)
 
-# The zero-order Markov model should still sum to unity to be sensical
-checkMMSumsToUnity(motifAlphBGFreqs)
+    # The zero-order Markov model should still sum to unity to be sensical
+    checkMMSumsToUnity(motif_alph_bg_freqs)
 
 # used to sort the output in the correct sort order
 # need to sort both the background and matrix to do so
 sort_fun = ((lambda base: ord(base)) if args.ASCIICodeOrder
             else cUtils.baseSortOrder)
-sorted_index = np.argsort(map(sort_fun, list(motifAlphBGFreqs.keys())))
+sorted_index = np.argsort(map(sort_fun, list(motif_alph_bg_freqs.keys())))
 
-motif_alphabet = [list(motifAlphBGFreqs.keys())[i] for i in sorted_index]
+motif_alphabet = [list(motif_alph_bg_freqs.keys())[i] for i in sorted_index]
 
 motif_alphabet_bg_freq_output = \
     ' '.join([str(k) + ' ' + str(v) for k, v
-             in [motifAlphBGFreqs.items()[i] for i in sorted_index]])
+             in [motif_alph_bg_freqs.items()[i] for i in sorted_index]])
 MEME_header += motif_alphabet_bg_freq_output + "\n\n"
 
 
-def _getMotif(freq_matrix, sorted_index, MEME_header):
-    # delete necessary columns
-    if matrix_indicies_to_delete:
-        freq_matrix = np.delete(freq_matrix, matrix_indicies_to_delete, 1)
+def _getMotif(freq_matrix, sorted_index, MEME_header, output_descriptor,
+              motif_name, motif_alphabet, numSites, EValue, filename=""):
+    # transfer base freqs to cognate unmod. base and delete mod. columns
+    if matrix_bases_to_transfer:
+        # map bases to indices
+        mat_idxs_to_transfer_gen = \
+            (tuple(unedited_motif_alph_bg.index(tup) for tup in itup)
+             for itup in matrix_bases_to_transfer)
+
+        prev_deleted_index = -1
+        # for all bases in matrix_bases_to_transfer
+        for i, (from_index, to_index) in enumerate(mat_idxs_to_transfer_gen):
+            # decrement to account for previously deleted columns
+            if from_index >= prev_deleted_index:
+                from_index -= i
+            if to_index >= prev_deleted_index:
+                to_index -= i
+
+            freq_matrix[:, to_index] += freq_matrix[:, from_index]  # transfer
+            freq_matrix = np.delete(freq_matrix, from_index, 1)  # delete col.
+            prev_deleted_index = from_index
+
+        # replace the base within the motif name as well
+        motif_name = \
+            motif_name.translate(maketrans(*map(''.join,
+                                                zip(*matrix_bases_to_transfer)
+                                                )
+                                           ))
+
     # re-order the matrix by the sorted index
     identity_index = np.indices(freq_matrix.shape)
     freq_matrix = freq_matrix[identity_index[0],
@@ -1003,7 +1069,10 @@ for i, cur_hemi_mod in enumerate(hemi_mods_to_perform):
     output_descriptor = "({})".format(args.hemimodifyOnly)
 
     if args.inSeq or not args.inMEMEFile:
-        unmod_motifs = _getMotif(freq_matrix, sorted_index, MEME_header)[1] \
+        unmod_motifs = _getMotif(freq_matrix, sorted_index, MEME_header,
+                                 output_descriptor, motif_name, motif_alphabet,
+                                 numSites, EValue,
+                                 (filename if filename else ""))[1] \
             + "\n"
     if args.inMEMEFile:
         output_header = True
@@ -1021,7 +1090,10 @@ for i, cur_hemi_mod in enumerate(hemi_mods_to_perform):
 
             (status, MEME_body) = _getMotif(meme_freq_matrix, sorted_index,
                                             (MEME_header if output_header
-                                             else "\n"))
+                                             else "\n"), output_descriptor,
+                                            motif_name, motif_alphabet,
+                                            numSites, EValue,
+                                            (filename if filename else ""))
             if i == 0:  # only output a single unmodified motif per input
                 unmod_motifs += MEME_body + "\n"
 
