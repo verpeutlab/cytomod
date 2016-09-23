@@ -337,6 +337,9 @@ def determineTrackPriority(genome):
         break
 
 
+# TODO add a custom action to parse all directories, which ensures
+#      that each directory contains a trailing slash.
+
 parser = argparse.ArgumentParser()
 
 genomeArchive = parser.add_mutually_exclusive_group(required=True)
@@ -630,6 +633,8 @@ if args.archiveCompDirs:
         genomeDataArchiveFullname,
         # args.archiveCompDirs[1] is either a directory of tracks
         # or is the full path to a single track.
+        # TODO check for a valid track path, that actually
+        #      contains tracks, otherwise throw an error.
         tracks=([(os.path.basename(args.archiveCompDirs[1]),
                   args.archiveCompDirs[1])]
                 if os.path.isfile(args.archiveCompDirs[1]) and
