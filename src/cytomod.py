@@ -706,7 +706,7 @@ with Genome(genomeDataArchiveFullname) as genome:
                                    or _DEFAULT_FASTA_FILENAME))[0]
         trackID += '-' if trackID else ''
         procModBases = []
-        for base in modBases + [cUtils.complement(modBases)]:
+        for base in modBases + cUtils.complement(modBases):
             trackFileName = "{}/track-{}{}.bed.gz".\
                 format(args.BEDOutDir, trackID, base)
             tnames[base] = trackFileName

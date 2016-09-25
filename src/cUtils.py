@@ -67,6 +67,7 @@ from __future__ import with_statement, division, print_function
 
 __version__ = "0.09"
 
+import collections
 import datetime
 import enum
 import functools
@@ -124,16 +125,24 @@ class AutoEnum(enum.Enum):
                             'need custom __init__'.format(args))
 
 
-# FROM: http://stackoverflow.com/a/4029018
-def _unpacked(method):
-    """Decorator function to return scalar if a scalar is input
-       or a list if a list input. This is similar to Perl's
-       functionality WRT its context-dependency.
+# Adapted from: http://stackoverflow.com/a/4029018
+def _unpacked(function):
+    """Decorator function to return a scalar if a scalar is input
+       or a list for any non-basestring Iterable ABC input.
+       This is similar to Perl's functionality WRT its context-dependency.
     """
-    @functools.wraps(method)
-    def _decorator(*args):
-        results = method(*args)
-        return results if len(results) != 1 else results[0]
+    @functools.wraps(function)
+    def _decorator(list_or_scalar, *args, **kwargs):
+        result = function(list_or_scalar, *args, **kwargs)
+
+        # NB: strings are scalars, despite having the Sequence ABC
+        if (isinstance(list_or_scalar, basestring) or
+                not isinstance(list_or_scalar, collections.Iterable)):
+            # unpack to a scalar, if the input was a scalar
+            result = result[0]
+
+        return result
+
     return _decorator
 
 
@@ -382,7 +391,8 @@ HUMAN_AML_BACKGROUND = \
 @_unpacked
 def complement(bases):
     """Complement the given, potentially modified, base.
-    Returns the input base if no complement for that base is found.
+       Returns the input base if no complement for that base is found.
+       This function returns a scalar if one is input, otherwise a list.
     """
     return [COMPLEMENTS.get(base) or COMPLEMENTS.inv.get(base) or base
             for base in bases]
