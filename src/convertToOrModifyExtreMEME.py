@@ -363,9 +363,10 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                                                     'start'), dtype=bool),
                                            context,
                                            # pad to end of motif
-                                           np.zeros(matrix.shape[1] -
+                                           np.zeros(matrix.shape[0] -
                                                     getattr(mod_base_index,
-                                                            'start'),
+                                                            'start') -
+                                                    len(context),
                                                     dtype=bool)))
 
                 if not mod_fractions:
@@ -614,7 +615,11 @@ modBaseSpecifiers.add_argument('-M', '--baseModification',
                                frequency at the specified positions. \
                                This will cause the program to write a file \
                                (as opposed to the usual output to STDOUT) \
-                               for the given modification.")
+                               for the given modification. \
+                               The modification should not be provided \
+                               using this argument if '-A' is used, but \
+                               instead provided as an argument to '-A', if \
+                               not also trying all modifications (via '-C')")
 modBasePositions.add_argument('-P', '--baseModPosition',
                               type=_modifyPositionOptionType,
                               nargs='?', const=cUtils._PARAM_A_CONST_VAL,
