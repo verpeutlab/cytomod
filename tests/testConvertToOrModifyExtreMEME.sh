@@ -556,7 +556,7 @@ correct_result=$(cat <<'EOF'
 EOF
 )
 
-runContainsFileTest "$PROGRAM_PATH" '14A' "--noWarnings -s CAKCTGY -A -M m" "$correct_result"
+runContainsFileTest "$PROGRAM_PATH" '14A' "--noWarnings -s CAKCTGY -A m" "$correct_result"
 
 correct_result=$(cat <<'EOF'
 0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	1.000000
@@ -569,7 +569,7 @@ correct_result=$(cat <<'EOF'
 EOF
 )
 
-runContainsFileTest "$PROGRAM_PATH" '14B' "--noWarnings -s CAKCm1Y -A -M m -F" "$correct_result"
+runContainsFileTest "$PROGRAM_PATH" '14B' "--noWarnings -s CAKCm1Y -A m -F" "$correct_result"
 
 correct_result=$(cat <<'EOF'
 0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	1.000000	0.000000	0.000000
@@ -582,7 +582,7 @@ correct_result=$(cat <<'EOF'
 EOF
 )
 
-runContainsFileTest "$PROGRAM_PATH" '14C' "--noWarnings -s CAKCm1Y -A -M f -F" "$correct_result"
+runContainsFileTest "$PROGRAM_PATH" '14C' "--noWarnings -s CAKCm1Y -A f -F" "$correct_result"
 
 # 15) check a specific CpG context modification
 
