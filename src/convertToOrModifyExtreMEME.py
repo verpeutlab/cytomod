@@ -493,6 +493,22 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
 
                 checkPWMValidity(matrix[:-1], motif_name)
 
+            if (b not in motif_alphabet or
+                    cUtils.complement(b) not in motif_alphabet):
+                missing_symbol = (b if b not in motif_alphabet else
+                                  cUtils.complement(b))
+
+                error_string = ("Unable to find {} in the input alphabet. You "
+                                "may need to convert your PWM to an expanded "
+                                "alphabet yourself. This can be accomplished "
+                                "via meme2meme -xalph "
+                                "<expanded_alphabet MEME file> <input motif> "
+                                "| meme-get-motif -id <input motif ID> | "
+                                "convertToOrModifyExtreMEME.py -m "
+                                "/dev/stdin".format(missing_symbol))
+
+                raise RuntimeError(error_string)
+
             _modifyMatrixPortion(modfreq_matrix, mod_base_index, 'C', b,
                                  mod_base_context,
                                  True if modFracs else False,
