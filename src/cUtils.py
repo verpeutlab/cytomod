@@ -25,6 +25,7 @@
    AMBIG_MOD_BASES                    - Define mod. base ambiguity codes.
    INVERTED_AMBIG_MOD_BASES           - Inverse of AMBIG_MOD_BASES.
    MOD_MAP                            - Map each mod. base to its unmod. base.
+   MODIFIABLE_BASES                   - Bases with defined modifications
    COMPLEMENTS                        - Map of all complements for all bases.
    FULL_BASE_NAMES                    - Full names of unmod. fundamental bases.
    FULL_MOD_BASE_NAMES                - Full names of modmified bases.
@@ -47,19 +48,22 @@
                                verbosity is sufficient.
 
    Modified base-interacting:
-   complement                - Return complement of given base(s).
-   isModBase                 - Return Boolean indicating if base is mod.
-   isUnivocal                - Return Boolean indicating if base is unambiguous
-   getUnivocalModBases       - Return all unambiguous mod. bases.
-   getFirstUnivocalBase      - Return first unambiguous mod. base
+   complement                - Complement of given base(s).
+   isModBase                 - Boolean indicating if base is mod.
+   isUnivocal                - Boolean indicating if base is unambiguous
+   isModifiable              - Boolean indicating if base can be modified
+   isModifiableTo            - Boolean indicating if the given unmod. base
+                               is modifiable to the given mod. base.
+   getUnivocalModBases       - All unambiguous mod. bases.
+   getFirstUnivocalBase      - First unambiguous mod. base
                                for given ambiguity code.
-   getLastUnivocalModBase    - Return last unambiguous mod. base
+   getLastUnivocalModBase    - Last unambiguous mod. base
                                for given ambiguity code.
    getCompMaybeFromMB        - Map primary mod. base to its complement.
    getMBMaybeFromComp        - Map complement mod. base to primary mod base.
-   getRGBBaseCol             - Return the (0-1) RGB colour of the given base.
-   getRGB256BaseCol          - Return the (0-255) RGB colour of the given base.
-   getHexBaseCol             - Return the hex colour of the given base.
+   getRGBBaseCol             - The (0-1) RGB colour of the given base.
+   getRGB256BaseCol          - The (0-255) RGB colour of the given base.
+   getHexBaseCol             - The hex colour of the given base.
    baseSortOrder             - Map bases to an integer rep. their sort order.
 """
 
@@ -401,6 +405,9 @@ def complement(bases):
 # Update the dictionary mapping with every complemented modification
 MOD_MAP.update(_consCompModBasePairs(MOD_MAP))
 
+# construct a list of all modifiable bases, from unique values of MOD_MAP
+MODIFIABLE_BASES = set(MOD_MAP.values())
+
 FULL_MOD_BASE_NAMES = _consCompModBaseFullNames(FULL_BASE_NAMES,
                                                 FULL_MOD_BASE_NAMES, MOD_MAP,
                                                 MOD_BASES, AMBIG_MOD_BASES)
@@ -437,6 +444,21 @@ def getUnivocalModBases():
 def isUnivocal(base):
     """Return a Boolean indicating if the base is univocal."""
     return (True if base in getUnivocalModBases() else False)
+
+
+def isModifiable(unmodBase):
+    """Return a Boolean indicating if the unmodified base has
+       modifications defined for it.
+    """
+    return (True if unmodBase in MODIFIABLE_BASES else False)
+
+
+def isModifiableTo(unmodBase, modBase):
+    """Return a Boolean indicating if the unmodified base has
+       the given modified base defined as a possible covalent
+       modification.
+    """
+    return (True if MOD_MAP[modBase] == unmodBase else False)
 
 
 def getFirstUnivocalBase(base):
