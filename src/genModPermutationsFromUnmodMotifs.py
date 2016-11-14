@@ -2,6 +2,7 @@
 
 """Generates all possible modified motifs from input
 consensus unmodified motifs.
+Additionally returns the unmodified input motifs.
 """
 
 from __future__ import with_statement, division, print_function
