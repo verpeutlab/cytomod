@@ -125,23 +125,28 @@ def getTrackHeader(modBase):
 
 def getModifiedGenome(genome, modOrder, chrm, start, end,
                       suppressFASTA, suppressBED, tnames, ambigMap,
-                      maskRegionsFileVal, maskRegionTName):
+                      maskRegionsFileVal, maskRegionTName,
+                      maskAllUnsetRegions):
     """Returns the modified genome sequence, for the given genome,
     over the given input region.
     """
     hasModifiedBases = False
     chromosome = genome[chrm]
     allbasesResult = ""
+
     # Only compute the modified genome in segments.
     # This prevents the creation of excessively large NumPy arrays.
     for s in range(start, end, _MAX_REGION_LEN):
         e = s + _MAX_REGION_LEN if (end - start) >= _MAX_REGION_LEN else end
+
         v_print_timestamp(args.verbose, "Now outputting " + chrm +
                           " for region: (" + str(s) + ", " + str(e) + ")", 2)
+
         modBaseScores = chromosome[s:e]
         if _MASK_TNAME in tnames:
             maskTrack = chromosome[s:e, maskRegionTName]
             maskIndex = genome.tracknames_continuous.index(maskRegionTName)
+
             modBaseScores[:, maskIndex] = \
                 np.where(np.logical_or(np.isnan(maskTrack),
                          maskTrack > maskRegionsFileVal),
@@ -153,6 +158,7 @@ def getModifiedGenome(genome, modOrder, chrm, start, end,
                 if item.find(_MASK_TNAME) >= 0:
                     maskIndex = genome.tracknames_continuous.index(item)
                     modBaseScores = np.delete(modBaseScores, maskIndex, axis=1)
+
         if len(modOrder) != len(set(modOrder)):  # intersect, if duplicates
             for k, g in groupby(modOrder):
                 absIndexS = modOrder.index(k)
@@ -161,12 +167,29 @@ def getModifiedGenome(genome, modOrder, chrm, start, end,
                 modBaseScores[:, absIndexS:absIndexE] = \
                     np.mean(modBaseScores[:, absIndexS:absIndexE],
                             axis=1, keepdims=True)
+
+        # use '0' for unmodified bases (results in the unmod. base after)
+        defaultBases = '0'
+
+        # if masking all unset regions, use mask base for those, and '0' o/w
+        if maskAllUnsetRegions:
+            defaultBases = np.where(np.all(np.isnan(modBaseScores), axis=1),
+                                    cUtils.MASK_BASE, '0')
+            defaultBases = np.tile(defaultBases, (4, 1)).T
+
         modBasesA = np.where(np.logical_and(np.isfinite(modBaseScores),
-                             modBaseScores != 0), modBases, '0')
+                             modBaseScores != 0), modBases,
+                             # either the modified base or the mask base
+                             # any masking applied here is only for masking
+                             # bases without any data
+                             defaultBases)
+
         modOrderBasedPermutation = np.array(modOrder).argsort()
         orderedmodBasesA = modBasesA[:, modOrderBasedPermutation]
+
         referenceSeq = np.array(list(chromosome.seq[s:e].
                                 tostring().upper()), dtype=np.str)
+
         # Filter the bases to take the modified bases in priority order.
         x = np.transpose(np.nonzero(orderedmodBasesA != '0'))
         u, idx = np.unique(x[:, 0], return_index=True)
@@ -191,6 +214,7 @@ def getModifiedGenome(genome, modOrder, chrm, start, end,
                     return cUtils.complement(m)[0]
                 else:
                     return ambigMap.get(r) or r
+
         # Initially the sequence is unmodified and we successively modify it.
         allModBases = np.copy(referenceSeq)
         # We vectorize the function for convenience.
@@ -214,6 +238,7 @@ def getModifiedGenome(genome, modOrder, chrm, start, end,
                 np.put(allModBases, unmodBaseIndices, np.vectorize(lambda base:
                        _maybeGetAmbigMapping(base, ambigMap))
                        (np.delete(allModBases, x[idx][:, 0])))
+
             if not suppressBED:
                 # Create a BED track for each modified base with track data
                 for base in modBases + cUtils.complement(modBases):
@@ -235,16 +260,17 @@ def getModifiedGenome(genome, modOrder, chrm, start, end,
                                        'ab') as BEDTrack:
                             np.savetxt(BEDTrack, modBaseStartEnd,
                                        str(chrm) + "\t%d\t%d\t" + base)
-        if not suppressFASTA:
-            # Output the unmodified sequence at a verbosity level
-            # of at least 2, if not too long, otherwise only output
-            # for a high verbosity level.
-            v_print_timestamp(args.verbose, """Corresponding unmodified
-                              reference sequence: \n""" +
-                              ''.join(referenceSeq), 2
-                              if len(referenceSeq) < 10000 else 6)
-            # Concatenate the vector together to form the (string) sequence
-            allbasesResult += ''.join(allModBases)
+
+            if not suppressFASTA:
+                # Output the unmodified sequence at a verbosity level
+                # of at least 2, if not too long, otherwise only output
+                # for a high verbosity level.
+                v_print_timestamp(args.verbose, """Corresponding unmodified
+                                  reference sequence: \n""" +
+                                  ''.join(referenceSeq), 2
+                                  if len(referenceSeq) < 10000 else 6)
+                # Concatenate the vector together to form the (string) sequence
+                allbasesResult += ''.join(allModBases)
     if (not hasModifiedBases and not suppressBED):
         warn(""""There are no modified bases within the requested
              region. Accordingly, no BED files have been output
@@ -254,7 +280,7 @@ def getModifiedGenome(genome, modOrder, chrm, start, end,
 
 def generateFASTAFile(file, id, genome, modOrder, chrm, start,
                       end, suppressBED, tnames, ambigMap, maskRegionsFileVal,
-                      maskRegionTName):
+                      maskRegionTName, maskAllUnsetRegions):
     """Writes an optionally Gzipped FASTA file of the modified genome
     appending to the given file, using the given ID.
     No FASTA ID (i.e. '> ...') is written if no ID is given.
@@ -265,7 +291,8 @@ def generateFASTAFile(file, id, genome, modOrder, chrm, start,
             modGenomeFile.write(">" + id + "\n")
         modGenomeFile.write(getModifiedGenome(genome, modOrder, chrm,
                             start, end, False, suppressBED, tnames, ambigMap,
-                            maskRegionsFileVal, maskRegionTName) + "\n")
+                            maskRegionsFileVal, maskRegionTName,
+                            maskAllUnsetRegions) + "\n")
 
 
 def selectRandomRegion(genome, length):
@@ -540,6 +567,19 @@ ambigModUsage.add_argument('-M', '--maskRegions', nargs='?', type=float,
                            An example use case for this option would be to \
                            use a mask file containing coverage information \
                            and to mask all bases of insufficient coverage.")
+ambigModUsage.add_argument('--maskAllUnsetRegions', action='store_true',
+                           help="Hard mask all C/G nucleobases without \
+                           any modification information to unknown state. \
+                           Masked nucleobases are those lacking data, \
+                           that is, bases not present in the archive \
+                           nor in BED files used to generate an archive. \
+                           They will be accordingly set to the appropriate \
+                           (maximally) ambiguous base. This will override any \
+                           other modifications at those loci. \
+                           An example use case for this option would be when \
+                           using array data, for which only a subset of bases \
+                           are queried.")
+
 # TODO Implement this?
 # NB: neither TRF nor dustmasker work upon modified genomes
 # parser.add_argument('-M', '--hardMaskRepetitiveRegions',
@@ -660,11 +700,13 @@ with Genome(genomeDataArchiveFullname) as genome:
         if _MASK_TNAME in str(track):
             if args.maskRegions is not None:
                 modBases.append(cUtils.MASK_BASE)
+
                 tnames[_MASK_TNAME] = track
                 maskRegionTName = track
             else:
                 warn("""Genomedata archive contains a mask track, but
-                        '-M' was not given. Masking will not be performed.""")
+                        '-M' was not given.
+                        Masking will not be performed.""")
         else:
             trackToBase = {covalent_mod_base for
                            covalent_mod, covalent_mod_base in
@@ -686,14 +728,23 @@ with Genome(genomeDataArchiveFullname) as genome:
                      and b in args.priority]
     # Get absolute (index-based) ordering from the relative ordering.
     modOrder = [sorted(modOrder).index(x) for x in modOrder]
-    # Masked bases are assigned the highest priority (i.e. masks all others).
+
+    addtl_mask_msg = ""
+
     if args.maskRegions is not None:
-        v_print_timestamp(args.verbose,
-                          """Masking is enabled. All loci implicated by the
-                             mask will be masked irrespective of any
-                             modifications at those loci.""", 2)
+        addtl_mask_msg = """All loci implicated by the mask will be masked
+                            irrespective of any mods at those loci."""
+
+        # Masked bases are assigned the highest priority (mask all others).
         modOrder = [order + 1 for order in modOrder]
         modOrder[modBases.index(cUtils.MASK_BASE)] = 0
+    elif args.maskAllUnsetRegions:
+        addtl_mask_msg = """All loci with missing data will be masked."""
+        # No priority assigned, since this masking is performed separately.
+
+    v_print_timestamp(args.verbose,
+                      "Masking is enabled. {}".format(addtl_mask_msg), 2)
+
     v_print_timestamp(args.verbose, """The order of preference for base
                       modifications (from highest to lowest) is: """ +
                       ','.join(list(args.priority)) + ".")
@@ -754,12 +805,13 @@ with Genome(genomeDataArchiveFullname) as genome:
                 generateFASTAFile(args.fastaFile, regionStr, genome, modOrder,
                                   chrm, start, end, args.suppressBED, tnames,
                                   ambigMap, args.maskRegions,
-                                  maskRegionTName)
+                                  maskRegionTName, args.maskAllUnsetRegions)
             else:
                 print(getModifiedGenome(genome, modOrder, chrm, start, end,
                                         args.onlyBED, args.suppressBED,
-                                        tnames, ambigMap, args.maskRegions,
-                                        maskRegionTName))
+                                        tnames, ambigMap,
+                                        args.maskRegions, maskRegionTName,
+                                        args.maskAllUnsetRegions))
     else:
         for chromosome in [chromosome for chromosome in genome
                            if not re.search(CHROMOSOME_EXCLUSION_REGEX,
@@ -770,6 +822,7 @@ with Genome(genomeDataArchiveFullname) as genome:
                               chromosome.name, genome, modOrder,
                               chromosome.name, int(chromosome.start),
                               int(chromosome.end), args.suppressBED, tnames,
-                              ambigMap, args.maskRegions, maskRegionTName)
+                              ambigMap, args.maskRegions, maskRegionTName,
+                              args.maskAllUnsetRegions)
 
 v_print_timestamp(args.verbose, "Program complete.")

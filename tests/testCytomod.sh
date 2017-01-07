@@ -112,7 +112,12 @@ case $test_to_run in
     fi
     
     region_test_unmasked_res=$($cytomod_base_cmd -r $TEST_REGION)
+
+    # below three should be identical, in this case
     region_test_masked_res=$($cytomod_base_cmd -r $TEST_REGION -M)
+    region_test_unset_masked_res=$($cytomod_base_cmd -r $TEST_REGION --maskAllUnsetRegions)
+    region_test_masked_and_unset_masked_res=$($cytomod_base_cmd -r $TEST_REGION -M --maskAllUnsetRegions)
+
     # test that a queried region is retrieved and of the correct length
     if [[ $(echo "$region_test_unmasked_res" | awk '{print length($0);}') \
           -ne TEST_REGION_LEN ]]; then
@@ -143,7 +148,13 @@ case $test_to_run in
         failMsgAndExit '3D: unmasked'
     elif [[ "$region_test_masked_res" != \
           "$TEST_REGION_CORRECT_MASKED_RES" ]]; then
-        failMsgAndExit '3D: masked'
+        failMsgAndExit '3D: masked ("-M")'
+    elif [[ "$region_test_unset_masked_res" != \
+          "$TEST_REGION_CORRECT_MASKED_RES" ]]; then
+        failMsgAndExit '3D: unset masked ("--maskAllUnsetRegions")'
+    elif [[ "$region_test_masked_and_unset_masked_res" != \
+          "$TEST_REGION_CORRECT_MASKED_RES" ]]; then
+        failMsgAndExit '3D: both masked ("-M" and "--maskAllUnsetRegions")'
     else
         passMsg '3D'
     fi
