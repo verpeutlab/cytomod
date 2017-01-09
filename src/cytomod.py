@@ -175,7 +175,7 @@ def getModifiedGenome(genome, modOrder, chrm, start, end,
         if maskAllUnsetRegions:
             defaultBases = np.where(np.all(np.isnan(modBaseScores), axis=1),
                                     cUtils.MASK_BASE, '0')
-            defaultBases = np.tile(defaultBases, (4, 1)).T
+            defaultBases = np.tile(defaultBases, (len(modBases), 1)).T
 
         modBasesA = np.where(np.logical_and(np.isfinite(modBaseScores),
                              modBaseScores != 0), modBases,
