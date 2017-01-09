@@ -395,8 +395,13 @@ genomeArchive.add_argument("-d", "--archiveCompDirs", nargs=2,
                            Provided BED files must have exactly \
                            four columns. The fourth column must be numeric. \
                            Any rows with a data value of zero will be \
-                           ignored (this does not apply for masking; \
-                            see '-M'). The filename of each track must \
+                           ignored (this does not apply to masking; \
+                           see '-M'), except that such positions will be \
+                           considered as having evidence against that \
+                           particular modification (e.g. will be considered \
+                           as 'set' and will therefore not be masked by \
+                           '--maskAllUnsetRegions'). \
+                           The filename of each track must \
                            specify what modified nucleobase it pertains to; \
                            one of: {}. \
                            Track names can also be of ambiguity codes \
@@ -573,13 +578,16 @@ ambigModUsage.add_argument('--maskAllUnsetRegions', action='store_true',
                            any modification information to unknown state. \
                            Masked nucleobases are those lacking data, \
                            that is, bases not present in the archive \
-                           nor in BED files used to generate an archive. \
-                           They will be accordingly set to the appropriate \
-                           (maximally) ambiguous base. This will override any \
-                           other modifications at those loci. \
-                           An example use case for this option would be when \
-                           using array data, for which only a subset of bases \
-                           are queried.")
+                           nor in any files used to generate an archive. \
+                           Set, but unmodified, bases can be provided, \
+                           within any modified genomic interval file with \
+                           a value of 0. See '-d' for further details.\
+                           Unset modifiable bases will be accordingly set to \
+                           the appropriate (maximally) ambiguous base. \
+                           This will override any other modifications \
+                           at those loci. An example use case for this option \
+                           would be when using array data, for which \
+                           only a subset of bases are queried.")
 
 # TODO Implement this?
 # NB: neither TRF nor dustmasker work upon modified genomes
