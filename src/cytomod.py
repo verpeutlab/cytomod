@@ -261,16 +261,17 @@ def getModifiedGenome(genome, modOrder, chrm, start, end,
                             np.savetxt(BEDTrack, modBaseStartEnd,
                                        str(chrm) + "\t%d\t%d\t" + base)
 
-            if not suppressFASTA:
-                # Output the unmodified sequence at a verbosity level
-                # of at least 2, if not too long, otherwise only output
-                # for a high verbosity level.
-                v_print_timestamp(args.verbose, """Corresponding unmodified
-                                  reference sequence: \n""" +
-                                  ''.join(referenceSeq), 2
-                                  if len(referenceSeq) < 10000 else 6)
-                # Concatenate the vector together to form the (string) sequence
-                allbasesResult += ''.join(allModBases)
+        if not suppressFASTA:
+            # Output the unmodified sequence at a verbosity level
+            # of at least 2, if not too long, otherwise only output
+            # for a high verbosity level.
+            v_print_timestamp(args.verbose, """Corresponding unmodified
+                              reference sequence: \n""" +
+                              ''.join(referenceSeq), 2
+                              if len(referenceSeq) < 10000 else 6)
+            # Concatenate the vector together to form the (string) sequence
+            allbasesResult += ''.join(allModBases)
+
     if (not hasModifiedBases and not suppressBED):
         warn(""""There are no modified bases within the requested
              region. Accordingly, no BED files have been output
