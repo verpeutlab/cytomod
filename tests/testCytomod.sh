@@ -10,11 +10,12 @@ VERBOSITY_ARG='-vvvv'
 
 TEST_REGION_CHR='Y'
 TEST_REGION_START=1858490
-TEST_REGION_END=1858505
+TEST_REGION_END=1858513
 TEST_REGION_LEN=$(echo "$TEST_REGION_END - $TEST_REGION_START" | bc)
 TEST_REGION="chr$TEST_REGION_CHR:$TEST_REGION_START-$TEST_REGION_END"
-TEST_REGION_CORRECT_UNMASKED_RES='Tmm12TTf1AAxAxx'
-TEST_REGION_CORRECT_MASKED_RES='Tmm12TTz9AAzAzz'
+TEST_REGION_CORRECT_UNMASKED_RES='Tmm12TTf1AAxAxxAGATATCT'
+TEST_REGION_CORRECT_ONLY_UNSET_MASKED_RES='Tmm12TTf1AAxAxxAGATATzT'
+TEST_REGION_CORRECT_MASKED_RES='Tmm12TTz9AAzAzzA9ATATzT'
 
 # "a value at and below which the locus is considered ambiguous"
 DEFAULT_MASK_VALUE=$(grep -oP '_DEFAULT_MASK_VALUE = \K\d+' \
@@ -150,7 +151,7 @@ case $test_to_run in
           "$TEST_REGION_CORRECT_MASKED_RES" ]]; then
         failMsgAndExit '3D: masked ("-M")'
     elif [[ "$region_test_unset_masked_res" != \
-          "$TEST_REGION_CORRECT_MASKED_RES" ]]; then
+          "$TEST_REGION_CORRECT_ONLY_UNSET_MASKED_RES" ]]; then
         failMsgAndExit '3D: unset masked ("--maskAllUnsetRegions")'
     elif [[ "$region_test_masked_and_unset_masked_res" != \
           "$TEST_REGION_CORRECT_MASKED_RES" ]]; then
