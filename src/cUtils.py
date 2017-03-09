@@ -90,6 +90,8 @@ from os import extsep
 from bidict import bidict
 import chroma
 
+_EXIT_FAILURE = 1  # exit code used upon failure
+
 EXT_GZ = "gz"
 SUFFIX_GZ = extsep + EXT_GZ
 
@@ -626,13 +628,22 @@ def warn(msg, additionalPrefix=""):
     errorMsg(msg, 'Warning:', additionalPrefix)
 
 
-def die(msg, additionalPrefix=""):
+def die(msg, additionalPrefix="", exit_code=_EXIT_FAILURE):
     """Emit a fatal error message to STDERR."""
     errorMsg(msg, 'Fatal:', additionalPrefix)
-    exit(1)
+    exit(exit_code)
 
 
 def v_print_timestamp(verbosity, msg="", threshold=1, additionalPrefix=""):
     """Print a timestamped message iff verbosity is at least threshold."""
     if verbosity >= threshold:
         errorMsg(msg, datetime.datetime.now().isoformat(), additionalPrefix)
+
+
+def assert_or_die_with_msg(condition, msg=""):
+    """Standard Python assertion statement, but augmented with
+       invocation of the above die function if it fails."""
+    try:
+        assert condition
+    except AssertionError as ex:
+        die(msg, "assertion failed: {}".format(ex.args))
