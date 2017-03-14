@@ -46,6 +46,7 @@
    die                       - Emit error message and terminate.
    v_print_timestamp         - Print timestamped message if set
                                verbosity is sufficient.
+   assert_or_die_with_msg    - Run assertion and invoke die if it fails.
 
    Modified base-interacting:
    complement                - Complement of given base(s).
@@ -64,6 +65,7 @@
    getRGBBaseCol             - The (0-1) RGB colour of the given base.
    getRGB256BaseCol          - The (0-255) RGB colour of the given base.
    getHexBaseCol             - The hex colour of the given base.
+   translUnmodSeq            - Translate an input seq. to its unmod. version.
    baseSortOrder             - Map bases to an integer rep. their sort order.
 """
 
@@ -86,6 +88,7 @@ from gzip import open as gzip_open
 from itertools import chain, izip
 from itertools import product as CartesianProd
 from os import extsep
+from string import maketrans
 
 from bidict import bidict
 import chroma
@@ -547,12 +550,24 @@ def _getBaseCol(base):
     return colour
 
 
+def translUnmodSeq(sequence):
+    """Return the translation of the input DNA sequence to its
+    cognate unmodified sequence (or the input sequence if
+    already unmodified or unrecognized).
+    """
+    mod_unmod_trans_table = maketrans(''.join(MOD_MAP.keys()),
+                                      ''.join(MOD_MAP.values()))
+
+    return sequence.translate(mod_unmod_trans_table)
+
+
 def baseSortOrder(base):
     """Return an integer which represents the mapping of the
        nucleobase to its sort order.
        This order is specified by MEME. The order to corresponds to
        the unmodified bases, followed by primary modified bases,
-       followed by their complements."""
+       followed by their complements.
+    """
     return (ord(base) - ord('A')*base.isupper() + ord('Z')*base.isdigit())
 
 
