@@ -684,7 +684,7 @@ if args.archiveCompDirs:
         # or is the full path to a single track.
         # TODO check for a valid track path, that actually
         #      contains tracks, otherwise throw an error.
-        # NB: the tracks parameter must be a single pair
+        # NB: the tracks parameter must be a *list of pair(s)*,
         #     specifying: (track name, track/directory path).
         tracks=([(os.path.basename(args.archiveCompDirs[1]),
                   args.archiveCompDirs[1])]
