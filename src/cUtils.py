@@ -40,6 +40,8 @@
 
    Utility:
    getAlteredSlice           - Return a modified version of an existing Slice.
+   duplicates                - Return duplicates contained within a list.
+   indices                   - Return indices of a list of items as a dict.
    makeList                  - Create list from scalar else identity.
    errorMsg                  - Emit error message.
    warn                      - Emit warning message.
@@ -82,7 +84,7 @@ import re
 import sys
 import textwrap
 
-from collections import OrderedDict
+from collections import Counter, defaultdict, OrderedDict
 from functools import reduce
 from gzip import open as gzip_open
 from itertools import chain, izip
@@ -552,8 +554,8 @@ def _getBaseCol(base):
 
 def translUnmodSeq(sequence):
     """Return the translation of the input DNA sequence to its
-    cognate unmodified sequence (or the input sequence if
-    already unmodified or unrecognized).
+       cognate unmodified sequence (or the input sequence if
+       already unmodified or unrecognized).
     """
     mod_unmod_trans_table = maketrans(''.join(MOD_MAP.keys()),
                                       ''.join(MOD_MAP.values()))
@@ -573,14 +575,14 @@ def baseSortOrder(base):
 
 def getRGBBaseCol(base):
     """Return the given nucleobase's RGB (between 0 and 1) colour,
-    via _getBaseCol.
+       via _getBaseCol.
     """
     return _getBaseCol(base).rgb
 
 
 def getRGB256BaseCol(base):
     """Return the given nucleobase's RGB (between 0 and 255) colour,
-    via _getBaseCol.
+       via _getBaseCol.
     """
     return _getBaseCol(base).rgb256
 
@@ -593,16 +595,38 @@ def getHexBaseCol(base):
 
 def makeList(lstOrVal):
     """Return a list of a single item if the object passed is not
-    already a list. This allows one to iterate over objects which
-    may or may not already be lists (and therefore iterable).
+       already a list. This allows one to iterate over objects which
+       may or may not already be lists (and therefore iterable).
     """
     return [lstOrVal] if not isinstance(lstOrVal, list) else lstOrVal
+
+
+def duplicates(lst):
+    """Return a list of duplicate elements, contained within the
+       provided list.
+       Adapted from: https://stackoverflow.com/a/5420328
+    """
+    counter = Counter(lst)
+    return [key for key in counter.keys() if counter[key] > 1]
+
+
+def indices(lst, items=None):
+    """Return a dict, keyed by input list items, with values corresponding
+       to the indices of the input list which are equal to the key.
+       From: https://stackoverflow.com/a/5420328
+    """
+    items, ind = set(lst) if items is None else items, defaultdict(list)
+    for i, v in enumerate(lst):
+        if v in items:
+            ind[v].append(i)
+    return ind
 
 
 def getAlteredSlice(slice_to_alter, slice_max, operation, value):
     """Alters the provided slice by applying the provided operation, using
        the provided value.
-       The returned slice will have stop value at most equal to slice_max."""
+       The returned slice will have stop value at most equal to slice_max.
+    """
     if slice_to_alter == slice(None):
         return slice_to_alter
     else:
