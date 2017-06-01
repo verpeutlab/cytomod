@@ -28,6 +28,7 @@ from itertools import groupby
 import numpy as np
 
 import cUtils
+from cUtils import duplicates, indices
 
 __version__ = cUtils.__version__
 
@@ -160,13 +161,25 @@ def getModifiedGenome(genome, modOrder, chrm, start, end,
                     modBaseScores = np.delete(modBaseScores, maskIndex, axis=1)
 
         if len(modOrder) != len(set(modOrder)):  # intersect, if duplicates
-            for k, g in groupby(modOrder):
-                absIndexS = modOrder.index(k)
-                absIndexE = absIndexS + len(list(g))
-                # NB: mean is not really needed, could be more efficient w/0|1.
-                modBaseScores[:, absIndexS:absIndexE] = \
-                    np.mean(modBaseScores[:, absIndexS:absIndexE],
-                            axis=1, keepdims=True)
+            v_print_timestamp(args.verbose, "Intersection is enabled.")
+
+            # Convert 0s to nan s.t. below mean works correctly, as an
+            # intersection. Has no other impact, so fine to leave this way.
+            modBaseScores[modBaseScores == 0] = np.nan
+
+            for base, idxs in indices(modOrder,
+                                      duplicates(modOrder)).iteritems():
+                v_print_timestamp(args.verbose, "Intersecting for {}."
+                                  .format(base), 2)
+                #
+                # NB: mean is not really needed, could be more efficient w/0|1;
+                #     use of mean is, however, more general, permitting the
+                #     use of other non-binary values, although we do not
+                #     currently make particular use of this.
+                #
+                # key is to make any NaNs remain NaN, and leave others finite
+                modBaseScores[:, idxs] = np.mean(modBaseScores[:, idxs],
+                                                 axis=1, keepdims=True)
 
         # use '0' for unmodified bases (results in the unmod. base after)
         defaultBases = '0'
@@ -241,7 +254,9 @@ def getModifiedGenome(genome, modOrder, chrm, start, end,
 
             if not suppressBED:
                 # Create a BED track for each modified base with track data
-                for base in modBases + cUtils.complement(modBases):
+                # Use unique modified bases only, since we may otherwise obtain
+                # redundant track lines.
+                for base in set(modBases + cUtils.complement(modBases)):
                     # NB: This could be done in a more efficient manner.
                     baseModIdxs = np.flatnonzero(allModBases[x[idx][:, 0]]
                                                  == base)
@@ -250,6 +265,7 @@ def getModifiedGenome(genome, modOrder, chrm, start, end,
                         # sequence, adding the genome start coordinate of
                         # the sequence to operate in actual genome coordinates.
                         modBaseCoords = x[idx][:, 0][baseModIdxs] + s
+
                         modBaseStartEnd = np.column_stack((modBaseCoords,
                                                           modBaseCoords+1))
                         # Save the track, appending to a Gzipped BED file.
@@ -703,10 +719,12 @@ else:
 with Genome(genomeDataArchiveFullname) as genome:
     warnings.simplefilter("ignore")  # Ignore supercontig warnings
     v_print_timestamp(args.verbose, "Genomedata archive successfully loaded.")
+
     maskRegionTName = ''
     modBases = []
     modOrder = []
     tnames = {}
+
     for track in genome.tracknames_continuous:
         if _MASK_TNAME in str(track):
             if args.maskRegions is not None:
@@ -730,18 +748,18 @@ with Genome(genomeDataArchiveFullname) as genome:
     if args.maskRegions is not None and _MASK_TNAME not in tnames:
         die("""Masking of genome regions requires the generation of a
                Genomedata archive containing a mask track.""")
+
     # For modOrder, lowest numbers have higher priority (i.e. 0 is highest).
-    for key, group in groupby(modBases):  # get relative ordering
+    for i, (base, group) in enumerate(groupby(modBases)):  # get rel. ordering
         groupL = list(group)
-        modOrder += [args.priority.index(b) if args.intersection else
-                     i + args.priority.index(b)**2
-                     for i, b in enumerate(groupL) if b in groupL
-                     and b in args.priority]
+        modOrder += [(args.priority.index(base) if args.intersection
+                     # in else, no int., so ensure unique orders
+                      else i + (args.priority.index(base) + 1)**2)]
+
     # Get absolute (index-based) ordering from the relative ordering.
     modOrder = [sorted(modOrder).index(x) for x in modOrder]
 
     addtl_mask_msg = ""
-
     if args.maskRegions is not None:
         addtl_mask_msg = """All loci implicated by the mask will be masked
                             irrespective of any mods at those loci."""
