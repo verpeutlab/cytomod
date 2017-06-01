@@ -5,14 +5,17 @@ source $(dirname $0)/commonTestUtils.sh
 
 PROGRAM_PATH="$BASE_PROG_PATH/cytomod.py"
 ARCHIVE_PATH="$DATA_DIR/archive/"
+TRACKS_BASE_PATH="$DATA_DIR/testTracks"
 TRACK_PREF="$DATA_DIR/mm9_chrY-only_"
 VERBOSITY_ARG='-vvvv'
 
 TEST_REGION_CHR='Y'
 TEST_REGION_START=1858490
 TEST_REGION_END=1858513
+TEST_4_REGION_END=1858558
 TEST_REGION_LEN=$(echo "$TEST_REGION_END - $TEST_REGION_START" | bc)
 TEST_REGION="chr$TEST_REGION_CHR:$TEST_REGION_START-$TEST_REGION_END"
+TEST_4_REGION="chr$TEST_REGION_CHR:$TEST_REGION_START-$TEST_4_REGION_END"
 TEST_REGION_CORRECT_UNMASKED_RES='Tmm12TTf1AAxAxxAGATATCT'
 TEST_REGION_CORRECT_ONLY_UNSET_MASKED_RES='Tmm12TTf1AAxAxxAGATATzT'
 TEST_REGION_CORRECT_MASKED_RES='Tmm12TTz9AAzAzzA9ATATzT'
@@ -25,7 +28,7 @@ if [[ ! $DEFAULT_MASK_VALUE =~ [[:digit:]]+ ]]; then
 fi
 
 function cleanup {
-    rm  -Rf "../$work_dir" "$ARCHIVE_PATH"
+    rm  -Rf "../$work_dir" "$ARCHIVE_PATH" "$TRACKS_BASE_PATH"*
 }
 
 function maybeFilter {
@@ -48,7 +51,7 @@ case $test_to_run in
 0|1)
     # -------------------------------- Test 1 --------------------------------
     FASTA_file='test1A.fa'
-    track_out_dir="$DATA_DIR/testTracks/"
+    track_out_dir="$TRACKS_BASE_PATH/"
     mkdir "$track_out_dir"
     
     # 1A) check that no masking was performed
@@ -158,6 +161,32 @@ case $test_to_run in
         failMsgAndExit '3D: both masked ("-M" and "--maskAllUnsetRegions")'
     else
         passMsg '3D'
+    fi
+    ;&
+0|4)
+    # -------------------------------- Test 4 --------------------------------
+    track_out_union_dir="${TRACKS_BASE_PATH}Union/"
+    track_out_intersection_dir="${TRACKS_BASE_PATH}Intersection/"
+
+    mkdir "$track_out_union_dir" "$track_out_intersection_dir"
+    
+    # 4)
+    # create archive
+    $PROGRAM_PATH $VERBOSITY_ARG -d "$DATA_DIR/" "$DATA_DIR/" -f /dev/null -b
+
+    # query without and then with intersection
+    $PROGRAM_PATH $VERBOSITY_ARG -G "$ARCHIVE_PATH" -B \
+        -r "$TEST_4_REGION" --BEDOutDir "$track_out_union_dir"
+
+    $PROGRAM_PATH $VERBOSITY_ARG -G "$ARCHIVE_PATH" -B \
+        -r "$TEST_4_REGION" --BEDOutDir "$track_out_intersection_dir" -I
+
+    # intersected version should have exactly one fewer 5xC site
+    if [[ $(($(zcat "$track_out_union_dir/track-modGenome-x.bed.gz" | wc -l) - \
+          $(zcat "$track_out_intersection_dir/track-modGenome-x.bed.gz" | wc -l))) != 1 ]]; then
+        failMsgAndExit '4'
+    else
+        passMsg '4'
     fi
     ;&
 esac
