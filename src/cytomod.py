@@ -167,10 +167,12 @@ def getModifiedGenome(genome, modOrder, chrm, start, end,
             # intersection. Has no other impact, so fine to leave this way.
             modBaseScores[modBaseScores == 0] = np.nan
 
-            for base, idxs in indices(modOrder,
-                                      duplicates(modOrder)).iteritems():
-                v_print_timestamp(args.verbose, "Intersecting for {}."
-                                  .format(base), 2)
+            for base_order, idxs in indices(modOrder,
+                                            duplicates(modOrder)).iteritems():
+                v_print_timestamp(args.verbose, "Intersecting for base '{}'."
+                                  .format([base for base in args.priority
+                                           if base in modBases][base_order]),
+                                  3)
                 #
                 # NB: mean is not really needed, could be more efficient w/0|1;
                 #     use of mean is, however, more general, permitting the
