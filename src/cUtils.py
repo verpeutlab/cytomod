@@ -5,7 +5,6 @@
    concepts needed to work with modified nucleobases.
 
 
-
    Exports:
 
 
@@ -50,7 +49,7 @@
                                verbosity is sufficient.
    assert_or_die_with_msg    - Run assertion and invoke die if it fails.
 
-   Modified base-interacting:
+   Modified base–interacting:
    complement                - Complement of given base(s).
    isModBase                 - Boolean indicating if base is mod.
    isUnivocal                - Boolean indicating if base is unambiguous
@@ -613,7 +612,7 @@ def duplicates(lst):
 def indices(lst, items=None):
     """Return a dict, keyed by input list items, with values corresponding
        to the indices of the input list which are equal to the key.
-       From: https://stackoverflow.com/a/5420328
+       Adapted from: https://stackoverflow.com/a/5420328
     """
     items, ind = set(lst) if items is None else items, defaultdict(list)
     for i, v in enumerate(lst):
