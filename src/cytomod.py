@@ -752,11 +752,13 @@ with Genome(genomeDataArchiveFullname) as genome:
                Genomedata archive containing a mask track.""")
 
     # For modOrder, lowest numbers have higher priority (i.e. 0 is highest).
-    for i, (base, group) in enumerate(groupby(modBases)):  # get rel. ordering
-        groupL = list(group)
+    for i, base in enumerate(modBases):  # get rel. ordering
         modOrder += [(args.priority.index(base) if args.intersection
                      # in else, no int., so ensure unique orders
-                      else i + (args.priority.index(base) + 1)**2)]
+                     # take fourth power to ensure priority always
+                     # outweighs index and overcomes similar priorities
+                     # to ensure unique orders
+                      else i + (args.priority.index(base) + 1)**4)]
 
     # Get absolute (index-based) ordering from the relative ordering.
     modOrder = [sorted(modOrder).index(x) for x in modOrder]
