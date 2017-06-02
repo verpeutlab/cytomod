@@ -23,7 +23,6 @@ import re
 import warnings
 
 from collections import OrderedDict
-from itertools import groupby
 
 import numpy as np
 
@@ -754,10 +753,11 @@ with Genome(genomeDataArchiveFullname) as genome:
     # For modOrder, lowest numbers have higher priority (i.e. 0 is highest).
     for i, base in enumerate(modBases):  # get rel. ordering
         modOrder += [(args.priority.index(base) if args.intersection
-                     # in else, no int., so ensure unique orders
-                     # take fourth power to ensure priority always
-                     # outweighs index and overcomes similar priorities
-                     # to ensure unique orders
+                      # in else, no int., so ensure unique orders
+                      #
+                      # take fourth power to ensure priority always
+                      # outweighs index and overcomes similar priorities
+                      # to ensure unique orders
                       else i + (args.priority.index(base) + 1)**4)]
 
     # Get absolute (index-based) ordering from the relative ordering.
