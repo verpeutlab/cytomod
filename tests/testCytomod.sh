@@ -5,6 +5,7 @@ source $(dirname $0)/commonTestUtils.sh
 
 PROGRAM_PATH="$BASE_PROG_PATH/cytomod.py"
 ARCHIVE_PATH="$DATA_DIR/archive/"
+OTHER_ARCHIVE_OUT_PATH="$DATA_DIR/test"
 TRACKS_BASE_PATH="$DATA_DIR/testTracks"
 TRACK_PREF="$DATA_DIR/mm9_chrY-only_"
 VERBOSITY_ARG='-vvvv'
@@ -34,7 +35,7 @@ if [[ ! $DEFAULT_MASK_VALUE =~ [[:digit:]]+ ]]; then
 fi
 
 function cleanup {
-    rm  -Rf "../$work_dir" "$ARCHIVE_PATH" "$TRACKS_BASE_PATH"*
+    rm  -Rf "../$work_dir" "$ARCHIVE_PATH" "$OTHER_ARCHIVE_OUT_PATH" "$TRACKS_BASE_PATH"*
 }
 
 function maybeFilter {
@@ -82,11 +83,11 @@ case $test_to_run in
 0|2)
     # -------------------------------- Test 2 --------------------------------
     FASTA_file='test2.fa'
-    mkdir "$DATA_DIR/test"
-    $PROGRAM_PATH $VERBOSITY_ARG -d "$DATA_DIR/" "$DATA_DIR/" --archiveOutDir "$DATA_DIR/test" --archiveOutName 'testArchive' -f "$FASTA_file" -b -M
+    mkdir "$OTHER_ARCHIVE_OUT_PATH"
+    $PROGRAM_PATH $VERBOSITY_ARG -d "$DATA_DIR/" "$DATA_DIR/" --archiveOutDir "$OTHER_ARCHIVE_OUT_PATH" --archiveOutName 'testArchive' -f "$FASTA_file" -b -M
     
     # check that the use of a custom archive directory and name was successful
-    if [[ ! -d "$DATA_DIR/test/testArchive" ]]; then
+    if [[ ! -d "$OTHER_ARCHIVE_OUT_PATH/testArchive" ]]; then
         failMsgAndExit "2: Expected archive not present."
     fi
     
