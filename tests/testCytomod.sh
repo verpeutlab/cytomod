@@ -16,7 +16,13 @@ TEST_4_REGION_END=1858558
 TEST_REGION_LEN=$(echo "$TEST_REGION_END - $TEST_REGION_START" | bc)
 TEST_REGION="chr$TEST_REGION_CHR:$TEST_REGION_START-$TEST_REGION_END"
 TEST_4_REGION="chr$TEST_REGION_CHR:$TEST_REGION_START-$TEST_4_REGION_END"
+
 TEST_REGION_CORRECT_UNMASKED_RES='Tmm12TTf1AAxAxxAGATATCT'
+
+TEST_4_REGION_CORRECT_UNION_RES="${TEST_REGION_CORRECT_UNMASKED_RES}GGGTACCTTCCCTGCAAGAAGAGAGCTTGCCAGCAGAAAATACTx"
+#                             |-----------!-------------------------------------------------------!|
+TEST_4_REGION_CORRECT_INT_RES='Tmm12TTf1AACAxxAGATATCTGGGTACCTTCCCTGCAAGAAGAGAGCTTGCCAGCAGAAAATACTC'
+
 TEST_REGION_CORRECT_ONLY_UNSET_MASKED_RES='Tmm12TTf1AAxAxxAGATATzT'
 TEST_REGION_CORRECT_MASKED_RES='Tmm12TTz9AAzAzzA9ATATzT'
 
@@ -175,15 +181,14 @@ case $test_to_run in
     $PROGRAM_PATH $VERBOSITY_ARG -d "$DATA_DIR/" "$DATA_DIR/" -f /dev/null -b
 
     # query without and then with intersection
-    $PROGRAM_PATH $VERBOSITY_ARG -G "$ARCHIVE_PATH" -B \
-        -r "$TEST_4_REGION" --BEDOutDir "$track_out_union_dir"
+    union_seq=$($PROGRAM_PATH $VERBOSITY_ARG -G "$ARCHIVE_PATH" -b -r "$TEST_4_REGION")
 
-    $PROGRAM_PATH $VERBOSITY_ARG -G "$ARCHIVE_PATH" -B \
-        -r "$TEST_4_REGION" --BEDOutDir "$track_out_intersection_dir" -I
+    int_seq=$($PROGRAM_PATH $VERBOSITY_ARG -G "$ARCHIVE_PATH" -b -r "$TEST_4_REGION" -I)
 
-    # intersected version should have exactly one fewer 5xC site
-    if [[ $(($(zcat "$track_out_union_dir/track-modGenome-x.bed.gz" | wc -l) - \
-          $(zcat "$track_out_intersection_dir/track-modGenome-x.bed.gz" | wc -l))) != 1 ]]; then
+    # intersected version should have exactly two fewer 5xC sites
+    # (the NaN and 0 in one track), at the pre-det. positions
+    if [[ "$union_seq" != "$TEST_4_REGION_CORRECT_UNION_RES" || \
+          "$int_seq" != "$TEST_4_REGION_CORRECT_INT_RES" ]]; then
         failMsgAndExit '4'
     else
         passMsg '4'
