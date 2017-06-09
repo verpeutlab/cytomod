@@ -373,8 +373,9 @@ MASK_BASE = AMBIG_MOD_BASES.keys()[0]
 # The alphabet frequencies used are (WRT Cs only):
 # 2.95% 5mC, 0.055 ± 0.008% 5hmC, 0.0014 ± 0.0003% 5fC,
 # and 0.000335% 5caC
-# (Respectively: Ito et al. 2011, Booth et al. 2014,
-# Booth et al. 2014, and Ito et al. 2011)
+# (Respectively: Ito et al. 2011, DOI: 10.1126/science.1210597;
+#  Booth et al. 2014, DOI: 10.1038/nchem.1893;
+#  Booth et al. 2014; and Ito et al. 2011)
 MOUSE_ESC_BACKGROUND = \
     OrderedDict({'T': 0.292, 'A': 0.292, 'C': 0.201745991, 'G': 0.201745991,
                  # (using mouse GC content of 41.6%)
@@ -385,10 +386,11 @@ MOUSE_ESC_BACKGROUND = \
 # --
 # The alphabet frequencies used were (WRT all bases):
 # 2.91 ± 0.11% 5mC and 0.039% 5hmC.
-# (Respectively: Liu et al. 2007 and Kroeze et al. 2014)
+# (Respectively: Liu Z. et al. 2007, DOI: 10.1093/nar/gkl1156 and
+#  Kroeze et al. 2014, DOI: 10.1182/blood-2013-08-518514)
 # 5fC at 0.0021812% was estimated from the 5fC to 5hmC ratio
 # within the melanoma cell line WM-266-4,
-# which was analyzed by Liu S. et al.
+# which was analyzed by Liu S. et al., DOI: 10.1093/nar/gkt360
 HUMAN_AML_BACKGROUND = \
     OrderedDict({'T': 0.295, 'A': 0.295, 'C': 0.190244094, 'G': 0.190244094,
                  # (using human GC content of 41.0%)
