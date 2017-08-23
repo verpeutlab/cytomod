@@ -16,7 +16,7 @@ from collections import Counter
 
 import numpy as np
 
-import cUtils
+import cytoUtils as cUtils
 
 __version__ = cUtils.__version__
 

@@ -26,7 +26,7 @@ from collections import OrderedDict
 
 import numpy as np
 
-import cUtils
+import cytoUtils as cUtils
 from cUtils import duplicates, indices
 
 __version__ = cUtils.__version__

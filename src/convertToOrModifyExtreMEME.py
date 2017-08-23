@@ -34,7 +34,7 @@ except:
 import numpy as np
 import numpy.testing as npt
 
-import cUtils
+import cytoUtils as cUtils
 
 __version__ = cUtils.__version__
 

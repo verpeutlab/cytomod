@@ -9,7 +9,7 @@ from __future__ import with_statement, division, print_function
 
 import argparse
 
-import cUtils
+import cytoUtils as cUtils
 
 __version__ = cUtils.__version__
 
