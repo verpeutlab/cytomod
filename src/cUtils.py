@@ -4,6 +4,13 @@
 """Provide basic utility functions as well as definitions of
    concepts needed to work with modified nucleobases.
 
+   N.B. we call a modified nucleobase "primary" if it is
+        if it refers to a distinct biochemical entity, as
+        opposed to denoting a relation to such an entity.
+        Thus, 'm' is a primary modified nucleobase, since it
+        refers to 5mC itself, while '1' is not, since it
+        refers to the guanine complement of the 5mC to which
+        it is base-paired.
 
    Exports:
 
