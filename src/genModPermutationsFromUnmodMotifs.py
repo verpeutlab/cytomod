@@ -44,7 +44,6 @@ parser.add_argument('-V', '--version', action='version',
 
 args = parser.parse_args()
 
-
 if not all([cUtils.isUnivocal(modBase) for modBase in args.modifications]):
     cUtils.die("Only core modified base symbols can be provided to '-m'.")
 
@@ -93,23 +92,32 @@ def _cons_all_mods_at_pos_with_zipped_mods(motif, modsAndCompsToUse,
 
     nextPos = pos + 1
 
-    # Return (base case) if there are no more motif bases to process
-    if nextPos >= len(motif):
-        return _output
+    # True iff there are more motif bases to process
+    hasNextPos = nextPos < len(motif)
 
-    # continue to modify the motif, without modifying this pos
-    _cons_all_mods_at_pos_with_zipped_mods(motif, modsAndCompsToUse,
-                                           nextPos, _output,
-                                           singleModPerDinuc)
+    # N.B. we cannot merely return _output here, if there are no more
+    #      motif bases to process. This is due to our still needing to
+    #      add the modified motif with only the current position modified
+    #      to _output, which is done after the below recursive step.
+
+    if hasNextPos:
+        # continue to modify the motif, without modifying this pos
+        _cons_all_mods_at_pos_with_zipped_mods(motif, modsAndCompsToUse,
+                                               nextPos, _output,
+                                               singleModPerDinuc)
 
     for modBase, modBaseComp in modsAndCompsToUse:
         modBaseToUse = ''
 
-        isPrimaryOfDinuc = False
+        nextPrevDinucMod = None
 
         if cUtils.isModifiableTo(motif[pos], modBase):
             modBaseToUse = modBase
-            isPrimaryOfDinuc = True
+
+            # This is the primary base of a dinucleotide, so
+            # prevDinucMod should be set to this modBase,
+            # for the next recursive step.
+            nextPrevDinucMod = modBase
         elif cUtils.isModifiableTo(motif[pos], modBaseComp):
             modBaseToUse = modBaseComp
 
@@ -118,8 +126,8 @@ def _cons_all_mods_at_pos_with_zipped_mods(motif, modsAndCompsToUse,
             # different modifications, like m2.
 
             # N.B. if prevDinucMod is None, the below condition should evaluate
-            # to False. Therefore, checking if prevDinucMod evaluates to True,
-            # does need to be its own clause in this conditional.
+            #      to False. Therefore, checking if prevDinucMod evaluates to
+            #      True, does need to be its own clause in this conditional.
             if singleModPerDinuc and prevDinucMod and prevDinucMod != modBase:
                 continue
 
@@ -127,14 +135,14 @@ def _cons_all_mods_at_pos_with_zipped_mods(motif, modsAndCompsToUse,
 
             _output.append(newModMotif)
 
-            # continue to modify the motif, modifying this pos
-            # set the previous modified base if starting a mod. dinuc.
-            _cons_all_mods_at_pos_with_zipped_mods(newModMotif,
-                                                   modsAndCompsToUse,
-                                                   nextPos, _output,
-                                                   singleModPerDinuc,
-                                                   (modBase if isPrimaryOfDinuc
-                                                    else None))
+            if hasNextPos:
+                # continue to modify the motif, modifying this pos
+                # set the previous modified base if starting a mod. dinuc.
+                _cons_all_mods_at_pos_with_zipped_mods(newModMotif,
+                                                       modsAndCompsToUse,
+                                                       nextPos, _output,
+                                                       singleModPerDinuc,
+                                                       nextPrevDinucMod)
 
     return _output
 
