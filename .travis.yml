@@ -8,6 +8,7 @@ install:
     - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
     - sudo apt-get -qq update
     - sudo apt-get install g++-4.8 libhdf5-serial-dev hdf5-tools bc
+    - sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-4.8 50
     # below, get latest BedTools release; adapted from: https://stackoverflow.com/a/26738019
     - if [[ ! -d bedtools2 ]]; then wget -qO- $(curl -u cviner2:828c9bed1763acf23468b85042163b82e3786e4c -s https://api.github.com/repos/arq5x/bedtools2/releases | grep browser_download_url | head -n 1 | cut -d '"' -f 4) | tar xz && (cd bedtools2 && make && sudo make install); else (cd bedtools2 && sudo make install); fi
     - pip install --user --upgrade pip
