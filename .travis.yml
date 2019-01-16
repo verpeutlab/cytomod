@@ -2,6 +2,14 @@ language: bash
 # command to install dependencies
 sudo: true
 dist: precise
+env:
+  - CXX=g++-4.8
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - g++-4.8
 install:
     - sudo apt-get install libhdf5-serial-dev hdf5-tools bc
     # below, get latest BedTools release; adapted from: https://stackoverflow.com/a/26738019
