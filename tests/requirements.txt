@@ -4,4 +4,4 @@ bidict
 chroma
 enum34
 pybedtools
-genomedata
+genomedata==1.3.6
