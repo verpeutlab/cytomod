@@ -97,9 +97,13 @@ MEME_MINIMAL_MOTIF_REGEX = """MOTIF\s+(?P<{}>[^\s]+\s+)?
                                        MEME_MIN_REGEX_G_PWM)
 MEME_MINIMAL_REGEX_FLAGS = re.M | re.X
 
+MEME_DEFAULT_ALPH_NAME = "DNA"
+
+MEME_EXP_ALPH_NAME = "DNA with covalent modifications"
+
 MEME_header = """MEME version 4
 
-ALPHABET "DNA with covalent modifications"
+ALPHABET "{}" DNA-LIKE
 A "Adenine" 8510A8 ~ T "Thymine" A89610
 C "Cytosine" A50026 ~ G "Guanine" 313695
 m "5-Methylcytosine" D73027 ~ 1 "Guanine:5-Methylcytosine" 4575B4
@@ -129,7 +133,7 @@ END ALPHABET
 strands: {}
 
 Background letter frequencies (from {}):
-""".format(STRANDS, FROM_STR)
+""".format(MEME_EXP_ALPH_NAME, STRANDS, FROM_STR)
 
 INVALID_PWM_MSG = """Invalid PWM; rows do not sum to one."""
 
@@ -841,6 +845,7 @@ if args.unmodify:
 
     args.notNucleobases = cUtils.MOD_BASES.keys()
 
+
 motif_alph_bg_freqs = OrderedDict()
 if args.background:
     if os.path.isfile(args.background):
@@ -1035,6 +1040,11 @@ motif_alphabet_bg_freq_output = \
     ' '.join([str(k) + ' ' + str(v) for k, v
              in [motif_alph_bg_freqs.items()[i] for i in sorted_index]])
 MEME_header += motif_alphabet_bg_freq_output + "\n\n"
+
+# revert to the standard DNA alphabet, if no modifications remain
+if len(motif_alphabet) == 4:
+    MEME_header = MEME_header.replace(MEME_EXP_ALPH_NAME,
+                                      MEME_DEFAULT_ALPH_NAME)
 
 
 def _getMotif(freq_matrix, sorted_index, MEME_header, output_descriptor,
