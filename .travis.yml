@@ -1,22 +1,22 @@
 language: bash
 # command to install dependencies
-sudo: true
-dist: precise
-env:
-  - CXX=g++-4.8
+
+dist: bionic
+
+addons:
+  apt:
+    packages:
+      - libhdf5-serial-dev
+      - hdf5-tools
+      - bc
+      - bedtools
+
 install:
-    - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-    - sudo apt-get -qq update
-    - sudo apt-get install g++-4.8 libhdf5-serial-dev hdf5-tools bc
-    - sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-4.8 10
-    # below, get latest BedTools release; adapted from: https://stackoverflow.com/a/26738019
-    - if [[ ! -d bedtools2 ]]; then wget -qO- $(curl -u cviner2:828c9bed1763acf23468b85042163b82e3786e4c -s https://api.github.com/repos/arq5x/bedtools2/releases | grep browser_download_url | head -n 1 | cut -d '"' -f 4) | tar xz && (cd bedtools2 && make && sudo make install); else (cd bedtools2 && sudo make install); fi
     - pip install --user --upgrade pip
     - cat tests/requirements.txt | xargs -n 1 pip install --user --upgrade
 cache:
     apt: true
     directories:
-        - $HOME/cviner/cytomod/bedtools2
         - $HOME/.cache/pip
         - $HOME/.local/bin
 before_script:
