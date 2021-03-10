@@ -1043,7 +1043,7 @@ if args.notNucleobases:
 
 # used to sort the output in the correct sort order
 # need to sort both the background and matrix to do so
-sort_fun = ((lambda base: ord(base)) if args.ASCIICodeOrder
+sort_fun = ((lambda base: ord(unicode(base, 'utf-8'))) if args.ASCIICodeOrder
             else cUtils.baseSortOrder)
 sorted_index = np.argsort(map(sort_fun, list(motif_alph_bg_freqs.keys())))
 
