@@ -496,9 +496,9 @@ correct_result=$(cat <<'EOF'
 EOF
 )
 
-runContainsFileTest "$PROGRAM_PATH" '11A' "--noWarnings -s AACATCGAACGC -M m -P c" "$correct_result"
+runContainsFileTest "$PROGRAM_PATH" '11A' "--noWarnings -s AACATCGAACGC -M m -P centre" "$correct_result"
 
-runContainsFileTest "$PROGRAM_PATH" '11B' "--noWarnings -s AACATCGAACGC -M m -P c -F" "$correct_result"
+runContainsFileTest "$PROGRAM_PATH" '11B' "--noWarnings -s AACATCGAACGC -M m -P centre -F" "$correct_result"
 
 # 12) check that combinatorial modifications can at least run
 # NB: this test does not verify the validity of the actual modifications themselves
