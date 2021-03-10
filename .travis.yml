@@ -11,8 +11,11 @@ addons:
       - bc
       - bedtools
 
+before_install:
+    - export HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/serial/
 install:
     - pip install --user --upgrade pip
+    - pip install --user h5py
     - cat tests/requirements.txt | xargs -n 1 pip install --user --upgrade
 cache:
     apt: true
