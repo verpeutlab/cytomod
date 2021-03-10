@@ -170,7 +170,8 @@ def _modifyPositionOptionType(arg):
     else:
         raise argparse.ArgumentTypeError("""The provided option must contain
                                             an integer or one of: {}.
-                                         """.format(permittedCharList))
+                                         """.format([_ARG_MOD_CENTRE] +
+                                                    permittedCharList))
 
 
 def die(msg):
