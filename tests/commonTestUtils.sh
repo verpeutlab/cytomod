@@ -47,7 +47,7 @@ function runContainsFileTest {
         failMsgAndExit $2
     fi
 
-    _performContainsTest "$2" "$(<*.meme)" "$4"
+    _performContainsTest "$2" "$(cat *.meme)" "$4"
 
     rm -f *.meme
 }
