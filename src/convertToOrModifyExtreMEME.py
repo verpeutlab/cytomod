@@ -163,7 +163,7 @@ def _modificationOptionType(arg):
 def _modifyPositionOptionType(arg):
     permittedCharList = ['A', 'T', 'G', 'C']
 
-    if arg == _ARG_MOD_CENTRE or arg in permittedCharList:
+    if (arg == _ARG_MOD_CENTRE) or (arg in permittedCharList):
         return arg
     elif arg.isdigit():
         return int(arg)
