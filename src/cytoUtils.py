@@ -34,7 +34,7 @@
    MODIFIABLE_BASES                   - Bases with defined modifications
    COMPLEMENTS                        - Map of all complements for all bases.
    FULL_BASE_NAMES                    - Full names of unmod. fundamental bases.
-   FULL_MOD_BASE_NAMES                - Full names of modmified bases.
+   FULL_MOD_BASE_NAMES                - Full names of modified bases.
    MODIFIED_DINUCL_ORDER              - Order of mod. bases used in H-testing.
    MASK_BASE                          - The base used to mask other bases.
    BASE_COLOURS                       - Map of unequivocal base colours, per
