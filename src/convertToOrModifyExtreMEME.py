@@ -42,6 +42,7 @@ _mESC_BG_NAME = 'mESC'
 _AML_BG_NAME = 'AML'
 _DEFAULT_BG = _mESC_BG_NAME
 _DEFAULT_HEMIMODARG = '+-'
+_ARG_MOD_CENTRE = 'centre'
 
 _PSEUDO_NUMSITES_TO_USE = 0  # used when the num. sites is unknown to omit it
 _PSEUDO_EVALUE_TO_USE = 9999999  # used when the E-value is unknown to omit it
@@ -160,9 +161,10 @@ def _modificationOptionType(arg):
 
 
 def _modifyPositionOptionType(arg):
-    permittedCharList = ['c', 'A', 'T', 'G', 'C']
-    if arg in permittedCharList:
-        return str(arg)
+    permittedCharList = ['A', 'T', 'G', 'C']
+
+    if arg == _ARG_MOD_CENTRE or arg in permittedCharList:
+        return arg
     elif arg.isdigit():
         return int(arg)
     else:
@@ -186,9 +188,13 @@ def checkMMSumsToUnity(background):
        Terminates the program if this is not the case, unless
        within a certain tolerence, which emits a warning."""
     base_err_msg = 'Zero-order Markov model does not exactly sum to unity'
-    npt.assert_allclose([sum(background.itervalues())], [1], atol=0.001,
+
+    bg_sum = [sum(background.itervalues())]
+
+    npt.assert_allclose(bg_sum, [1], atol=0.001,
                         err_msg="{}.".format(base_err_msg))
-    if not np.allclose([sum(background.itervalues())], [1]):
+
+    if not np.allclose(bg_sum, [1]):
         cUtils.warn("""{}, but is within 0.001, and is likely a rounding error
                        caused upstream of this program. Nonetheless, output
                        should be carefully verified.""".format(base_err_msg))
@@ -209,22 +215,28 @@ def isMatrixSufficientlyDifferent(freq_matrix, modfreq_matrix, index_arr):
        worth analyzing and will be empirically-tuned, rather than attempting
        to consider a rigorous formulation of a significant difference
        between the PWMs. It looks for changes in the composition of the
-       specified bases being beyond a threshold."""
+       specified bases being beyond a threshold.
+
+       Only assesses total column-wise differences, for the provided indices.
+       """
     sel_base_comp_diff = (np.linalg.norm(freq_matrix[:, index_arr], axis=0) -
                           np.linalg.norm(modfreq_matrix[:, index_arr],
                                          axis=0))
     return np.all(sel_base_comp_diff >= _MAX_BASE_COMP_DIFF_FOR_SIMILARITY)
 
 
-def _createBG(backgroundString):
+def _createBG(background_lines):
     """Creates a background ordered dictionary for the
        given, delimited, background input."""
     motif_alph_bg_freqs = OrderedDict()
-    for bFreq in backgroundString:
+
+    for bFreq in background_lines:
         if not bFreq:
             continue
+
         (base, freq) = bFreq.split(_DELIM)
         motif_alph_bg_freqs[base] = float(freq)
+
     return motif_alph_bg_freqs
 
 
@@ -309,7 +321,7 @@ def output_motif(freq_matrix, output_descriptor, motif_name,
                 and baseModPos != cUtils._PARAM_A_CONST_VAL) else slice(None)
 
         if baseModPos and not isinstance(baseModPos, int):
-            if baseModPos == 'c':
+            if baseModPos == _ARG_MOD_CENTRE:
                 mod_base_context = 'G'
                 # would add one to centre since indexed from 1, but do not
                 # due to the extra row accounting for this
@@ -650,8 +662,8 @@ modBasePositions.add_argument('-P', '--baseModPosition',
                               modifications made make some biological sense \
                               (e.g. a thymine cannot be changed into a \
                               5-methylcytosine using this option). \
-                              Alternatively, 'c' can be provided \
-                              to indicate that the position \
+                              Alternatively, " + _ARG_MOD_CENTRE +
+                              " can be provided to indicate that the position \
                               should be automatically determined by finding \
                               the centre CpG dinucleotide, in which case only \
                               the cytosine of the CpG will be modified. \
