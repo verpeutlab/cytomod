@@ -2,4 +2,6 @@
 
 by Coby Viner <cviner at cs dot toronto dot edu>
 
-[![Build Status](https://magnum.travis-ci.com/cviner/cytomod.svg?token=zyHycrt21uuxM59vqC2x&branch=master)](https://magnum.travis-ci.com/cviner/cytomod)
+[`cytomod.py`](src/cytomod.py) is the main script.
+ 
+ All scripts contain a detailed description, explaining their purpose and usage.
